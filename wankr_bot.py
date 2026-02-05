@@ -1,6 +1,6 @@
 """
-Wankr Bot — Admiral's prototype. Roast botted KOLs with fact-based burns.
-Uses LangChain + xAI (Grok) via OpenAI-compatible API. Tweepy stub for real X pulls later.
+Wankr Bot — Roast botted KOLs with fact-based burns.
+Uses LangChain + xAI (Grok), KOL DB and analyzer for metrics. Tweepy stub for real X pulls later.
 """
 import os
 try:
@@ -11,6 +11,8 @@ except ImportError:
 from langchain_classic.chains import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+
+from src.wankr_analyzer import analyze_account
 
 # --- Config: Option 2 = Infisical SDK; else env or Option 1 (infisical run) ---
 API_KEY = ""
@@ -50,6 +52,7 @@ else:
 # --- Roast prompt and chain (only when LLM is configured) ---
 template = (
     "Roast KOL {handle} if botted: Metrics {metrics}. "
+    "High positive sentiment + high bots = maximum deception; roast hardest when Roast Priority is 8–10. "
     "Fact-based burn. Keep it sharp and short."
 )
 prompt = PromptTemplate(
@@ -60,10 +63,17 @@ chain = LLMChain(llm=llm, prompt=prompt) if llm else None
 if chain:
     print("[Wankr] Chain built: handle + metrics -> roast")
 
-# --- Test run (mock metrics) ---
-def run_roast(handle: str, metrics: str) -> str:
+# --- Roast with analyzer metrics ---
+def run_roast(handle: str, metrics: str | None = None, replies: list[str] | None = None) -> str:
     if chain is None:
         raise RuntimeError("xAI not configured. Set XAI_API_KEY and XAI_BASE_URL via Infisical or .env.")
+    if metrics is None:
+        result = analyze_account(handle, replies=replies)
+        metrics = (
+            f"Final score: {result['final_authenticity_score']}, "
+            f"Verdict: {result['verdict']}, Roast priority: {result['roast_priority']}. "
+            f"{result.get('sentiment_reason', '') or result.get('notes', '')}"
+        )
     print(f"[Wankr] Running chain: handle={handle!r}, metrics={metrics!r}")
     try:
         output = chain.run({"handle": handle, "metrics": metrics})
@@ -76,17 +86,13 @@ def run_roast(handle: str, metrics: str) -> str:
 
 
 if __name__ == "__main__":
-    # Example: cz_binance-style fraud metrics
-    sample_metrics = (
-        "30k follows, likes <0.05%, +5k delta post-purges, "
-        "avg likes ~0.002%, reposts ghosted—X metrics flag botted farms"
-    )
-    output = run_roast(handle="@FakeKOL", metrics=sample_metrics)
+    # Use analyzer for a known KOL (from DB) or pass custom metrics
+    output = run_roast(handle="@cz_binance")  # metrics from analyze_account
     print("\n--- Final output ---")
     print(output)
 
-    # Expand: real X pulls — get API keys from developer.twitter.com
-    # fetch_metrics = pull_x_metrics("@cz_binance")  # then run_roast(handle, fetch_metrics)
+    # With custom metrics: run_roast(handle="@FakeKOL", metrics="30k follows, likes <0.05%...")
+    # With reply data: run_roast(handle="@CryptoCapo_", replies=reply_texts)
 
 
 def pull_x_metrics(handle: str) -> str:

@@ -2,6 +2,14 @@
 
 Agent Box (Flask + xAI/Grok) and CLI roast bot. No raw xAI keys in the repo; use Infisical.
 
+## Social analysis engine
+
+Wankr uses a KOL database and scoring engine to detect fake/botted engagement. High positive sentiment + high bots = maximum deception (roast priority 8–10).
+
+- **Spec**: See [WANKR_SPEC.md](WANKR_SPEC.md) for formulas, bot level system, and upgrade roadmap.
+- **analyze_account(handle)**: Returns final authenticity score (0–10), bot icon, roast priority, verdict, and notes. Optional `replies` list enables Phase 1 reply quality + entropy.
+- **Phase 1**: Reply quality ratio (% replies with ≥6 words, not emoji spam) and reply entropy; both feed into the final score.
+
 ## Running with Infisical
 
 ### One-time setup (do this once)
@@ -53,6 +61,31 @@ Optional for CLI: `infisical run --env=dev -- python wankr_bot.py`
 
 **Option 2 — Machine Identity only in .env**  
 Put only Infisical Machine Identity credentials in `.env` (`INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, optional `INFISICAL_PROJECT_ID`, `INFISICAL_ENVIRONMENT`). The app fetches xAI secrets from Infisical at startup. See `.env.example`.
+
+## Dashboard (React + Vite)
+
+The dashboard UI is a **React + Vite** app in `frontend/`. Same neon-green theme; chat, archive, and training work the same. **You must build the frontend or run the Vite dev server** to use React; otherwise Flask falls back to the legacy `index.html` (vanilla JS) at the repo root.
+
+**Development (recommended):** Run Flask and the Vite dev server. Vite proxies `/api` and `/static` to Flask.
+
+```bash
+# Terminal 1: Flask
+infisical run --env=dev -- python app.py
+
+# Terminal 2: React dev server
+cd frontend && npm install && npm run dev
+```
+
+Open **http://localhost:5173** for the React dashboard. Flask runs on port 5000.
+
+**Production:** Build the frontend and run Flask only. Flask serves the built app and API.
+
+```bash
+cd frontend && npm install && npm run build
+cd .. && infisical run --env=dev -- python app.py
+```
+
+Open **http://127.0.0.1:5000** to use the built dashboard.
 
 ## Secure proxy (optional)
 

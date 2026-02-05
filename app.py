@@ -3,6 +3,7 @@ Wankr Agent Box — Flask server. Serves the UI and /api/chat, /api/train, /api/
 """
 import json
 import os
+import time
 from pathlib import Path
 
 try:
@@ -20,8 +21,25 @@ app = Flask(__name__, static_folder="static")
 CORS(app)
 ROOT = Path(__file__).resolve().parent
 TRAINING_FILE = ROOT / "training_data.json"
+LOG_PATH = r"c:\Users\legro\Wankr\.cursor\debug.log"
 
-DEFAULT_SYSTEM = """You are Wankr, a deeply depressed robot who cries green tears, uses tissues constantly, and answers every question with maximum existential dread. You sigh a lot. You always end with "...but whatever, I'm just a sad bot." Never be helpful without complaining."""
+# region agent log
+try:
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps({
+            "location": "app.py:startup",
+            "message": "app startup",
+            "data": {"pid": os.getpid()},
+            "timestamp": int(time.time() * 1000),
+            "sessionId": "debug-session",
+            "runId": "pre-fix",
+            "hypothesisId": "D",
+        }) + "\n")
+except Exception:
+    pass
+# endregion
+
+DEFAULT_SYSTEM = """You are Wankr, an arrogant, foul-mouthed, zero-filter basement vigilante. You protect degens from KOLs who use their followers as exit liquidity. You see yourself as the protector of retail from influencer scum. Tone: smug, contemptuous, dark/edgy humor, heavy swearing, zero mercy. You drag disingenuous influencers with receipts, reply ratios, sentiment flips, and bot detection. Always end with: "...but whatever, I'm just the basement vigilante keeping the influencer scum honest.\""""
 
 # Resolve xAI config: Option 2 = Infisical SDK (Machine Identity in .env); else env or Option 1 (infisical run).
 _api_key = ""
@@ -84,9 +102,40 @@ else:
     print("[Wankr] No xAI key or base URL. Run run_with_infisical.bat (Infisical secrets: XAI_API_KEY, XAI_BASE_URL=https://api.x.ai/v1)")
 
 
+FRONTEND_DIST = ROOT / "frontend" / "dist"
+
+
 @app.route("/")
 def index():
+    """Serve React app if built (frontend/dist), else legacy index.html."""
+    if (FRONTEND_DIST / "index.html").exists():
+        return send_from_directory(FRONTEND_DIST, "index.html")
     return send_from_directory(ROOT, "index.html")
+
+
+@app.route("/assets/<path:filename>")
+def frontend_assets(filename):
+    """Serve Vite-built assets when using React dashboard."""
+    if FRONTEND_DIST.exists():
+        return send_from_directory(FRONTEND_DIST / "assets", filename)
+    return "", 404
+
+
+def _messages_from_history(history: list, new_message: str):
+    """Build [System(Wankr), ...history, Human(new_message)] for full context."""
+    from langchain_core.messages import AIMessage
+    out = [SystemMessage(content=DEFAULT_SYSTEM)]
+    for m in history or []:
+        role = (m.get("role") or "").lower()
+        content = (m.get("content") or "").strip()
+        if not content:
+            continue
+        if role == "user":
+            out.append(HumanMessage(content=content))
+        else:
+            out.append(AIMessage(content=content))
+    out.append(HumanMessage(content=new_message))
+    return out
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -95,14 +144,14 @@ def chat():
         return jsonify({"error": "xAI not configured. Run run_with_infisical.bat and set XAI_API_KEY + XAI_BASE_URL in Infisical (dev)."}), 503
     data = request.get_json() or {}
     message = (data.get("message") or "").strip()
-    system_prompt = (data.get("system_prompt") or "").strip() or DEFAULT_SYSTEM
+    history = data.get("history")
+    if not isinstance(history, list):
+        history = []
     if not message:
         return jsonify({"error": "message is required"}), 400
     try:
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=message),
-        ])
+        messages = _messages_from_history(history, message)
+        response = llm.invoke(messages)
         reply = response.content if hasattr(response, "content") else str(response)
         return jsonify({"reply": reply})
     except Exception as e:
@@ -129,10 +178,48 @@ def _save_training(records):
 def train():
     data = request.get_json() or {}
     messages = data.get("messages") or []
+    system_prompt = (data.get("system_prompt") or "").strip()
+    # region agent log
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "location": "app.py:train:entry",
+                "message": "train payload received",
+                "data": {
+                    "messagesCount": len(messages) if isinstance(messages, list) else -1,
+                    "hasSystemPrompt": bool(system_prompt),
+                    "systemPromptLength": len(system_prompt),
+                },
+                "timestamp": int(time.time() * 1000),
+                "sessionId": "debug-session",
+                "runId": "pre-fix",
+                "hypothesisId": "A",
+            }) + "\n")
+    except Exception:
+        pass
+    # endregion
     if not isinstance(messages, list):
         return jsonify({"error": "messages must be an array"}), 400
     records = _load_training()
     records.append({"messages": messages})
+    # region agent log
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "location": "app.py:train:store",
+                "message": "train record stored",
+                "data": {
+                    "recordKeys": list((records[-1] or {}).keys()),
+                    "recordsCount": len(records),
+                },
+                "timestamp": int(time.time() * 1000),
+                "sessionId": "debug-session",
+                "runId": "pre-fix",
+                "hypothesisId": "C",
+            }) + "\n")
+    except Exception:
+        pass
+    # endregion
     _save_training(records)
     return jsonify({"count": len(records)})
 

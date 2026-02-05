@@ -10,11 +10,14 @@ __pycache__/
 venv/
 env/
 
-# Node (wankr-backend)
+# Node (wankr-backend, frontend)
 wankr-backend/node_modules/
+frontend/node_modules/
+frontend/dist/
 
 # Generated / local data
 training_data.json
+data/*.csv.bak
 
 # IDE
 .vscode/

@@ -1,4 +1,5 @@
 # Wankr Bot — xAI (Grok); langchain-openai speaks OpenAI-compatible API (api.x.ai)
+pandas>=2.0
 langchain>=1.2
 langchain-openai>=0.2
 langchain-core>=1.2

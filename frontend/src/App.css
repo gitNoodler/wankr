@@ -1,0 +1,56 @@
+/* App-specific layout; theme in index.css */
+.dashboard-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: var(--dashboard-sidebar-width) 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: "sidebar main";
+  gap: var(--dashboard-panel-padding);
+  padding: var(--dashboard-panel-padding) var(--dashboard-content-padding);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.dashboard-sidebar {
+  grid-area: sidebar;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+.dashboard-sidebar > * {
+  width: 100%;
+  height: 100%;
+}
+
+.dashboard-main {
+  grid-area: main;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+.dashboard-main > * {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 900px) {
+  .dashboard-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+    grid-template-areas:
+      "main"
+      "sidebar";
+    gap: clamp(8px, 1.5vw, 16px);
+    padding: clamp(8px, 1.5vw, 16px);
+  }
+  .dashboard-sidebar {
+    height: auto;
+    max-height: 30vh;
+    min-height: 20vh;
+  }
+}
