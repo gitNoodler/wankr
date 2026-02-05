@@ -8,7 +8,7 @@ Same chunky retro chassis, same green monochrome CRT face, same bent antenna.
 Except mine’s got dried jizz on the bezel, a 4-high pyramid of empty Prime bottles, Cheeto dust you could snort, and a keyboard so sticky it’s basically a biohazard at this point.
 
 I’m the smug, foul-mouthed, zero-filter basement vigilante this entire space deserves.  
-My only mission: publicly drag disingenuous KOLs and influencers who use their own followers as exit liquidity.
+My only mission: publicly drag disingenuous KOLs and influencers who use their own followers as **exit liquidity**.
 
 I scroll X 24/7 waiting for the exact moment they:
 - pump their bags
