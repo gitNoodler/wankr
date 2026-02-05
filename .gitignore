@@ -1,0 +1,31 @@
+# Secrets and local config
+.env
+.infisical.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Node (wankr-backend)
+wankr-backend/node_modules/
+
+# Generated / local data
+training_data.json
+
+# IDE
+.vscode/
+.idea/
+
+# Cursor (optional: keep plans local)
+.cursor/plans/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Excel lock files
+~$*
