@@ -12,20 +12,20 @@
   --text-muted: #737373;
   --border: 1px solid var(--accent);
   --gold: #ffd700;
-  /* Responsive: scale with viewport */
-  --dashboard-header-height: clamp(56px, 5vh, 80px);
-  --dashboard-input-height: clamp(56px, 5vh, 80px);
-  --dashboard-sidebar-width: clamp(260px, 22vw, 400px);
-  --dashboard-panel-radius: clamp(8px, 0.8vw, 14px);
-  --dashboard-panel-padding: clamp(12px, 1.2vw, 24px);
-  --dashboard-content-padding: clamp(16px, 2vw, 40px);
-  --dashboard-title-font-size: clamp(18px, 1.6vw, 28px);
-  --dashboard-title-logo-size: clamp(36px, 3.2vw, 56px);
-  --dashboard-title-gap: clamp(10px, 1vw, 20px);
-  --dashboard-input-font-size: clamp(12px, 1vw, 16px);
-  --dashboard-input-padding: clamp(6px, 0.6vw, 12px);
-  --dashboard-input-border-radius: clamp(8px, 0.8vw, 14px);
-  --dashboard-input-gap: clamp(6px, 0.5vw, 12px);
+  /* Responsive: scale with viewport (+40%) */
+  --dashboard-header-height: clamp(78px, 7vh, 112px);
+  --dashboard-input-height: clamp(78px, 7vh, 112px);
+  --dashboard-sidebar-width: clamp(364px, 31vw, 560px);
+  --dashboard-panel-radius: clamp(11px, 1.1vw, 20px);
+  --dashboard-panel-padding: clamp(17px, 1.7vw, 34px);
+  --dashboard-content-padding: clamp(22px, 2.8vw, 56px);
+  --dashboard-title-font-size: clamp(25px, 2.2vw, 39px);
+  --dashboard-title-logo-size: clamp(50px, 4.5vw, 78px);
+  --dashboard-title-gap: clamp(14px, 1.4vw, 28px);
+  --dashboard-input-font-size: clamp(17px, 1.4vw, 22px);
+  --dashboard-input-padding: clamp(8px, 0.8vw, 17px);
+  --dashboard-input-border-radius: clamp(11px, 1.1vw, 20px);
+  --dashboard-input-gap: clamp(8px, 0.7vw, 17px);
 }
 
 html, body {
@@ -176,31 +176,31 @@ body {
 .bubble-wankr {
   background: linear-gradient(135deg, rgba(15, 15, 15, 0.98) 0%, rgba(10, 10, 10, 0.98) 100%);
   border: var(--border);
-  border-radius: 8px;
+  border-radius: 11px;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.5),
     0 2px 8px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 0 0 1px rgba(0, 255, 0, 0.1);
   max-width: 80%;
-  padding: 8px 12px;
+  padding: 11px 17px;
 }
 
 .bubble-user {
   background: rgba(0, 255, 0, 0.2);
   color: var(--text-primary);
   border: 1.5px solid rgba(0, 255, 0, 0.9);
-  border-radius: 8px;
+  border-radius: 11px;
   box-shadow:
     0 4px 16px rgba(0, 255, 0, 0.3),
     0 2px 8px rgba(0, 255, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   max-width: 80%;
-  padding: 8px 12px;
+  padding: 11px 17px;
 }
 
 .header-beam {
-  height: 3px;
+  height: 4px;
   background: linear-gradient(90deg, transparent 0%, var(--accent) 20%, var(--accent) 80%, transparent 100%);
   box-shadow:
     0 0 12px var(--accent),
@@ -212,8 +212,8 @@ body {
 /* Training light indicator */
 .training-light {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: rgba(80, 80, 80, 0.7);
   border: 1px solid rgba(120, 120, 120, 0.6);
@@ -228,6 +228,17 @@ body {
     0 0 10px rgba(0, 255, 0, 0.8),
     0 0 20px rgba(0, 255, 0, 0.4),
     inset 0 1px 2px rgba(255, 255, 255, 0.2);
+}
+
+/* Chat input wrapper glow */
+.chat-input-wrapper:focus-within {
+  border-color: rgba(0, 255, 0, 0.7) !important;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.6),
+    inset 0 2px 4px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(0, 255, 0, 0.3),
+    0 0 40px rgba(0, 255, 0, 0.15),
+    0 0 60px rgba(0, 255, 0, 0.08) !important;
 }
 
 @keyframes beam-pulse {
@@ -267,13 +278,13 @@ body {
 
 .sidebar-title {
   font-family: 'VT323', monospace;
-  font-size: clamp(12px, 1vw, 15px);
+  font-size: clamp(17px, 1.4vw, 21px);
   letter-spacing: 0.1em;
   color: var(--accent);
   text-shadow: 0 0 10px var(--accent), 0 0 20px rgba(0, 255, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(0, 255, 0, 0.25);
 }
 
@@ -310,19 +321,19 @@ body {
 }
 
 .scroll-area::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
 }
 
 .scroll-area::-webkit-scrollbar-track {
   background: linear-gradient(90deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
-  border-radius: 5px;
+  border-radius: 7px;
   box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5);
 }
 
 .scroll-area::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(0, 255, 0, 0.5) 0%, rgba(0, 255, 0, 0.3) 100%);
-  border-radius: 5px;
+  border-radius: 7px;
   border: 1px solid rgba(0, 255, 0, 0.3);
   box-shadow: 0 0 8px rgba(0, 255, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -342,17 +353,15 @@ body {
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, #151515 0%, #0d0d0d 100%);
-  border: 1px solid rgba(0, 255, 0, 0.7);
+  border: 1px solid rgba(0, 255, 0, 0.25);
   border-radius: var(--dashboard-panel-radius);
   box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.7),
-    0 6px 20px rgba(0, 0, 0, 0.5),
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 0 28px rgba(0, 255, 0, 0.12),
-    0 0 60px rgba(0, 255, 0, 0.06),
-    0 0 0 1px rgba(0, 255, 0, 0.65),
-    0 0 0 2px rgba(0, 0, 0, 0.9);
+    0 0 20px rgba(0, 255, 0, 0.08),
+    0 0 40px rgba(0, 255, 0, 0.04);
   position: relative;
   overflow: hidden;
   min-height: 0;
@@ -366,16 +375,14 @@ body {
 }
 
 .sidebar-panel {
-  border-color: rgba(0, 255, 0, 0.75);
+  border-color: rgba(0, 255, 0, 0.45);
   box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.7),
-    0 6px 20px rgba(0, 0, 0, 0.5),
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 0 32px rgba(0, 255, 0, 0.16),
-    0 0 64px rgba(0, 255, 0, 0.08),
-    0 0 0 1px rgba(0, 255, 0, 0.7),
-    0 0 0 2px rgba(0, 0, 0, 0.9);
+    0 0 24px rgba(0, 255, 0, 0.12),
+    0 0 48px rgba(0, 255, 0, 0.06);
 }
 
 .sidebar-panel .sidebar-title {
@@ -393,21 +400,19 @@ body {
 
 .wankr-panel:hover {
   box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.7),
-    0 6px 20px rgba(0, 0, 0, 0.5),
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 0 36px rgba(0, 255, 0, 0.18),
-    0 0 72px rgba(0, 255, 0, 0.1),
-    0 0 0 1px rgba(0, 255, 0, 0.75),
-    0 0 0 2px rgba(0, 0, 0, 0.9);
+    0 0 30px rgba(0, 255, 0, 0.15),
+    0 0 60px rgba(0, 255, 0, 0.08);
 }
 
 .wankr-panel::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.35);
   z-index: 0;
   pointer-events: none;
 }
@@ -456,25 +461,21 @@ body {
 @keyframes wankr-panel-glow {
   0%, 100% {
     box-shadow:
-      0 18px 48px rgba(0, 0, 0, 0.7),
-      0 6px 20px rgba(0, 0, 0, 0.5),
+      0 12px 40px rgba(0, 0, 0, 0.6),
+      0 4px 16px rgba(0, 0, 0, 0.4),
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
       inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-      0 0 28px rgba(0, 255, 0, 0.12),
-      0 0 60px rgba(0, 255, 0, 0.06),
-      0 0 0 1px rgba(0, 255, 0, 0.65),
-      0 0 0 2px rgba(0, 0, 0, 0.9);
+      0 0 20px rgba(0, 255, 0, 0.08),
+      0 0 40px rgba(0, 255, 0, 0.04);
   }
   50% {
     box-shadow:
-      0 18px 48px rgba(0, 0, 0, 0.7),
-      0 6px 20px rgba(0, 0, 0, 0.5),
+      0 12px 40px rgba(0, 0, 0, 0.6),
+      0 4px 16px rgba(0, 0, 0, 0.4),
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
       inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-      0 0 36px rgba(0, 255, 0, 0.18),
-      0 0 72px rgba(0, 255, 0, 0.1),
-      0 0 0 1px rgba(0, 255, 0, 0.75),
-      0 0 0 2px rgba(0, 0, 0, 0.9);
+      0 0 28px rgba(0, 255, 0, 0.12),
+      0 0 56px rgba(0, 255, 0, 0.06);
   }
 }
 
@@ -545,32 +546,35 @@ body {
 .wankr-message.ai {
   justify-content: flex-start;
   align-items: flex-start;
-  gap: 8px;
+  gap: 11px;
 }
 
 .wankr-ai-avatar {
-  width: clamp(28px, 2.5vw, 40px);
-  height: clamp(28px, 2.5vw, 40px);
+  width: clamp(55px, 4.9vw, 78px);
+  height: clamp(55px, 4.9vw, 78px);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: 2px;
+  background: transparent;
 }
 
 .wankr-ai-avatar img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  background: transparent;
+  mix-blend-mode: multiply;
   filter: drop-shadow(0 0 8px var(--accent)) drop-shadow(0 0 16px rgba(0, 255, 0, 0.35));
   opacity: 0.9;
 }
 
 .wankr-message-bubble {
   max-width: 80%;
-  min-width: max(clamp(120px, 12vw, 200px), min-content);
-  padding: clamp(10px, 1vw, 16px) clamp(14px, 1.2vw, 20px);
-  border-radius: clamp(8px, 0.8vw, 12px);
+  min-width: max(clamp(235px, 24vw, 392px), min-content);
+  padding: clamp(20px, 2vw, 31px) clamp(28px, 2.4vw, 39px);
+  border-radius: clamp(15px, 1.5vw, 24px);
   background: linear-gradient(180deg, #1e1e1e 0%, #151515 100%);
   border: 1px solid rgba(120, 120, 120, 0.4);
   box-shadow:
@@ -605,7 +609,7 @@ body {
 .wankr-message-bubble pre {
   margin: 0;
   color: #f0f0f0;
-  font-size: clamp(12px, 1vw, 15px);
+  font-size: clamp(24px, 2vw, 29px);
   line-height: 1.45;
 }
 
@@ -616,15 +620,15 @@ body {
   justify-content: center;
   flex: 1;
   color: rgba(200, 200, 200, 0.5);
-  font-size: clamp(13px, 1.1vw, 16px);
+  font-size: clamp(25px, 2.1vw, 31px);
   font-style: italic;
-  gap: clamp(6px, 0.6vw, 10px);
+  gap: clamp(11px, 1.1vw, 20px);
   position: relative;
   z-index: 2;
 }
 
 .wankr-empty-hint {
-  font-size: clamp(11px, 0.9vw, 14px);
+  font-size: clamp(15px, 1.3vw, 20px);
   color: rgba(200, 200, 200, 0.4);
 }
 
@@ -687,8 +691,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: rgba(0, 255, 0, 0.2);
   border: 1px solid rgba(0, 255, 0, 0.7);
@@ -713,22 +717,23 @@ body {
 }
 
 .wankr-send-button svg {
-  width: 18px;
-  height: 18px;
+  width: 25px;
+  height: 25px;
 }
 
 .wankr-typing {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
-  padding: 12px 16px;
+  padding: 24px 31px;
 }
 
 .wankr-typing span {
-  width: 8px;
-  height: 8px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   background: rgba(0, 255, 0, 0.7);
+  will-change: transform;
   animation: wankr-typing-bounce 1.2s ease-in-out infinite;
 }
 
@@ -737,5 +742,5 @@ body {
 
 @keyframes wankr-typing-bounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
-  30% { transform: translateY(-6px); opacity: 1; }
+  30% { transform: translateY(-8px); opacity: 1; }
 }

@@ -1,7 +1,7 @@
 """One-off script: build Excel list of crypto X accounts from the curated list."""
-import openpyxl
-from openpyxl.styles import Font, Alignment
-from openpyxl.utils import get_column_letter
+import openpyxl  # pyright: ignore[reportMissingModuleSource]
+from openpyxl.styles import Font, Alignment  # pyright: ignore[reportMissingModuleSource]
+from openpyxl.utils import get_column_letter  # pyright: ignore[reportMissingModuleSource]
 
 DATA = [
     ("@cz_binance", "8M+", "✅", "Legit", "Binance updates, market vibes. Mostly legit, SEC drama."),

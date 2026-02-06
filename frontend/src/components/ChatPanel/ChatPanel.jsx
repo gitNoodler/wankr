@@ -1,8 +1,20 @@
-import { useRef, useLayoutEffect, useMemo } from 'react';
+import { useRef, useLayoutEffect, useMemo, useState, useEffect } from 'react';
 
 function ChatPanel({ messages, onSend, onStop, disabled }) {
   const chatRef = useRef(null);
   const inputRef = useRef(null);
+  const [inputValue, setInputValue] = useState('');
+
+  const resizeTextarea = () => {
+    const ta = inputRef.current;
+    if (!ta) return;
+    ta.style.height = '31px';
+    ta.style.height = `${Math.min(ta.scrollHeight, 168)}px`;
+  };
+
+  useEffect(() => {
+    resizeTextarea();
+  }, [inputValue]);
 
   // Auto-scroll to bottom when messages change
   useLayoutEffect(() => {
@@ -15,10 +27,18 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
 
   const handleSubmit = (e) => {
     e?.preventDefault();
-    const msg = (inputRef.current?.value ?? '').trim();
+    const msg = inputValue.trim();
     if (!msg || disabled) return;
     onSend(msg);
-    inputRef.current.value = '';
+    setInputValue('');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+    // Shift+Enter allows default behavior (new line)
   };
 
   const isEmpty = !messages || messages.length === 0;
@@ -31,7 +51,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
     }
     return false;
   }, [messages]);
-  const avatarSrc = '/static/wankr-avatar.png';
+  const avatarSrc = '/static/logo.png';
 
   return (
     <div className="wankr-panel">
@@ -44,31 +64,26 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
           padding: '0 var(--dashboard-panel-padding)',
           height: 'var(--dashboard-header-height)',
           minHeight: 'var(--dashboard-header-height)',
-          background: 'linear-gradient(180deg, #1b1b1b 0%, #121212 100%)',
-          borderBottom: '2px solid rgba(100, 100, 100, 0.4)',
-          boxShadow: `
-            0 4px 12px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.08),
-            inset 0 -1px 0 rgba(0, 0, 0, 0.3)
-          `,
+          background: '#0a0a0a',
+          borderBottom: '1px solid rgba(60, 60, 60, 0.5)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)',
           flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
           <h2
             className="font-wankr"
             style={{
               margin: 0,
               fontSize: 'var(--dashboard-title-font-size)',
-              fontWeight: 900,
+              fontWeight: 700,
               color: 'var(--accent)',
               letterSpacing: '3px',
               textTransform: 'uppercase',
-              textShadow:
-                '0 0 22px rgba(0, 255, 0, 0.95), 0 0 40px rgba(0, 255, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.7)',
+              textShadow: '0 0 12px rgba(0, 255, 0, 0.7), 0 0 24px rgba(0, 255, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.6)',
             }}
           >
-            Chat
+            Wankr Vision
           </h2>
           <span
             className={`training-light${trainingLightOn ? ' on' : ''}`}
@@ -91,8 +106,8 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
           padding: 'var(--dashboard-panel-padding)',
           gap: 'clamp(8px, 1vw, 14px)',
           minHeight: 0,
-          background: '#000',
-          boxShadow: 'inset 0 4px 16px rgba(0, 0, 0, 0.6)',
+          background: '#000000',
+          boxShadow: 'inset 0 4px 16px rgba(0, 0, 0, 0.8)',
         }}
       >
         {isEmpty ? (
@@ -109,7 +124,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               >
                 {m.role !== 'user' && (
                   <div className="wankr-ai-avatar">
-                    <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = '/static/avatar.png'; }} />
+                    <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = '/static/logo.png'; }} />
                   </div>
                 )}
                 <div className="wankr-message-bubble">
@@ -120,7 +135,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
             {disabled && (
               <div className="wankr-message ai">
                 <div className="wankr-ai-avatar">
-                  <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = '/static/avatar.png'; }} />
+                  <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = '/static/logo.png'; }} />
                 </div>
                 <div className="wankr-message-bubble wankr-typing">
                   <span /><span /><span />
@@ -138,8 +153,8 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: 'var(--dashboard-panel-padding)',
-          background: 'linear-gradient(180deg, #121212 0%, #1b1b1b 100%)',
+          padding: 'clamp(6px, 1vw, 10px) var(--dashboard-panel-padding)',
+          background: 'linear-gradient(180deg, #111 0%, #1a1a1a 100%)',
           borderTop: '2px solid rgba(100, 100, 100, 0.4)',
           boxShadow: `
             0 -4px 12px rgba(0, 0, 0, 0.4),
@@ -150,30 +165,35 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
         }}
       >
         <div
+          className="chat-input-wrapper"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--dashboard-input-gap)',
             width: '100%',
             background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)',
-            border: '1px solid rgba(0, 255, 0, 0.45)',
+            border: '1px solid rgba(0, 255, 0, 0.5)',
             borderRadius: 'var(--dashboard-input-border-radius)',
-            padding: 'var(--dashboard-input-padding)',
+            padding: '8px 14px',
+            minHeight: '50px',
             boxShadow: `
               0 2px 8px rgba(0, 0, 0, 0.6),
               inset 0 2px 4px rgba(0, 0, 0, 0.4),
-              0 0 12px rgba(0, 255, 0, 0.35),
-              0 0 24px rgba(0, 255, 0, 0.15)
+              0 0 16px rgba(0, 255, 0, 0.15),
+              0 0 32px rgba(0, 255, 0, 0.08)
             `,
             transition: 'all 0.25s ease',
           }}
         >
           <textarea
             ref={inputRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Message Wankr..."
             disabled={disabled}
             autoComplete="off"
-            className="scroll-area"
+            rows={1}
             style={{
               flex: 1,
               background: 'transparent',
@@ -182,20 +202,15 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               color: '#f0f0f0',
               fontSize: 'var(--dashboard-input-font-size)',
               fontFamily: 'inherit',
-              padding: '4px 8px',
-              lineHeight: 1.4,
+              padding: '6px 11px',
               resize: 'none',
-              minHeight: 'clamp(28px, 3.2vh, 44px)',
-              maxHeight: 'clamp(90px, 14vh, 140px)',
+              minHeight: '31px',
+              maxHeight: '168px',
               overflowY: 'auto',
-            }}
-            rows={1}
-            wrap="soft"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit();
-              }
+              lineHeight: 1.4,
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word',
+              display: 'block',
             }}
           />
           <button
@@ -206,8 +221,8 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 'clamp(32px, 3vw, 40px)',
-              height: 'clamp(32px, 3vw, 40px)',
+              width: '45px',
+              height: '45px',
               borderRadius: '50%',
               background: 'linear-gradient(180deg, rgba(0, 255, 0, 0.3) 0%, rgba(0, 255, 0, 0.15) 100%)',
               border: '1px solid rgba(0, 255, 0, 0.6)',
@@ -224,7 +239,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               flexShrink: 0,
             }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '18px', height: '18px' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '25px', height: '25px' }}>
               <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
             </svg>
           </button>
@@ -237,8 +252,8 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              height: 'clamp(32px, 3vw, 40px)',
-              padding: '0 clamp(10px, 1.2vw, 14px)',
+              height: '45px',
+              padding: '0 clamp(14px, 1.7vw, 20px)',
               borderRadius: 'var(--dashboard-input-border-radius)',
               background: isThinking
                 ? 'linear-gradient(180deg, rgba(255, 80, 80, 0.25) 0%, rgba(255, 80, 80, 0.12) 100%)'
@@ -247,7 +262,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
                 ? '1px solid rgba(255, 80, 80, 0.55)'
                 : '1px solid rgba(100, 100, 100, 0.35)',
               color: isThinking ? '#ffb3b3' : 'rgba(200, 200, 200, 0.5)',
-              fontSize: 'clamp(11px, 1vw, 13px)',
+              fontSize: 'clamp(15px, 1.4vw, 18px)',
               fontWeight: 600,
               letterSpacing: '1px',
               textTransform: 'uppercase',

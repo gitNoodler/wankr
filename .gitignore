@@ -17,6 +17,8 @@ frontend/dist/
 
 # Generated / local data
 training_data.json
+chat_backup.json
+restart_requested.flag
 data/*.csv.bak
 
 # IDE

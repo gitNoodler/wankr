@@ -1,6 +1,6 @@
 /**
  * Central API layer for Wankr dashboard.
- * All backend calls go through this (same-origin with Flask proxy).
+ * All backend calls go through this (same-origin with Node API proxy).
  */
 
 import { API_BASE } from '../config/apiConfig';

@@ -14,7 +14,7 @@ const DEFAULT_THOUGHTS = [
 ];
 
 const FALLBACK_REPLY =
-  'No reply. Run with Infisical or set XAI_API_KEY and XAI_BASE_URL in Infisical or .env, then restart Flask. *sigh*';
+  'No reply. Set XAI_API_KEY in .env or Infisical, then restart the API. *sigh*';
 
 export function useChat(conversation, setConversation, systemPrompt, onTrainCountChange) {
   const [sending, setSending] = useState(false);

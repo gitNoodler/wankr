@@ -18,5 +18,5 @@ cd /d "%~dp0"
 "%INFISICAL_EXE%" init
 
 echo.
-echo Done! You can now close this window and run run_with_infisical.bat
+echo Done! Set INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, INFISICAL_PROJECT_ID in .env, then run launch.bat
 pause

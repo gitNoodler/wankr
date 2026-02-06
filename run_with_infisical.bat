@@ -18,7 +18,8 @@ set "INFISICAL_EXE=%LOCALAPPDATA%\Microsoft\WinGet\Packages\infisical.infisical_
 if not exist "%INFISICAL_EXE%" set "INFISICAL_EXE=infisical"
 
 cd /d "%~dp0"
-"%INFISICAL_EXE%" run %PROJECT_FLAG% --env=dev -- python app.py
+if not exist wankr-backend\node_modules (cd wankr-backend && npm install)
+"%INFISICAL_EXE%" run %PROJECT_FLAG% --env=dev -- node wankr-backend/server.js
 
 echo.
 echo [Wankr] Process ended.

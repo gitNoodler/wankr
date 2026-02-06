@@ -1,6 +1,6 @@
 /**
  * API configuration for Wankr dashboard.
- * Same-origin when using Vite proxy (/api → Flask).
+ * Same-origin when using Vite proxy (/api → Node backend).
  */
 
 const API_BASE = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE != null
