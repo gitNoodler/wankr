@@ -51,7 +51,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
     }
     return false;
   }, [messages]);
-  const avatarSrc = '/static/logo.png';
+  const avatarSrc = '/static/avatar.png';
 
   return (
     <div className="wankr-panel">
