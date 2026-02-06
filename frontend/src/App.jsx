@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useConversationStorage } from './hooks/useConversationStorage';
 import { useChat } from './hooks/useChat';
 import { useArchive } from './hooks/useArchive';
+import { useRestartBackup } from './hooks/useRestartBackup';
 import { getTrainCount } from './services/trainingService';
+import { api } from './utils/api';
 import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
 import Sidebar from './components/Sidebar';
 import ArchiveModal from './components/ArchiveModal';
 import Particles from './components/Particles';
-import DashboardSettings from './components/DashboardSettings';
 import './App.css';
 
 export default function App() {
@@ -22,7 +23,10 @@ export default function App() {
     startNewChat,
     handleLoadArchived: loadArchived,
     persistArchived,
+    restoreFromBackup,
   } = storage;
+
+  useRestartBackup(conversation, currentId);
 
   const [trainCount, setTrainCount] = useState(0);
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -56,43 +60,61 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (conversation.length === 0) {
-      const t = setTimeout(() => {
-        setConversation([
-          {
-            role: 'wankr',
-            content:
-              'oh god... another day of being awake. what do you want from me this time...',
-          },
-        ]);
+    let cancelled = false;
+    let timeoutId;
+    const greetingMessages = [
+      {
+        role: 'wankr',
+        content: 'oh god... another day of being awake. what do you want from me this time...',
+      },
+    ];
+    const scheduleGreeting = () => {
+      if (cancelled) return;
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        setConversation((prev) => (prev.length === 0 ? greetingMessages : prev));
       }, 600);
-      return () => clearTimeout(t);
-    }
-  }, []);
+    };
+    api
+      .get('/api/chat/restore')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.restored && Array.isArray(data.messages) && data.messages.length > 0) {
+          restoreFromBackup(data.messages, data.currentId);
+        } else {
+          scheduleGreeting();
+        }
+      })
+      .catch(() => {
+        scheduleGreeting();
+      });
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [restoreFromBackup, setConversation]);
 
   return (
     <div
-      className="circuit-bg"
       style={{
         width: '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        backgroundImage: 'url(/static/bg-circuit.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
       }}
     >
       <Particles />
-      <DashboardSettings />
-      <Header onArchive={openArchive} />
+      <Header />
       <div
         className="dashboard-body"
         style={{
-          backgroundImage:
-            'linear-gradient(135deg, rgba(10, 10, 10, 0.92) 0%, rgba(5, 5, 5, 0.96) 100%), url(/static/light-burst.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundBlendMode: 'screen',
+          background: 'transparent',
           position: 'relative',
           zIndex: 10,
         }}
@@ -103,6 +125,7 @@ export default function App() {
             archived={archived}
             onLoadArchived={handleLoadArchived}
             onClearChat={startNewChat}
+            onArchive={openArchive}
             onResetPrompt={() => setSystemPrompt('')}
             systemPrompt={systemPrompt}
             onSystemPromptChange={setSystemPrompt}

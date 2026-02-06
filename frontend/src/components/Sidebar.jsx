@@ -3,6 +3,7 @@ function Sidebar({
   archived,
   onLoadArchived,
   onClearChat,
+  onArchive,
   onResetPrompt,
   systemPrompt,
   onSystemPromptChange,
@@ -30,13 +31,9 @@ function Sidebar({
           padding: '0 var(--dashboard-panel-padding)',
           height: 'var(--dashboard-header-height)',
           minHeight: 'var(--dashboard-header-height)',
-          background: 'linear-gradient(180deg, #1b1b1b 0%, #121212 100%)',
-          borderBottom: '2px solid rgba(100, 100, 100, 0.4)',
-          boxShadow: `
-            0 4px 12px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.08),
-            inset 0 -1px 0 rgba(0, 0, 0, 0.3)
-          `,
+          background: '#0a0a0a',
+          borderBottom: '1px solid rgba(60, 60, 60, 0.5)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)',
           flexShrink: 0,
         }}
       >
@@ -79,10 +76,21 @@ function Sidebar({
           className="btn w-full text-sm"
           style={{
             borderRadius: 'var(--dashboard-panel-radius)',
-            padding: 'clamp(8px, 1vw, 12px)',
+            padding: 'clamp(11px, 1.4vw, 17px)',
           }}
         >
           Clear Chat
+        </button>
+        <button
+          type="button"
+          onClick={onArchive}
+          className="btn w-full text-sm"
+          style={{
+            borderRadius: 'var(--dashboard-panel-radius)',
+            padding: 'clamp(11px, 1.4vw, 17px)',
+          }}
+        >
+          Archive
         </button>
 
         {/* Conversations */}
@@ -190,12 +198,24 @@ function Sidebar({
           </div>
           <button
             type="button"
+            onClick={onResetPrompt}
+            className="btn w-full text-sm"
+            style={{
+              borderRadius: 'var(--dashboard-panel-radius)',
+              marginTop: '8px',
+              padding: 'clamp(10px, 1.3vw, 15px)',
+            }}
+          >
+            Reset system prompt
+          </button>
+          <button
+            type="button"
             onClick={onTrain}
             className="btn-primary w-full text-sm font-medium"
             style={{
               borderRadius: 'var(--dashboard-panel-radius)',
               marginTop: '8px',
-              padding: 'clamp(8px, 1vw, 12px)',
+              padding: 'clamp(11px, 1.4vw, 17px)',
             }}
           >
             Add to training data
