@@ -10,12 +10,11 @@ if ($logDir -and -not (Test-Path $logDir)) {
   New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
 
+$cmd = "$Command 1>`"$Log`" 2>&1"
 $process = Start-Process -FilePath "cmd.exe" `
-  -ArgumentList "/c", $Command `
+  -ArgumentList "/c", $cmd `
   -WorkingDirectory $WorkDir `
   -WindowStyle Hidden `
-  -RedirectStandardOutput $Log `
-  -RedirectStandardError $Log `
   -PassThru
 
 $process.WaitForExit()
