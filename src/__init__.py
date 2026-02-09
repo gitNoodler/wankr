@@ -1,1 +1,0 @@
-# Wankr social analysis engine
