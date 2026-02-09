@@ -2,52 +2,69 @@
   box-sizing: border-box;
 }
 
+/* ── WANKR FORCED LAYOUT ── (no scale, no collapse) */
+
 :root {
-  --bg-black: #000000;
+  --scale: 1;
+  --bg-black: #050505;
   --bg-panel: #0a0a0a;
-  --accent: #00ff00;
-  --accent-soft: rgba(0, 255, 0, 0.15);
-  --accent-glow: 0 0 8px #00ff00, 0 0 16px rgba(0, 255, 0, 0.4);
-  --text-primary: #e5e5e5;
-  --text-muted: #737373;
-  --border: 1px solid var(--accent);
+  --accent: #00ff41;
+  --accent-soft: #00cc33;
+  --accent-muted: rgba(0, 255, 0, 0.55);
+  --text-content: rgba(220, 220, 220, 0.88);
+  --text-muted-content: rgba(200, 200, 200, 0.65);
+  --accent-glow: 0 0 30px #00ff41;
+  --text-primary: #ffffff;
+  --text-muted: #aaaaaa;
+  --border: 1px solid rgba(140, 140, 140, 0.45);
+  --border-panel: 1px solid rgba(120, 120, 120, 0.5);
   --gold: #ffd700;
-  /* Responsive: scale with viewport (+40%) */
-  --dashboard-header-height: clamp(78px, 7vh, 112px);
-  --dashboard-input-height: clamp(78px, 7vh, 112px);
-  --dashboard-sidebar-width: clamp(364px, 31vw, 560px);
-  --dashboard-panel-radius: clamp(11px, 1.1vw, 20px);
-  --dashboard-panel-padding: clamp(17px, 1.7vw, 34px);
-  --dashboard-content-padding: clamp(22px, 2.8vw, 56px);
-  --dashboard-title-font-size: clamp(25px, 2.2vw, 39px);
-  --dashboard-title-logo-size: clamp(50px, 4.5vw, 78px);
-  --dashboard-title-gap: clamp(14px, 1.4vw, 28px);
-  --dashboard-input-font-size: clamp(17px, 1.4vw, 22px);
-  --dashboard-input-padding: clamp(8px, 0.8vw, 17px);
-  --dashboard-input-border-radius: clamp(11px, 1.1vw, 20px);
-  --dashboard-input-gap: clamp(8px, 0.7vw, 17px);
+
+  /* FIXED SIZES — guaranteed to show */
+  --dashboard-header-height: 96px;
+  --dashboard-input-height: 96px;
+  --dashboard-sidebar-width: 420px;
+  --dashboard-panel-radius: 20px;
+  --dashboard-panel-padding: 24px;
+  --dashboard-content-padding: 40px;
+  --dashboard-title-font-size: 32px;
+  --dashboard-title-logo-size: 48px;
+  --dashboard-title-gap: 16px;
+  --dashboard-input-font-size: 18px;
+  --dashboard-input-padding: 16px;
+  --dashboard-input-border-radius: 12px;
+  --dashboard-input-gap: 12px;
 }
 
-html, body {
+/* Force full viewport */
+html, body, #root {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
+  background: var(--bg-black);
 }
 
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg-black);
   color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.4;
 }
 
 #root {
-  width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+}
+
+/* Make sure the main dashboard grid is visible */
+.dashboard-body {
+  height: 100% !important;
+  display: grid !important;
+  grid-template-columns: var(--dashboard-sidebar-width) 1fr;
+  gap: var(--dashboard-panel-padding);
+  padding: var(--dashboard-panel-padding) var(--dashboard-content-padding);
 }
 
 .font-wankr {
@@ -64,37 +81,39 @@ body {
 
 .panel-left {
   border-right: var(--border);
-  box-shadow: 2px 0 12px rgba(0, 255, 0, 0.15);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.4);
 }
 
 .panel-right {
   border-left: var(--border);
-  box-shadow: -2px 0 12px rgba(0, 255, 0, 0.15);
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.4);
 }
 
 .btn {
-  background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
-  border: 1px solid rgba(0, 255, 0, 0.4);
-  color: var(--accent);
+  background: linear-gradient(180deg, #1e1e1e 0%, #161616 100%);
+  border: var(--border);
+  color: var(--accent-muted);
   cursor: pointer;
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 0 8px rgba(0, 255, 0, 0.1);
+    0 0 6px rgba(0, 255, 0, 0.06);
   transition: all 0.2s ease;
-  text-shadow: 0 0 6px rgba(0, 255, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 0 4px rgba(0, 255, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .btn:hover {
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.2) 0%, rgba(0, 255, 0, 0.1) 100%);
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.14) 0%, rgba(0, 255, 0, 0.08) 100%);
+  border-color: rgba(130, 130, 130, 0.5);
+  color: var(--accent-muted);
   box-shadow:
     0 6px 20px rgba(0, 0, 0, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 0 16px rgba(0, 255, 0, 0.25),
-    0 0 32px rgba(0, 255, 0, 0.1);
+    0 0 32px rgba(0, 255, 0, 0.12);
   transform: translateY(-1px);
 }
 
@@ -107,18 +126,18 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.4) 0%, rgba(0, 255, 0, 0.25) 100%);
-  color: #fff;
-  border: 1px solid rgba(0, 255, 0, 0.6);
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.32) 0%, rgba(0, 255, 0, 0.2) 100%);
+  color: rgba(240, 240, 240, 0.95);
+  border: var(--border);
   cursor: pointer;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
     inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 0 12px rgba(0, 255, 0, 0.2),
-    0 0 24px rgba(0, 255, 0, 0.1);
-  text-shadow: 0 0 8px rgba(0, 255, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.5);
+    0 0 8px rgba(0, 255, 0, 0.15),
+    0 0 16px rgba(0, 255, 0, 0.06);
+  text-shadow: 0 0 4px rgba(0, 255, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
   transition: all 0.2s ease;
 }
 
@@ -128,8 +147,8 @@ body {
     0 6px 24px rgba(0, 0, 0, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 0 20px rgba(0, 255, 0, 0.35),
-    0 0 40px rgba(0, 255, 0, 0.15);
+    0 0 24px rgba(0, 255, 0, 0.5),
+    0 0 48px rgba(0, 255, 0, 0.25);
   transform: translateY(-1px);
 }
 
@@ -142,9 +161,9 @@ body {
 }
 
 .input-field {
-  background: linear-gradient(180deg, #0a0a0a 0%, #111 100%);
-  border: 1px solid rgba(0, 255, 0, 0.4);
-  color: var(--text-primary);
+  background: linear-gradient(180deg, #141414 0%, #101010 100%);
+  border: var(--border);
+  color: var(--text-content);
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.5),
     0 1px 0 rgba(255, 255, 255, 0.05);
@@ -157,20 +176,22 @@ body {
 
 .input-field:focus {
   outline: none;
-  border-color: rgba(0, 255, 0, 0.6);
+  border-color: rgba(130, 130, 130, 0.5);
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.5),
-    0 0 10px rgba(0, 255, 0, 0.25),
-    0 0 20px rgba(0, 255, 0, 0.1);
+    0 0 16px rgba(0, 255, 0, 0.35),
+    0 0 32px rgba(0, 255, 0, 0.15);
 }
 
 .convo-item {
   cursor: pointer;
+  color: var(--text-content);
 }
 
 .convo-item:hover {
-  background: var(--accent-soft);
-  border-left: 3px solid var(--accent);
+  background: rgba(0, 255, 0, 0.1);
+  border-left: 3px solid rgba(100, 100, 100, 0.5);
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.2);
 }
 
 .bubble-wankr {
@@ -189,7 +210,7 @@ body {
 .bubble-user {
   background: rgba(0, 255, 0, 0.2);
   color: var(--text-primary);
-  border: 1.5px solid rgba(0, 255, 0, 0.9);
+  border: 1.5px solid rgba(120, 120, 120, 0.6);
   border-radius: 11px;
   box-shadow:
     0 4px 16px rgba(0, 255, 0, 0.3),
@@ -212,18 +233,18 @@ body {
 /* Training light indicator */
 .training-light {
   display: inline-block;
-  width: 14px;
-  height: 14px;
+  width: calc(14px * var(--scale));
+  height: calc(14px * var(--scale));
   border-radius: 50%;
   background: rgba(80, 80, 80, 0.7);
-  border: 1px solid rgba(120, 120, 120, 0.6);
+  border: var(--border);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
   transition: all 0.2s ease;
 }
 
 .training-light.on {
   background: var(--accent);
-  border-color: rgba(0, 255, 0, 0.8);
+  border-color: rgba(130, 130, 130, 0.5);
   box-shadow:
     0 0 10px rgba(0, 255, 0, 0.8),
     0 0 20px rgba(0, 255, 0, 0.4),
@@ -232,13 +253,15 @@ body {
 
 /* Chat input wrapper glow */
 .chat-input-wrapper:focus-within {
-  border-color: rgba(0, 255, 0, 0.7) !important;
+  border-color: rgba(100, 100, 100, 0.6) !important;
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.6),
     inset 0 2px 4px rgba(0, 0, 0, 0.4),
-    0 0 20px rgba(0, 255, 0, 0.3),
-    0 0 40px rgba(0, 255, 0, 0.15),
-    0 0 60px rgba(0, 255, 0, 0.08) !important;
+    0 0 24px rgba(0, 255, 0, 0.4),
+    0 0 48px rgba(0, 255, 0, 0.2) !important;
+}
+.chat-input-wrapper button[type="submit"]:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), 0 0 40px rgba(0, 255, 0, 0.25) !important;
 }
 
 @keyframes beam-pulse {
@@ -278,14 +301,14 @@ body {
 
 .sidebar-title {
   font-family: 'VT323', monospace;
-  font-size: clamp(17px, 1.4vw, 21px);
+  font-size: calc(21px * var(--scale));
   letter-spacing: 0.1em;
   color: var(--accent);
   text-shadow: 0 0 10px var(--accent), 0 0 20px rgba(0, 255, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(0, 255, 0, 0.25);
+  border-bottom: var(--border);
 }
 
 .thought {
@@ -334,7 +357,7 @@ body {
 .scroll-area::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(0, 255, 0, 0.5) 0%, rgba(0, 255, 0, 0.3) 100%);
   border-radius: 7px;
-  border: 1px solid rgba(0, 255, 0, 0.3);
+  border: var(--border);
   box-shadow: 0 0 8px rgba(0, 255, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
@@ -352,16 +375,15 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #151515 0%, #0d0d0d 100%);
-  border: 1px solid rgba(0, 255, 0, 0.25);
+  background: linear-gradient(180deg, #1c1c1c 0%, #141414 100%);
+  border: var(--border);
   border-radius: var(--dashboard-panel-radius);
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.6),
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 0 20px rgba(0, 255, 0, 0.08),
-    0 0 40px rgba(0, 255, 0, 0.04);
+    0 24px 64px rgba(0, 0, 0, 0.9),
+    0 12px 40px rgba(0, 0, 0, 0.7),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
   position: relative;
   overflow: hidden;
   min-height: 0;
@@ -375,14 +397,12 @@ body {
 }
 
 .sidebar-panel {
-  border-color: rgba(0, 255, 0, 0.45);
+  border-color: rgba(120, 120, 120, 0.5);
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.6),
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 0 24px rgba(0, 255, 0, 0.12),
-    0 0 48px rgba(0, 255, 0, 0.06);
+    0 24px 64px rgba(0, 0, 0, 0.9),
+    0 12px 40px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
 
 .sidebar-panel .sidebar-title {
@@ -391,7 +411,7 @@ body {
     0 0 12px rgba(0, 255, 0, 0.7),
     0 0 24px rgba(0, 255, 0, 0.3),
     0 1px 2px rgba(0, 0, 0, 0.6);
-  border-bottom: 1px solid rgba(0, 255, 0, 0.35);
+  border-bottom: var(--border);
 }
 
 .wankr-panel {
@@ -400,26 +420,24 @@ body {
 
 .wankr-panel:hover {
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.6),
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 0 30px rgba(0, 255, 0, 0.15),
-    0 0 60px rgba(0, 255, 0, 0.08);
+    0 28px 72px rgba(0, 0, 0, 0.95),
+    0 14px 44px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
 
 .wankr-panel::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.02);
   z-index: 0;
   pointer-events: none;
 }
 
 .wankr-panel-header {
   padding: 0 var(--dashboard-panel-padding);
-  border-bottom: 1px solid rgba(100, 100, 100, 0.3);
+  border-bottom: var(--border);
   background: rgba(15, 15, 15, 0.95);
   flex-shrink: 0;
   position: relative;
@@ -442,8 +460,8 @@ body {
   height: var(--dashboard-title-logo-size);
   object-fit: contain;
   filter:
-    drop-shadow(0 0 12px rgba(0, 255, 0, 0.7))
-    drop-shadow(0 0 24px rgba(0, 255, 0, 0.5));
+    drop-shadow(0 0 4px rgba(0, 255, 0, 0.45))
+    drop-shadow(0 0 8px rgba(0, 255, 0, 0.25));
   opacity: 0.95;
 }
 
@@ -492,8 +510,8 @@ body {
   max-height: 100%;
   overflow: hidden;
   background: #050505;
-  border-left: 1px solid rgba(100, 100, 100, 0.3);
-  border-right: 1px solid rgba(100, 100, 100, 0.3);
+  border-left: var(--border);
+  border-right: var(--border);
   position: relative;
   z-index: 5;
 }
@@ -502,7 +520,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: transparent;
   z-index: 0;
   pointer-events: none;
 }
@@ -511,10 +529,10 @@ body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: clamp(8px, 1vw, 16px) clamp(12px, 1.5vw, 24px);
+  padding: calc(16px * var(--scale)) calc(24px * var(--scale));
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 0.6vw, 12px);
+  gap: calc(12px * var(--scale));
   min-height: 0;
   max-height: 100%;
   background: #050505;
@@ -526,14 +544,14 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: transparent;
   z-index: 0;
   pointer-events: none;
 }
 
 .wankr-message {
   display: flex;
-  margin-bottom: 4px;
+  margin-bottom: calc(4px * var(--scale));
   animation: fadeIn 0.3s ease;
   position: relative;
   z-index: 2;
@@ -546,17 +564,17 @@ body {
 .wankr-message.ai {
   justify-content: flex-start;
   align-items: flex-start;
-  gap: 11px;
+  gap: calc(11px * var(--scale));
 }
 
 .wankr-ai-avatar {
-  width: clamp(55px, 4.9vw, 78px);
-  height: clamp(55px, 4.9vw, 78px);
+  width: calc(78px * var(--scale));
+  height: calc(78px * var(--scale));
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
+  margin-top: calc(2px * var(--scale));
   background: transparent;
 }
 
@@ -572,11 +590,11 @@ body {
 
 .wankr-message-bubble {
   max-width: 80%;
-  min-width: max(clamp(235px, 24vw, 392px), min-content);
-  padding: clamp(20px, 2vw, 31px) clamp(28px, 2.4vw, 39px);
-  border-radius: clamp(15px, 1.5vw, 24px);
+  min-width: max(calc(392px * var(--scale)), min-content);
+  padding: calc(31px * var(--scale)) calc(39px * var(--scale));
+  border-radius: calc(24px * var(--scale));
   background: linear-gradient(180deg, #1e1e1e 0%, #151515 100%);
-  border: 1px solid rgba(120, 120, 120, 0.4);
+  border: var(--border);
   box-shadow:
     0 6px 20px rgba(0, 0, 0, 0.5),
     0 2px 8px rgba(0, 0, 0, 0.4),
@@ -589,8 +607,8 @@ body {
 }
 
 .wankr-message.user .wankr-message-bubble {
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.22) 0%, rgba(0, 255, 0, 0.12) 100%);
-  border: 1px solid rgba(0, 255, 0, 0.6);
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.14) 0%, rgba(0, 255, 0, 0.08) 100%);
+  border: var(--border);
   box-shadow:
     0 6px 20px rgba(0, 0, 0, 0.4),
     0 2px 8px rgba(0, 0, 0, 0.4),
@@ -601,16 +619,24 @@ body {
 }
 
 .wankr-message.ai .wankr-message-bubble {
-  background: linear-gradient(180deg, #1e1e1e 0%, #151515 100%);
-  border: 1px solid rgba(120, 120, 120, 0.4);
+  background: linear-gradient(180deg, #222 0%, #181818 100%);
+  border: var(--border);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 0 16px rgba(0, 255, 0, 0.12),
+    0 0 32px rgba(0, 255, 0, 0.06);
 }
 
 .wankr-message-bubble p,
 .wankr-message-bubble pre {
   margin: 0;
-  color: #f0f0f0;
-  font-size: clamp(24px, 2vw, 29px);
+  color: var(--text-content);
+  font-size: calc(29px * var(--scale));
   line-height: 1.45;
+  min-height: 1.4em;
 }
 
 .wankr-empty-state {
@@ -619,22 +645,22 @@ body {
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: rgba(200, 200, 200, 0.5);
-  font-size: clamp(25px, 2.1vw, 31px);
+  color: var(--text-muted-content);
+  font-size: calc(31px * var(--scale));
   font-style: italic;
-  gap: clamp(11px, 1.1vw, 20px);
+  gap: calc(20px * var(--scale));
   position: relative;
   z-index: 2;
 }
 
 .wankr-empty-hint {
-  font-size: clamp(15px, 1.3vw, 20px);
-  color: rgba(200, 200, 200, 0.4);
+  font-size: calc(20px * var(--scale));
+  color: var(--text-muted-content);
 }
 
 .wankr-input-container {
   padding: 0 var(--dashboard-panel-padding);
-  border-top: 1px solid rgba(100, 100, 100, 0.3);
+  border-top: var(--border);
   background: rgba(15, 15, 15, 0.95);
   flex-shrink: 0;
   position: relative;
@@ -654,18 +680,18 @@ body {
   width: 90%;
   max-width: 90%;
   margin: 0 auto;
-  background: #141414;
-  border: 1px solid rgba(150, 150, 150, 0.45);
+  background: #181818;
+  border: var(--border);
   border-radius: var(--dashboard-input-border-radius);
   padding: var(--dashboard-input-padding);
   transition: all 0.25s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 255, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .wankr-input-wrapper:focus-within {
-  border: 1px solid rgba(0, 255, 0, 0.7);
-  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3), 0 0 0 2px rgba(0, 255, 0, 0.15);
-  background: #1a1a1a;
+  border: var(--border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(140, 140, 140, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: #1c1c1c;
 }
 
 .wankr-input-wrapper input,
@@ -674,7 +700,7 @@ body {
   background: transparent;
   border: none;
   outline: none;
-  color: #f0f0f0;
+  color: var(--text-content);
   font-size: var(--dashboard-input-font-size);
   font-family: inherit;
   resize: none;
@@ -694,9 +720,9 @@ body {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: rgba(0, 255, 0, 0.2);
-  border: 1px solid rgba(0, 255, 0, 0.7);
-  color: var(--accent);
+  background: rgba(0, 255, 0, 0.14);
+  border: var(--border);
+  color: var(--accent-muted);
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
@@ -704,11 +730,11 @@ body {
 }
 
 .wankr-send-button:hover:not(:disabled) {
-  background: rgba(0, 255, 0, 0.35);
-  border-color: rgba(0, 255, 0, 0.9);
-  color: #fff;
+  background: rgba(0, 255, 0, 0.28);
+  border-color: rgba(130, 130, 130, 0.5);
+  color: var(--text-content);
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 255, 0, 0.4);
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), 0 0 40px rgba(0, 255, 0, 0.25);
 }
 
 .wankr-send-button:disabled {
@@ -732,7 +758,7 @@ body {
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: rgba(0, 255, 0, 0.7);
+  background: var(--accent-muted);
   will-change: transform;
   animation: wankr-typing-bounce 1.2s ease-in-out infinite;
 }

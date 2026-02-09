@@ -31,8 +31,8 @@ function Sidebar({
           padding: '0 var(--dashboard-panel-padding)',
           height: 'var(--dashboard-header-height)',
           minHeight: 'var(--dashboard-header-height)',
-          background: '#0a0a0a',
-          borderBottom: '1px solid rgba(60, 60, 60, 0.5)',
+          background: 'linear-gradient(180deg, #161616 0%, #0f0f0f 100%)',
+          borderBottom: '1px solid rgba(100, 100, 100, 0.5)',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)',
           flexShrink: 0,
         }}
@@ -66,7 +66,7 @@ function Sidebar({
           flexDirection: 'column',
           gap: 'var(--dashboard-panel-padding)',
           minHeight: 0,
-          background: 'linear-gradient(180deg, #080808 0%, #050505 100%)',
+          background: 'linear-gradient(180deg, #141414 0%, #0e0e0e 100%)',
           boxShadow: 'inset 0 4px 16px rgba(0, 0, 0, 0.6)',
         }}
       >
@@ -76,7 +76,7 @@ function Sidebar({
           className="btn w-full text-sm"
           style={{
             borderRadius: 'var(--dashboard-panel-radius)',
-            padding: 'clamp(11px, 1.4vw, 17px)',
+            padding: 'calc(17px * var(--scale))',
           }}
         >
           Clear Chat
@@ -87,7 +87,7 @@ function Sidebar({
           className="btn w-full text-sm"
           style={{
             borderRadius: 'var(--dashboard-panel-radius)',
-            padding: 'clamp(11px, 1.4vw, 17px)',
+            padding: 'calc(17px * var(--scale))',
           }}
         >
           Archive
@@ -102,18 +102,18 @@ function Sidebar({
               display: 'flex',
               flexDirection: 'column',
               gap: '4px',
-              maxHeight: 'clamp(80px, 12vh, 140px)',
+              maxHeight: 'calc(130px * var(--scale))',
               overflowY: 'auto',
-              fontSize: 'clamp(11px, 1vw, 14px)',
+              fontSize: 'calc(14px * var(--scale))',
             }}
           >
             <div
               style={{
-                padding: '6px 10px',
-                borderRadius: '6px',
-                color: 'var(--text-primary)',
-                background: 'linear-gradient(180deg, rgba(0, 255, 0, 0.28) 0%, rgba(0, 255, 0, 0.16) 100%)',
-                border: '1px solid rgba(0, 255, 0, 0.6)',
+                padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
+                borderRadius: 'calc(6px * var(--scale))',
+                color: 'var(--text-content)',
+                background: 'linear-gradient(180deg, rgba(0, 255, 0, 0.16) 0%, rgba(0, 255, 0, 0.1) 100%)',
+                border: '1px solid rgba(100, 100, 100, 0.5)',
                 boxShadow: '0 2px 10px rgba(0, 255, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -127,11 +127,11 @@ function Sidebar({
                 key={c.id}
                 className="convo-item"
                 style={{
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  color: 'var(--text-primary)',
+                  padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
+                  borderRadius: 'calc(6px * var(--scale))',
+                  color: 'var(--text-content)',
                   background: 'linear-gradient(180deg, #1a1a1a 0%, #101010 100%)',
-                  border: '1px solid rgba(0, 255, 0, 0.25)',
+                  border: '1px solid rgba(100, 100, 100, 0.5)',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
@@ -143,12 +143,12 @@ function Sidebar({
                 onClick={() => onLoadArchived(c.id)}
                 onMouseEnter={(e) => {
                   e.target.style.background = 'linear-gradient(180deg, rgba(0, 255, 0, 0.15) 0%, rgba(0, 255, 0, 0.08) 100%)';
-                  e.target.style.borderColor = 'rgba(0, 255, 0, 0.6)';
+                  e.target.style.borderColor = 'rgba(100, 100, 100, 0.6)';
                   e.target.style.boxShadow = '0 2px 10px rgba(0, 255, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.background = 'linear-gradient(180deg, #1a1a1a 0%, #111 100%)';
-                  e.target.style.borderColor = 'rgba(0, 255, 0, 0.25)';
+                  e.target.style.background = 'linear-gradient(180deg, #1c1c1c 0%, #161616 100%)';
+                  e.target.style.borderColor = 'rgba(100, 100, 100, 0.6)';
                   e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)';
                 }}
               >
@@ -164,8 +164,8 @@ function Sidebar({
           <div
             style={{
               padding: 'var(--dashboard-input-padding)',
-              background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)',
-              border: '1px solid rgba(0, 255, 0, 0.5)',
+              background: 'linear-gradient(180deg, #141414 0%, #161616 100%)',
+              border: '1px solid rgba(100, 100, 100, 0.5)',
               borderRadius: 'var(--dashboard-panel-radius)',
               boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 12px rgba(0, 255, 0, 0.08)',
             }}
@@ -173,9 +173,9 @@ function Sidebar({
             <label
               style={{
                 display: 'block',
-                fontSize: 'clamp(10px, 0.9vw, 12px)',
+                fontSize: 'calc(12px * var(--scale))',
                 marginBottom: '6px',
-                color: 'rgba(220, 220, 220, 0.85)',
+                color: 'var(--text-content)',
               }}
             >
               System prompt (training data only)
@@ -187,10 +187,10 @@ function Sidebar({
               placeholder="Optional override. Chat always uses Wankr identity."
               style={{
                 width: '100%',
-                height: 'clamp(60px, 10vh, 100px)',
+                height: 'calc(100px * var(--scale))',
                 borderRadius: 'var(--dashboard-input-border-radius)',
                 padding: '8px',
-                fontSize: 'clamp(10px, 0.9vw, 12px)',
+                fontSize: 'calc(12px * var(--scale))',
                 fontFamily: 'monospace',
                 resize: 'none',
               }}
@@ -203,7 +203,7 @@ function Sidebar({
             style={{
               borderRadius: 'var(--dashboard-panel-radius)',
               marginTop: '8px',
-              padding: 'clamp(10px, 1.3vw, 15px)',
+              padding: 'calc(15px * var(--scale))',
             }}
           >
             Reset system prompt
@@ -215,16 +215,16 @@ function Sidebar({
             style={{
               borderRadius: 'var(--dashboard-panel-radius)',
               marginTop: '8px',
-              padding: 'clamp(11px, 1.4vw, 17px)',
+              padding: 'calc(17px * var(--scale))',
             }}
           >
             Add to training data
           </button>
           <p
             style={{
-              fontSize: 'clamp(10px, 0.9vw, 12px)',
+              fontSize: 'calc(12px * var(--scale))',
               marginTop: '6px',
-              color: 'rgba(220, 220, 220, 0.8)',
+              color: 'var(--text-content)',
             }}
           >
             Training examples: <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{trainCount}</span>
@@ -241,19 +241,19 @@ function Sidebar({
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)',
-              border: '1px solid rgba(0, 255, 0, 0.5)',
+              background: 'linear-gradient(180deg, #141414 0%, #161616 100%)',
+              border: '1px solid rgba(100, 100, 100, 0.5)',
               borderRadius: 'var(--dashboard-panel-radius)',
-              color: 'rgba(220, 220, 220, 0.8)',
-              minHeight: 'clamp(60px, 8vh, 100px)',
-              maxHeight: 'clamp(100px, 15vh, 180px)',
+              color: 'var(--text-content)',
+              minHeight: 'calc(86px * var(--scale))',
+              maxHeight: 'calc(162px * var(--scale))',
               overflowY: 'auto',
               boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 12px rgba(0, 255, 0, 0.08)',
-              fontSize: 'clamp(11px, 1vw, 13px)',
+              fontSize: 'calc(13px * var(--scale))',
             }}
           >
             {thoughts.length === 0 && (
-              <div style={{ color: 'rgba(220, 220, 220, 0.7)', fontStyle: 'italic', opacity: 0.7 }}>
+              <div style={{ color: 'var(--text-muted-content)', fontStyle: 'italic', opacity: 0.7 }}>
                 No thoughts yet...
               </div>
             )}
@@ -261,10 +261,10 @@ function Sidebar({
               <div
                 key={i}
                 style={{
-                  padding: '8px 10px',
-                  background: 'linear-gradient(180deg, #1a1a1a 0%, #111 100%)',
-                  borderLeft: '3px solid var(--accent)',
-                  borderRadius: '4px',
+                  padding: 'calc(8px * var(--scale)) calc(10px * var(--scale))',
+                  background: 'linear-gradient(180deg, #1c1c1c 0%, #161616 100%)',
+                  borderLeft: 'calc(3px * var(--scale)) solid rgba(100, 100, 100, 0.5)',
+                  borderRadius: 'calc(4px * var(--scale))',
                   boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
                 }}
               >
@@ -281,14 +281,14 @@ function Sidebar({
           flexShrink: 0,
           textAlign: 'center',
           padding: 'var(--dashboard-input-padding) var(--dashboard-panel-padding)',
-          color: 'rgba(220, 220, 220, 0.75)',
-          background: 'linear-gradient(180deg, #121212 0%, #1b1b1b 100%)',
-          borderTop: '2px solid rgba(100, 100, 100, 0.4)',
+          color: 'var(--text-muted-content)',
+          background: 'linear-gradient(180deg, #161616 0%, #1e1e1e 100%)',
+          borderTop: '2px solid rgba(100, 100, 100, 0.5)',
           boxShadow: `
             0 -4px 12px rgba(0, 0, 0, 0.4),
             inset 0 1px 0 rgba(255, 255, 255, 0.05)
           `,
-          fontSize: 'clamp(9px, 0.8vw, 11px)',
+          fontSize: 'calc(11px * var(--scale))',
         }}
       >
         Wankr v0.1 • built for Payton

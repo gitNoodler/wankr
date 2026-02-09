@@ -1,20 +1,37 @@
 import { useRef, useLayoutEffect, useMemo, useState, useEffect } from 'react';
+import LOGO_URL from '../../assets/logo.js';
 
 function ChatPanel({ messages, onSend, onStop, disabled }) {
   const chatRef = useRef(null);
   const inputRef = useRef(null);
   const [inputValue, setInputValue] = useState('');
 
+  const getScale = () => {
+    if (typeof window === 'undefined') return 1;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--scale');
+    const parsed = Number.parseFloat(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  };
+
   const resizeTextarea = () => {
     const ta = inputRef.current;
     if (!ta) return;
-    ta.style.height = '31px';
-    ta.style.height = `${Math.min(ta.scrollHeight, 168)}px`;
+    const scale = getScale();
+    const minHeight = Math.max(12, Math.round(31 * scale));
+    const maxHeight = Math.max(minHeight, Math.round(168 * scale));
+    ta.style.height = `${minHeight}px`;
+    ta.style.height = `${Math.min(ta.scrollHeight, maxHeight)}px`;
   };
 
   useEffect(() => {
     resizeTextarea();
   }, [inputValue]);
+
+  useEffect(() => {
+    const handleResize = () => resizeTextarea();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useLayoutEffect(() => {
@@ -51,7 +68,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
     }
     return false;
   }, [messages]);
-  const avatarSrc = '/static/avatar.png';
+  const avatarSrc = LOGO_URL;
 
   return (
     <div className="wankr-panel">
@@ -64,13 +81,14 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
           padding: '0 var(--dashboard-panel-padding)',
           height: 'var(--dashboard-header-height)',
           minHeight: 'var(--dashboard-header-height)',
-          background: '#0a0a0a',
-          borderBottom: '1px solid rgba(60, 60, 60, 0.5)',
+          background: 'linear-gradient(180deg, #161616 0%, #0f0f0f 100%)',
+          borderBottom: '1px solid rgba(100, 100, 100, 0.5)',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)',
           flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(11px * var(--scale))' }}>
+          <img className="wankr-panel-title-logo" src={LOGO_URL} alt="Wankr" />
           <h2
             className="font-wankr"
             style={{
@@ -104,7 +122,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
           flexDirection: 'column',
           justifyContent: isEmpty ? 'center' : 'flex-start',
           padding: 'var(--dashboard-panel-padding)',
-          gap: 'clamp(8px, 1vw, 14px)',
+          gap: 'calc(14px * var(--scale))',
           minHeight: 0,
           background: '#000000',
           boxShadow: 'inset 0 4px 16px rgba(0, 0, 0, 0.8)',
@@ -124,7 +142,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               >
                 {m.role !== 'user' && (
                   <div className="wankr-ai-avatar">
-                    <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = '/static/logo.png'; }} />
+                    <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = LOGO_URL; }} />
                   </div>
                 )}
                 <div className="wankr-message-bubble">
@@ -135,7 +153,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
             {disabled && (
               <div className="wankr-message ai">
                 <div className="wankr-ai-avatar">
-                  <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = '/static/logo.png'; }} />
+                  <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = LOGO_URL; }} />
                 </div>
                 <div className="wankr-message-bubble wankr-typing">
                   <span /><span /><span />
@@ -153,9 +171,9 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: 'clamp(6px, 1vw, 10px) var(--dashboard-panel-padding)',
-          background: 'linear-gradient(180deg, #111 0%, #1a1a1a 100%)',
-          borderTop: '2px solid rgba(100, 100, 100, 0.4)',
+          padding: 'calc(10px * var(--scale)) var(--dashboard-panel-padding)',
+          background: 'linear-gradient(180deg, #161616 0%, #1c1c1c 100%)',
+          borderTop: '2px solid rgba(100, 100, 100, 0.5)',
           boxShadow: `
             0 -4px 12px rgba(0, 0, 0, 0.4),
             inset 0 1px 0 rgba(255, 255, 255, 0.05),
@@ -171,16 +189,15 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
             alignItems: 'center',
             gap: 'var(--dashboard-input-gap)',
             width: '100%',
-            background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)',
-            border: '1px solid rgba(0, 255, 0, 0.5)',
+            background: 'linear-gradient(180deg, #121212 0%, #161616 100%)',
+            border: '1px solid rgba(55, 55, 55, 0.6)',
             borderRadius: 'var(--dashboard-input-border-radius)',
-            padding: '8px 14px',
-            minHeight: '50px',
+            padding: 'calc(8px * var(--scale)) calc(14px * var(--scale))',
+            minHeight: 'calc(50px * var(--scale))',
             boxShadow: `
               0 2px 8px rgba(0, 0, 0, 0.6),
               inset 0 2px 4px rgba(0, 0, 0, 0.4),
-              0 0 16px rgba(0, 255, 0, 0.15),
-              0 0 32px rgba(0, 255, 0, 0.08)
+              0 0 0 1px rgba(50, 50, 50, 0.4)
             `,
             transition: 'all 0.25s ease',
           }}
@@ -199,13 +216,13 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: '#f0f0f0',
+              color: 'var(--text-content)',
               fontSize: 'var(--dashboard-input-font-size)',
               fontFamily: 'inherit',
-              padding: '6px 11px',
+              padding: 'calc(6px * var(--scale)) calc(11px * var(--scale))',
               resize: 'none',
-              minHeight: '31px',
-              maxHeight: '168px',
+              minHeight: 'calc(31px * var(--scale))',
+              maxHeight: 'calc(168px * var(--scale))',
               overflowY: 'auto',
               lineHeight: 1.4,
               whiteSpace: 'pre-wrap',
@@ -221,16 +238,16 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '45px',
-              height: '45px',
+              width: 'calc(45px * var(--scale))',
+              height: 'calc(45px * var(--scale))',
               borderRadius: '50%',
               background: 'linear-gradient(180deg, rgba(0, 255, 0, 0.3) 0%, rgba(0, 255, 0, 0.15) 100%)',
-              border: '1px solid rgba(0, 255, 0, 0.6)',
-              color: 'var(--accent)',
+              border: '1px solid rgba(55, 55, 55, 0.6)',
+              color: 'var(--accent-muted)',
               cursor: disabled ? 'not-allowed' : 'pointer',
               opacity: disabled ? 0.4 : 1,
               boxShadow: `
-                0 4px 12px rgba(0, 255, 0, 0.25),
+                0 4px 12px rgba(0, 0, 0, 0.4),
                 0 2px 4px rgba(0, 0, 0, 0.4),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2),
                 inset 0 -1px 0 rgba(0, 0, 0, 0.2)
@@ -239,7 +256,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               flexShrink: 0,
             }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '25px', height: '25px' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 'calc(25px * var(--scale))', height: 'calc(25px * var(--scale))' }}>
               <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
             </svg>
           </button>
@@ -252,17 +269,17 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '45px',
-              padding: '0 clamp(14px, 1.7vw, 20px)',
+              height: 'calc(45px * var(--scale))',
+              padding: '0 calc(20px * var(--scale))',
               borderRadius: 'var(--dashboard-input-border-radius)',
               background: isThinking
                 ? 'linear-gradient(180deg, rgba(255, 80, 80, 0.25) 0%, rgba(255, 80, 80, 0.12) 100%)'
                 : 'linear-gradient(180deg, rgba(120, 120, 120, 0.2) 0%, rgba(80, 80, 80, 0.2) 100%)',
               border: isThinking
                 ? '1px solid rgba(255, 80, 80, 0.55)'
-                : '1px solid rgba(100, 100, 100, 0.35)',
+                : '1px solid rgba(55, 55, 55, 0.6)',
               color: isThinking ? '#ffb3b3' : 'rgba(200, 200, 200, 0.5)',
-              fontSize: 'clamp(15px, 1.4vw, 18px)',
+              fontSize: 'calc(18px * var(--scale))',
               fontWeight: 600,
               letterSpacing: '1px',
               textTransform: 'uppercase',

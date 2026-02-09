@@ -3,6 +3,7 @@ import { useConversationStorage } from './hooks/useConversationStorage';
 import { useChat } from './hooks/useChat';
 import { useArchive } from './hooks/useArchive';
 import { useRestartBackup } from './hooks/useRestartBackup';
+import { useViewportScale } from './hooks/useViewportScale';
 import { getTrainCount } from './services/trainingService';
 import { api } from './utils/api';
 import Header from './components/Header';
@@ -27,10 +28,11 @@ export default function App() {
   } = storage;
 
   useRestartBackup(conversation, currentId);
+  useViewportScale();
 
   const [trainCount, setTrainCount] = useState(0);
   const [systemPrompt, setSystemPrompt] = useState('');
-  const chat = useChat(conversation, setConversation, systemPrompt, setTrainCount);
+  const chat = useChat(conversation, setConversation, systemPrompt, setTrainCount, currentId);
 
   const {
     archiveOpen,
@@ -100,19 +102,31 @@ export default function App() {
       style={{
         width: '100%',
         height: '100%',
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        position: 'relative',
         backgroundImage: 'url(/static/bg-circuit.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
       }}
     >
-      <Particles />
-      <Header />
       <div
-        className="dashboard-body"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          pointerEvents: 'none',
+          zIndex: 1,
+        }}
+      />
+      <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <Particles />
+        <Header />
+        <div
+          className="dashboard-body"
         style={{
           background: 'transparent',
           position: 'relative',
@@ -142,6 +156,7 @@ export default function App() {
             disabled={chat.sending}
           />
         </div>
+      </div>
       </div>
       <ArchiveModal
         open={archiveOpen}

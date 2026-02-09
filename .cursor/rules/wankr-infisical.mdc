@@ -1,0 +1,15 @@
+---
+description: Wankr backend must always start with Infisical for secrets (XAI_API_KEY)
+alwaysApply: true
+---
+
+# Wankr Backend: Always Use Infisical
+
+**Never start the API with plain `npm start`.** The backend needs XAI_API_KEY from Infisical. Always use Infisical to inject secrets.
+
+## Correct startup
+- Use `start_backend.bat` (runs `infisical run --env=dev -- node wankr-backend/server.js`)
+- The launcher (wankr.bat) must call `start_backend.bat`, not `npm start`
+
+## When adding new launchers or scripts
+- Any script that starts the Node backend must use Infisical via `start_backend.bat` or `infisical run -- node wankr-backend/server.js`

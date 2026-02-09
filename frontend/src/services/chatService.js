@@ -4,12 +4,19 @@
 
 import { api } from '../utils/api';
 
-export async function sendChat(message, history = [], signal) {
-  const res = await api.post('/api/chat', { message, history }, { signal });
+export async function sendChat(message, history = [], signal, options = {}) {
+  const { clientId, command, trainingKey } = options;
+  const res = await api.post(
+    '/api/chat',
+    { message, history, clientId, command, trainingKey },
+    { signal }
+  );
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = res.status === 401 ? new Error('Unauthorized') : new Error('Chat request failed');
+    const msg = data?.error || (res.status === 503 ? 'API not configured. Check XAI_API_KEY in .env or Infisical.' : 'Chat request failed');
+    const err = new Error(msg);
+    err.status = res.status;
     throw err;
   }
-  const data = await res.json();
   return data.reply ?? null;
 }

@@ -19,13 +19,22 @@ function ArchiveModal({ open, onClose, onSave, onDiscard, archiveName, onArchive
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ background: 'rgba(0,0,0,0.85)' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 50,
+        background: 'rgba(0,0,0,0.85)',
+      }}
       onClick={onClose}
     >
       <div
-        className="panel w-full max-w-md"
+        className="panel"
         style={{
+          width: '100%',
+          maxWidth: 448,
           padding: 24,
           border: 'var(--border)',
           borderRadius: 'var(--dashboard-panel-radius)',
@@ -33,10 +42,10 @@ function ArchiveModal({ open, onClose, onSave, onDiscard, archiveName, onArchive
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-wankr font-semibold text-xl mb-2 text-glow" style={{ color: 'var(--accent)' }}>
+        <h3 className="font-wankr text-glow" style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '1.25rem', marginBottom: 8 }}>
           Archive this conversation
         </h3>
-        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: 16 }}>
           Name it to recall later, or discard and start fresh.
         </p>
         <input
@@ -45,16 +54,17 @@ function ArchiveModal({ open, onClose, onSave, onDiscard, archiveName, onArchive
           placeholder="Conversation name..."
           value={archiveName}
           onChange={(e) => onArchiveNameChange(e.target.value)}
-          className="input-field w-full rounded-lg px-4 py-3 mb-4"
+          className="input-field"
+          style={{ width: '100%', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}
         />
-        <div className="flex gap-2 justify-end">
-          <button type="button" onClick={onDiscard} className="btn px-6 py-3 rounded-lg" style={{ borderRadius: 8 }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button type="button" onClick={onDiscard} className="btn" style={{ padding: '12px 24px', borderRadius: 8 }}>
             Discard
           </button>
-          <button type="button" onClick={onSave} className="btn-primary px-6 py-3 rounded-lg" style={{ borderRadius: 8 }}>
+          <button type="button" onClick={onSave} className="btn-primary" style={{ padding: '12px 24px', borderRadius: 8 }}>
             Save & new chat
           </button>
-          <button type="button" onClick={onClose} className="btn px-6 py-3 rounded-lg" style={{ borderRadius: 8 }}>
+          <button type="button" onClick={onClose} className="btn" style={{ padding: '12px 24px', borderRadius: 8 }}>
             Cancel
           </button>
         </div>

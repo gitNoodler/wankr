@@ -15,16 +15,67 @@ const DEFAULT_THOUGHTS = [
 
 const FALLBACK_REPLY =
   'No reply. Set XAI_API_KEY in .env or Infisical, then restart the API. *sigh*';
+const TRAINING_REQUIRED_REPLY = 'Training key required. Ask Payton for the key.';
+const TRAINING_UNAUTHORIZED_REPLY = 'Nope. Training mode is locked.';
+const TRAINING_KEY_STORAGE = 'wankr_training_key';
+const TRAINING_ENABLE_CMD = '/wankr n da clankr';
+const TRAINING_DISABLE_CMD = '/gangstr is uh prankstr';
 
-export function useChat(conversation, setConversation, systemPrompt, onTrainCountChange) {
+export function useChat(conversation, setConversation, systemPrompt, onTrainCountChange, clientId) {
   const [sending, setSending] = useState(false);
   const [thoughts, setThoughts] = useState([]);
   const abortRef = useRef(null);
 
+  const getStoredTrainingKey = () => {
+    try {
+      const existing = sessionStorage.getItem(TRAINING_KEY_STORAGE);
+      if (existing && existing.trim()) return existing.trim();
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
+  const getTrainingKey = () => {
+    const existing = getStoredTrainingKey();
+    if (existing) return existing;
+    const key = window.prompt('Enter training key:');
+    if (key && key.trim()) {
+      try {
+        sessionStorage.setItem(TRAINING_KEY_STORAGE, key.trim());
+      } catch {
+        // ignore
+      }
+      return key.trim();
+    }
+    return null;
+  };
+
+  const normalizeCommand = (value) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[^\w\s/]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const detectTrainingCommand = (value) => {
+    const normalized = normalizeCommand(value);
+    if (/^\/?wankr\s+n\s+da\s+clankr$/.test(normalized)) return 'enable';
+    if (/^\/?gangstr\s+is\s+uh\s+prankstr$/.test(normalized)) return 'disable';
+    return null;
+  };
+
   const handleSend = useCallback(
     async (msg) => {
-      const userMsg = { role: 'user', content: msg };
-      setConversation((prev) => [...prev, userMsg]);
+      const trimmed = msg.trim();
+      const commandType = detectTrainingCommand(trimmed);
+      const isTrainingEnable = commandType === 'enable';
+      const isTrainingDisable = commandType === 'disable';
+
+      if (!isTrainingEnable && !isTrainingDisable) {
+        const userMsg = { role: 'user', content: msg };
+        setConversation((prev) => [...prev, userMsg]);
+      }
       setSending(true);
       setThoughts(DEFAULT_THOUGHTS);
 
@@ -36,21 +87,53 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
       try {
         const controller = new AbortController();
         abortRef.current = controller;
-        const reply = await sendChat(msg, history, controller.signal);
+        if (isTrainingEnable || isTrainingDisable) {
+          const key = getTrainingKey();
+          if (!key) {
+            setConversation((prev) => [...prev, { role: 'wankr', content: TRAINING_REQUIRED_REPLY }]);
+            return;
+          }
+          const reply = await sendChat('', history, controller.signal, {
+            clientId,
+            command: isTrainingEnable ? 'training_enable' : 'training_disable',
+            trainingKey: key,
+          });
+          setConversation((prev) => [
+            ...prev,
+            { role: 'wankr', content: reply || FALLBACK_REPLY },
+          ]);
+          return;
+        }
+
+        const reply = await sendChat(msg, history, controller.signal, {
+          clientId,
+          trainingKey: getStoredTrainingKey(),
+        });
         setConversation((prev) => [
           ...prev,
           { role: 'wankr', content: reply || FALLBACK_REPLY },
         ]);
       } catch (error) {
         if (error?.name === 'AbortError') return;
-        setConversation((prev) => [...prev, { role: 'wankr', content: FALLBACK_REPLY }]);
+        if (isTrainingEnable || isTrainingDisable) {
+          const unauthorized = error?.message === 'Unauthorized';
+          setConversation((prev) => [
+            ...prev,
+            { role: 'wankr', content: unauthorized ? TRAINING_UNAUTHORIZED_REPLY : FALLBACK_REPLY },
+          ]);
+          return;
+        }
+        const msg = error?.message && error.message !== 'Chat request failed'
+          ? `${error.message} *sigh*`
+          : FALLBACK_REPLY;
+        setConversation((prev) => [...prev, { role: 'wankr', content: msg }]);
       } finally {
         setSending(false);
         setThoughts([]);
         abortRef.current = null;
       }
     },
-    [conversation, setConversation]
+    [conversation, setConversation, clientId]
   );
 
   const handleStop = useCallback(() => {

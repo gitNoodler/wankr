@@ -18,5 +18,5 @@ cd /d "%~dp0"
 "%INFISICAL_EXE%" init
 
 echo.
-echo Done! Set INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, INFISICAL_PROJECT_ID in .env, then run launch.bat
+echo Done! Set INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, INFISICAL_PROJECT_ID in .env, then run wankr.bat
 pause

@@ -31,7 +31,7 @@ infisical init
 
 Pick your Org and your Project. This creates `.infisical.json` (project binding; currently in `.gitignore`—remove it from `.gitignore` if you want to commit and share project binding).
 
-After that, set `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in `.env`, then run `launch.bat`.
+After that, set `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in `.env`, then run `wankr.bat`.
 
 ### Skip init (optional)
 
@@ -40,7 +40,7 @@ Set `INFISICAL_PROJECT_ID` in `.env` (from the Infisical dashboard URL).
 ---
 
 **Option 1 — Fastest**  
-Put `XAI_API_KEY=xai-...` in `.env`, then run `launch.bat`.
+Put `XAI_API_KEY=xai-...` in `.env`, then run `wankr.bat`.
 
 **Option 2 — Infisical Machine Identity**  
 Put `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in `.env`. The Node backend fetches `XAI_API_KEY` or `grokWankr` from Infisical at startup.
@@ -51,7 +51,7 @@ Put `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in 
 
 The dashboard is a **React + Vite** frontend with a **Node.js** backend in `wankr-backend/`. Same neon-green theme; chat, archive, and training.
 
-**Development:** Run `launch.bat` to start the Node API (port 5000) and React dev server (port 5173). Vite proxies `/api` and `/static` to the Node backend.
+**Development:** Run `wankr.bat` to start the Node API (port 5000) and React dev server (port 5173). Vite proxies `/api` and `/static` to the Node backend.
 
 ```bash
 # Or manually:
@@ -73,4 +73,4 @@ cd ../wankr-backend && npm start
 
 Open **http://127.0.0.1:5000**.
 
-**Restart:** Run `restart.bat` to stop, save chat, and relaunch. Chat is backed up before shutdown and restored when you refresh.
+**Restart:** Run `wankr.bat` to stop, save chat, and relaunch. Chat is backed up before shutdown and restored when you refresh.
