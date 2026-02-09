@@ -11,6 +11,7 @@ import ChatPanel from './components/ChatPanel';
 import Sidebar from './components/Sidebar';
 import ArchiveModal from './components/ArchiveModal';
 import Particles from './components/Particles';
+import TrainingPanel from './components/TrainingPanel';
 import './App.css';
 
 export default function App() {
@@ -32,7 +33,23 @@ export default function App() {
 
   const [trainCount, setTrainCount] = useState(0);
   const [systemPrompt, setSystemPrompt] = useState('');
-  const chat = useChat(conversation, setConversation, systemPrompt, setTrainCount, currentId);
+  const [trainingMode, setTrainingMode] = useState(() => {
+    try {
+      return localStorage.getItem('wankr_training_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  
+  // Persist training mode to localStorage
+  const handleTrainingModeChange = useCallback((enabled) => {
+    setTrainingMode(enabled);
+    try {
+      localStorage.setItem('wankr_training_mode', String(enabled));
+    } catch {}
+  }, []);
+  
+  const chat = useChat(conversation, setConversation, systemPrompt, setTrainCount, currentId, handleTrainingModeChange);
 
   const {
     archiveOpen,
@@ -42,6 +59,10 @@ export default function App() {
     closeArchive,
     handleArchiveSave,
     handleArchiveDiscard,
+    deleteArchivedChat,
+    clearChat,
+    autoArchiveWithWankrName,
+    isRecalledChat,
   } = useArchive(
     conversation,
     currentId,
@@ -54,11 +75,76 @@ export default function App() {
     getTrainCount().then(setTrainCount).catch(() => setTrainCount(0));
   }, []);
 
+  // Sync training mode to backend whenever it changes or on page load
+  useEffect(() => {
+    if (currentId) {
+      console.log(`🔄 Syncing training mode: ${trainingMode} for client: ${currentId}`);
+      fetch('/api/chat/sync-training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: currentId, trainingMode }),
+      })
+        .then(r => r.json())
+        .then(data => console.log('Sync response:', data))
+        .catch(err => console.error('Sync failed:', err));
+    }
+  }, [trainingMode, currentId]);
+
   const handleLoadArchived = useCallback(
-    (id) => {
+    async (id) => {
+      // Capture current state BEFORE switching
+      const shouldAutoArchive = conversation.length > 0 && !isRecalledChat();
+      const messagesSnapshot = shouldAutoArchive ? [...conversation] : null;
+      const idSnapshot = shouldAutoArchive ? currentId : null;
+      
+      // Switch to the target archived chat FIRST (immediately)
       if (loadArchived(id)) closeArchive();
+      
+      // THEN auto-archive the old chat in background (non-blocking)
+      if (shouldAutoArchive && messagesSnapshot && idSnapshot) {
+        // Fire-and-forget auto-archive with timeout
+        (async () => {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+            
+            const response = await fetch('/api/chat/generate-name', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ messages: messagesSnapshot }),
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            
+            const data = await response.json();
+            const name = data.name || 'Unnamed Degen Session';
+            
+            const archivedChat = {
+              id: idSnapshot,
+              name,
+              messages: messagesSnapshot,
+              createdAt: new Date().toISOString(),
+              autoNamed: true,
+            };
+            
+            // Add to sidebar
+            persistArchived(prev => [...prev, archivedChat]);
+            
+            // Send to backend silently
+            fetch('/api/chat/archive', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat: archivedChat }),
+            }).catch(() => {});
+            
+            console.log(`🎭 Wankr named your chat: "${name}"`);
+          } catch (err) {
+            console.error('Auto-archive failed:', err.name === 'AbortError' ? 'timeout' : err);
+          }
+        })();
+      }
     },
-    [loadArchived, closeArchive]
+    [loadArchived, closeArchive, conversation, currentId, isRecalledChat, persistArchived]
   );
 
   useEffect(() => {
@@ -126,37 +212,49 @@ export default function App() {
         <Particles />
         <Header />
         <div
-          className="dashboard-body"
-        style={{
-          background: 'transparent',
-          position: 'relative',
-          zIndex: 10,
-        }}
-      >
-        <div className="dashboard-sidebar">
-          <Sidebar
-            currentLabel={currentLabel}
-            archived={archived}
-            onLoadArchived={handleLoadArchived}
-            onClearChat={startNewChat}
-            onArchive={openArchive}
-            onResetPrompt={() => setSystemPrompt('')}
+          className={`dashboard-body ${trainingMode ? 'with-training' : 'closed-training'}`}
+          style={{
+            background: 'transparent',
+            position: 'relative',
+            zIndex: 10,
+            gridTemplateColumns: trainingMode
+              ? 'var(--dashboard-sidebar-width) 1fr var(--training-panel-width)'
+              : 'var(--dashboard-sidebar-width) 1fr 0px',
+          }}
+        >
+          <div className="dashboard-sidebar">
+            <Sidebar
+              currentId={currentId}
+              hasMessages={conversation.length > 0}
+              archived={archived}
+              onLoadArchived={handleLoadArchived}
+              onStartNewChat={startNewChat}
+              onClearChat={clearChat}
+              onArchive={openArchive}
+              onDeleteArchived={deleteArchivedChat}
+              thoughts={chat.thoughts}
+            />
+          </div>
+          <div className="dashboard-main">
+            <ChatPanel
+              messages={conversation}
+              onSend={chat.handleSend}
+              onStop={chat.handleStop}
+              disabled={chat.sending}
+            />
+          </div>
+          <TrainingPanel
+            trainingMode={trainingMode}
+            onConfigChange={(newConfig) => {
+              console.log('Training config updated', newConfig);
+            }}
             systemPrompt={systemPrompt}
             onSystemPromptChange={setSystemPrompt}
+            onResetPrompt={() => setSystemPrompt('')}
             onTrain={chat.handleTrain}
             trainCount={trainCount}
-            thoughts={chat.thoughts}
           />
         </div>
-        <div className="dashboard-main">
-          <ChatPanel
-            messages={conversation}
-            onSend={chat.handleSend}
-            onStop={chat.handleStop}
-            disabled={chat.sending}
-          />
-        </div>
-      </div>
       </div>
       <ArchiveModal
         open={archiveOpen}

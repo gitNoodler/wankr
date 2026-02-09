@@ -1,16 +1,20 @@
 function Sidebar({
-  currentLabel,
+  currentId,
+  hasMessages,
   archived,
   onLoadArchived,
+  onStartNewChat,
   onClearChat,
   onArchive,
-  onResetPrompt,
-  systemPrompt,
-  onSystemPromptChange,
-  onTrain,
-  trainCount,
+  onDeleteArchived,
   thoughts,
 }) {
+  // Check if viewing a recalled archived chat
+  const isViewingArchived = archived.some(c => c.id === currentId);
+  
+  // Top label: "New Chat" if viewing archived or no messages, "Current chat" if has messages
+  const topLabel = isViewingArchived ? 'New Chat' : (hasMessages ? 'Current chat' : 'New Chat');
+  const topIsActive = !isViewingArchived && hasMessages;
   return (
     <div
       className="wankr-panel sidebar-panel"
@@ -102,133 +106,96 @@ function Sidebar({
               display: 'flex',
               flexDirection: 'column',
               gap: '4px',
-              maxHeight: 'calc(130px * var(--scale))',
+              maxHeight: 'calc(280px * var(--scale))',
               overflowY: 'auto',
               fontSize: 'calc(14px * var(--scale))',
             }}
           >
             <div
+              onClick={isViewingArchived ? onStartNewChat : undefined}
               style={{
                 padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
                 borderRadius: 'calc(6px * var(--scale))',
                 color: 'var(--text-content)',
-                background: 'linear-gradient(180deg, rgba(0, 255, 0, 0.16) 0%, rgba(0, 255, 0, 0.1) 100%)',
+                background: topIsActive
+                  ? 'linear-gradient(180deg, rgba(0, 255, 0, 0.16) 0%, rgba(0, 255, 0, 0.1) 100%)'
+                  : 'linear-gradient(180deg, #1a1a1a 0%, #101010 100%)',
                 border: '1px solid rgba(100, 100, 100, 0.5)',
-                boxShadow: '0 2px 10px rgba(0, 255, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16)',
+                boxShadow: topIsActive
+                  ? '0 2px 10px rgba(0, 255, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16)'
+                  : '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                cursor: isViewingArchived ? 'pointer' : 'default',
               }}
             >
-              {currentLabel}
+              {topLabel}
             </div>
-            {[...archived].reverse().map((c) => (
+            {[...archived].reverse().map((c) => {
+              const isActive = c.id === currentId;
+              return (
               <div
                 key={c.id}
-                className="convo-item"
+                className={`convo-item ${isActive ? 'convo-active' : ''}`}
                 style={{
                   padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
                   borderRadius: 'calc(6px * var(--scale))',
                   color: 'var(--text-content)',
-                  background: 'linear-gradient(180deg, #1a1a1a 0%, #101010 100%)',
-                  border: '1px solid rgba(100, 100, 100, 0.5)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '4px',
                 }}
                 title={`${c.name || 'Unnamed'}${c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString()}` : ''}`}
-                onClick={() => onLoadArchived(c.id)}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'linear-gradient(180deg, rgba(0, 255, 0, 0.15) 0%, rgba(0, 255, 0, 0.08) 100%)';
-                  e.target.style.borderColor = 'rgba(100, 100, 100, 0.6)';
-                  e.target.style.boxShadow = '0 2px 10px rgba(0, 255, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'linear-gradient(180deg, #1c1c1c 0%, #161616 100%)';
-                  e.target.style.borderColor = 'rgba(100, 100, 100, 0.6)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)';
-                }}
               >
-                {c.name?.trim() || 'Unnamed'}
+                <span
+                  onClick={() => onLoadArchived(c.id)}
+                  style={{
+                    flex: 1,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {c.name?.trim() || 'Unnamed'}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteArchived(c);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'rgba(255, 100, 100, 0.6)',
+                    cursor: 'pointer',
+                    padding: '2px 6px',
+                    fontSize: 'calc(14px * var(--scale))',
+                    fontWeight: 'bold',
+                    lineHeight: 1,
+                    borderRadius: '4px',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = '#ff4444';
+                    e.target.style.background = 'rgba(255, 68, 68, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = 'rgba(255, 100, 100, 0.6)';
+                    e.target.style.background = 'transparent';
+                  }}
+                  title="Delete this chat"
+                >
+                  ×
+                </button>
               </div>
-            ))}
+              );
+            })}
           </div>
-        </div>
-
-        {/* Training */}
-        <div>
-          <div className="sidebar-title">Training</div>
-          <div
-            style={{
-              padding: 'var(--dashboard-input-padding)',
-              background: 'linear-gradient(180deg, #141414 0%, #161616 100%)',
-              border: '1px solid rgba(100, 100, 100, 0.5)',
-              borderRadius: 'var(--dashboard-panel-radius)',
-              boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 12px rgba(0, 255, 0, 0.08)',
-            }}
-          >
-            <label
-              style={{
-                display: 'block',
-                fontSize: 'calc(12px * var(--scale))',
-                marginBottom: '6px',
-                color: 'var(--text-content)',
-              }}
-            >
-              System prompt (training data only)
-            </label>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => onSystemPromptChange(e.target.value)}
-              className="input-field scroll-area"
-              placeholder="Optional override. Chat always uses Wankr identity."
-              style={{
-                width: '100%',
-                height: 'calc(100px * var(--scale))',
-                borderRadius: 'var(--dashboard-input-border-radius)',
-                padding: '8px',
-                fontSize: 'calc(12px * var(--scale))',
-                fontFamily: 'monospace',
-                resize: 'none',
-              }}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={onResetPrompt}
-            className="btn w-full text-sm"
-            style={{
-              borderRadius: 'var(--dashboard-panel-radius)',
-              marginTop: '8px',
-              padding: 'calc(15px * var(--scale))',
-            }}
-          >
-            Reset system prompt
-          </button>
-          <button
-            type="button"
-            onClick={onTrain}
-            className="btn-primary w-full text-sm font-medium"
-            style={{
-              borderRadius: 'var(--dashboard-panel-radius)',
-              marginTop: '8px',
-              padding: 'calc(17px * var(--scale))',
-            }}
-          >
-            Add to training data
-          </button>
-          <p
-            style={{
-              fontSize: 'calc(12px * var(--scale))',
-              marginTop: '6px',
-              color: 'var(--text-content)',
-            }}
-          >
-            Training examples: <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{trainCount}</span>
-          </p>
         </div>
 
         {/* Thought Process */}

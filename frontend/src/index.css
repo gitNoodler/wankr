@@ -770,3 +770,57 @@ body {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
   30% { transform: translateY(-8px); opacity: 1; }
 }
+
+/* ── Training Panel (right side) ── */
+:root {
+  --training-panel-width: 380px;
+  --training-panel-width-closed: 0px;
+}
+
+.training-panel {
+  width: var(--training-panel-width);
+  min-width: var(--training-panel-width);
+  background: var(--bg-panel);
+  border-left: 2px solid var(--accent);
+  box-shadow: -12px 0 40px rgba(0, 255, 65, 0.15);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.training-panel.closed {
+  width: var(--training-panel-width-closed);
+  min-width: 0;
+  border-left: none;
+  box-shadow: none;
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.dashboard-body.with-training {
+  grid-template-columns: var(--dashboard-sidebar-width) 1fr var(--training-panel-width);
+}
+
+.dashboard-body.closed-training {
+  grid-template-columns: var(--dashboard-sidebar-width) 1fr var(--training-panel-width-closed);
+}
+
+/* ── Conversation Items ── */
+.convo-item {
+  background: linear-gradient(180deg, #1a1a1a 0%, #101010 100%);
+  border: 1px solid rgba(100, 100, 100, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.convo-item:hover:not(.convo-active) {
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.15) 0%, rgba(0, 255, 0, 0.08) 100%);
+  border-color: rgba(100, 100, 100, 0.6);
+  box-shadow: 0 2px 10px rgba(0, 255, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.convo-item.convo-active {
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.16) 0%, rgba(0, 255, 0, 0.1) 100%) !important;
+  border-color: rgba(0, 255, 0, 0.4) !important;
+  box-shadow: 0 2px 10px rgba(0, 255, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}

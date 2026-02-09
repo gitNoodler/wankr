@@ -21,7 +21,7 @@ const TRAINING_KEY_STORAGE = 'wankr_training_key';
 const TRAINING_ENABLE_CMD = '/wankr n da clankr';
 const TRAINING_DISABLE_CMD = '/gangstr is uh prankstr';
 
-export function useChat(conversation, setConversation, systemPrompt, onTrainCountChange, clientId) {
+export function useChat(conversation, setConversation, systemPrompt, onTrainCountChange, clientId, onTrainingModeChange) {
   const [sending, setSending] = useState(false);
   const [thoughts, setThoughts] = useState([]);
   const abortRef = useRef(null);
@@ -87,28 +87,19 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
       try {
         const controller = new AbortController();
         abortRef.current = controller;
-        if (isTrainingEnable || isTrainingDisable) {
-          const key = getTrainingKey();
-          if (!key) {
-            setConversation((prev) => [...prev, { role: 'wankr', content: TRAINING_REQUIRED_REPLY }]);
-            return;
+        
+        // Training commands are sent as regular messages - backend handles them via Infisical key
+        const reply = await sendChat(msg, history, controller.signal, { clientId });
+        
+        // Detect training mode changes from response
+        if (reply && typeof onTrainingModeChange === 'function') {
+          if (reply.includes('Training mode activated')) {
+            onTrainingModeChange(true);
+          } else if (reply.includes('Training mode deactivated')) {
+            onTrainingModeChange(false);
           }
-          const reply = await sendChat('', history, controller.signal, {
-            clientId,
-            command: isTrainingEnable ? 'training_enable' : 'training_disable',
-            trainingKey: key,
-          });
-          setConversation((prev) => [
-            ...prev,
-            { role: 'wankr', content: reply || FALLBACK_REPLY },
-          ]);
-          return;
         }
-
-        const reply = await sendChat(msg, history, controller.signal, {
-          clientId,
-          trainingKey: getStoredTrainingKey(),
-        });
+        
         setConversation((prev) => [
           ...prev,
           { role: 'wankr', content: reply || FALLBACK_REPLY },
@@ -133,7 +124,7 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
         abortRef.current = null;
       }
     },
-    [conversation, setConversation, clientId]
+    [conversation, setConversation, clientId, onTrainingModeChange]
   );
 
   const handleStop = useCallback(() => {

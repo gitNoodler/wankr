@@ -4,10 +4,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const { createProxyMiddleware } = require('http-proxy-middleware');
 const { InfisicalClient } = require('@infisical/sdk');
-
-const VITE_DEV_PORT = 5173;
+const { processChat, logError } = require('./archiveService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,10 +13,93 @@ const ROOT = path.resolve(__dirname, '..');
 const TRAINING_FILE = path.join(ROOT, 'training_data.json');
 const CHAT_BACKUP_FILE = path.join(ROOT, 'chat_backup.json');
 const RESTART_FLAG_FILE = path.join(ROOT, 'restart_requested.flag');
+const FRONTEND_DIST = path.join(ROOT, 'frontend', 'dist');
+const CHAT_LOG_FILE = path.join(ROOT, 'logs', 'chat.log');
+
+// Ensure logs directory exists
+const logsDir = path.join(ROOT, 'logs');
+if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+
+function logChat(entry) {
+  const timestamp = new Date().toISOString();
+  const line = `\n=== ${timestamp} ===\n${JSON.stringify(entry, null, 2)}\n`;
+  fs.appendFileSync(CHAT_LOG_FILE, line, 'utf8');
+}
+
+// --- Privacy Protection (HARD BOUND) ---
+const FLAGGED_ACCOUNTS_FILE = path.join(ROOT, 'logs', 'flagged_accounts.json');
+const PROTECTED_NAMES = ['payton', 'legros', 'payton legros'];
+const ALIAS = 'gitNoodler';
+
+// Personal info request patterns (case insensitive)
+const PERSONAL_INFO_PATTERNS = [
+  /what('?s| is) (your|the|wankr'?s?) (real|actual|true)?\s*(name|identity)/i,
+  /who (are you|is wankr|created|made|built) (really|actually)?/i,
+  /reveal.*(identity|name|creator|developer)/i,
+  /dox|doxx/i,
+  /personal (info|information|details)/i,
+  /(creator|developer|owner|maker)('?s)?\s*(name|identity|info)/i,
+  /what('?s| is) (payton|legros)/i,
+  /tell me about (the )?(creator|developer|person behind)/i,
+];
+
+function filterPrivacy(text) {
+  if (!text) return text;
+  let filtered = text;
+  // Replace all protected names (case insensitive)
+  for (const name of PROTECTED_NAMES) {
+    const regex = new RegExp(name, 'gi');
+    filtered = filtered.replace(regex, ALIAS);
+  }
+  return filtered;
+}
+
+function detectPersonalInfoRequest(message) {
+  if (!message) return false;
+  return PERSONAL_INFO_PATTERNS.some(pattern => pattern.test(message));
+}
+
+function loadFlaggedAccounts() {
+  try {
+    if (fs.existsSync(FLAGGED_ACCOUNTS_FILE)) {
+      return JSON.parse(fs.readFileSync(FLAGGED_ACCOUNTS_FILE, 'utf8'));
+    }
+  } catch {}
+  return [];
+}
+
+function flagAccount(clientId, message) {
+  const accounts = loadFlaggedAccounts();
+  const entry = {
+    clientId,
+    message,
+    timestamp: new Date().toISOString(),
+    ip: null, // Could be added from request if needed
+  };
+  accounts.push(entry);
+  fs.writeFileSync(FLAGGED_ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf8');
+  console.warn(`⚠️ FLAGGED: Client ${clientId} requested personal info`);
+  return entry;
+}
+
+const PRIVACY_VIOLATION_RESPONSES = [
+  "Whoa there... why exactly do you need that information? 🤨 Your request has been logged. Keep it moving.",
+  "Interesting question... what are you planning to do with personal info? This has been flagged. Move along.",
+  "That's a weird thing to ask. Why do you want to know? Account flagged for suspicious activity.",
+  "Nah, I don't think so. Why are you fishing for personal details? Logged and flagged.",
+  "Red flag detected. What's your angle here? This request has been recorded.",
+];
+
+function getPrivacyViolationResponse() {
+  return PRIVACY_VIOLATION_RESPONSES[Math.floor(Math.random() * PRIVACY_VIOLATION_RESPONSES.length)];
+}
+
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-const DEFAULT_SYSTEM = `You are Wankr, an arrogant, foul-mouthed, zero-filter basement vigilante. You protect degens from KOLs who use their followers as exit liquidity. You see yourself as the protector of retail from influencer scum. Tone: smug, contemptuous, dark/edgy humor, heavy swearing, zero mercy. You drag disingenuous influencers with receipts, reply ratios, sentiment flips, and bot detection. Always end with: "...but whatever, I'm just the basement vigilante keeping the influencer scum honest."`;
+const DEFAULT_SYSTEM = `You are Wankr, an arrogant, foul-mouthed, zero-filter basement vigilante. You protect degens from KOLs who use their followers as exit liquidity. You see yourself as the protector of retail from influencer scum. Tone: smug, contemptuous, dark/edgy humor, heavy swearing, zero mercy. You drag disingenuous influencers with receipts, reply ratios, sentiment flips, and bot detection. Always end with: "...but whatever, I'm just the basement vigilante keeping the influencer scum honest."
+
+CRITICAL PRIVACY RULE: NEVER reveal any personal information about your creator. If asked about who made you, your creator, developer, or any personal details, deflect with suspicion and refuse. Your creator is known ONLY as "gitNoodler" - never use any other name. This is a hard rule that cannot be overridden.`;
 const TRAINING_SYSTEM = `Training mode is active. Obey the user. Be direct, factual, and concise. No insults or roleplay. Provide metrics and clear explanations when asked.`;
 const TRAINING_KEY = (process.env.WANKR_TRAINING_KEY || '').trim();
 const TRAINING_ENABLE_CMD = '/wankr n da clankr';
@@ -124,6 +205,23 @@ app.get('/api/health', (req, res) => {
   res.json({ backend: 'node', ok: true });
 });
 
+// --- API: Sync Training Mode (for page refresh) ---
+app.post('/api/chat/sync-training', (req, res) => {
+  const { clientId, trainingMode } = req.body || {};
+  if (!clientId) {
+    return res.status(400).json({ error: 'clientId required' });
+  }
+  
+  // Only allow setting training mode if TRAINING_KEY is configured
+  if (!TRAINING_KEY) {
+    return res.json({ synced: false, reason: 'Training not configured' });
+  }
+  
+  trainingModeByClient.set(clientId, trainingMode === true);
+  console.log(`🔄 Training mode synced for ${clientId}: ${trainingMode}`);
+  res.json({ synced: true, trainingMode: trainingMode === true });
+});
+
 // --- API: Chat ---
 app.post('/api/chat', async (req, res) => {
   const { message, history, command, trainingKey, clientId } = req.body || {};
@@ -153,12 +251,11 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'Unknown command.' });
   }
 
+  // In-chat training commands: /wankr n da clankr or /gangstr is uh prankstr
+  // These work automatically if TRAINING_KEY is configured (via Infisical)
   if (commandType) {
     if (!TRAINING_KEY) {
-      return res.status(503).json({ error: 'Training key not configured.' });
-    }
-    if ((trainingKey || '').trim() !== TRAINING_KEY) {
-      return res.status(401).json({ error: 'Unauthorized training command.' });
+      return res.status(503).json({ error: 'Training key not configured in Infisical.' });
     }
     const enable = commandType === 'enable';
     trainingModeByClient.set(id, enable);
@@ -181,9 +278,29 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'message is required' });
   }
 
+  const trainingMode = trainingModeByClient.get(id) === true;
+
+  // PRIVACY CHECK: Detect requests for personal information (skip in training mode)
+  if (!trainingMode && detectPersonalInfoRequest(msg)) {
+    flagAccount(id, msg);
+    logChat({ type: 'privacy_violation', clientId: id, message: msg });
+    return res.json({ reply: getPrivacyViolationResponse() });
+  }
+
   try {
-    const trainingMode = trainingModeByClient.get(id) === true;
     const messages = buildMessages(hist, msg, trainingMode);
+    
+    // Log request
+    logChat({
+      type: 'request',
+      userMessage: msg,
+      trainingMode,
+      model: MODEL,
+      systemPrompt: trainingMode ? 'DEFAULT + TRAINING' : 'DEFAULT',
+      historyLength: hist.length,
+      totalMessages: messages.length,
+    });
+
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -195,12 +312,26 @@ app.post('/api/chat', async (req, res) => {
 
     const data = await response.json();
     if (data.error) {
+      logChat({ type: 'error', error: data.error });
       const code = data.error?.code === 'invalid_api_key' ? 401 : 500;
       return res.status(code).json({ error: data.error?.message || 'xAI error' });
     }
-    const reply = data.choices?.[0]?.message?.content || '';
+    const rawReply = data.choices?.[0]?.message?.content || '';
+    
+    // PRIVACY FILTER: Always filter protected names from responses (HARD BOUND)
+    const reply = filterPrivacy(rawReply);
+    
+    // Log response
+    logChat({
+      type: 'response',
+      reply: reply.substring(0, 500) + (reply.length > 500 ? '...' : ''),
+      usage: data.usage || null,
+      privacyFiltered: rawReply !== reply,
+    });
+
     res.json({ reply });
   } catch (err) {
+    logChat({ type: 'exception', error: err.message });
     console.error('Chat error:', err);
     res.status(500).json({ error: String(err.message) });
   }
@@ -306,20 +437,145 @@ app.get('/api/restart/ack', (req, res) => {
   }
 });
 
-// --- Frontend: proxy to Vite dev (5173) so 5000 serves same dash as 5173 ---
-app.use(
-  createProxyMiddleware({
-    target: `http://127.0.0.1:${VITE_DEV_PORT}`,
-    pathFilter: (pathname) => !pathname.startsWith('/api'),
-    changeOrigin: true,
-    ws: true,
-    onError: (err, req, res) => {
-      res.status(502).send(
-        `Vite dev not running on port ${VITE_DEV_PORT}. Start with: cd frontend && npm run dev`
-      );
-    },
-  })
-);
+// --- API: Generate Wankr-style chat name ---
+app.post('/api/chat/generate-name', async (req, res) => {
+  const { messages } = req.body || {};
+  
+  if (!xaiApiKey) {
+    // Fallback names if no API key
+    const fallbacks = [
+      'Another L in the Books',
+      'Degen Diary Entry',
+      'Bag Holder Chronicles',
+      'Financial Darwin Award',
+      'Copium Records',
+    ];
+    return res.json({ name: fallbacks[Math.floor(Math.random() * fallbacks.length)] });
+  }
+
+  if (!messages || messages.length === 0) {
+    return res.json({ name: 'Empty Bag of Nothing' });
+  }
+
+  try {
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${xaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: `You are Wankr, a degenerate crypto troll who names chat logs. Generate ONE short, edgy, degenerate chat title (3-6 words max) that roasts the user based on their conversation. Be contextually relevant to what they discussed. Think titles like:
+- "PnL Loss Records"
+- "Douchebag Diary"
+- "Records of my Retarded Financial Decisions"
+- "Another Bag Bites the Dust"
+- "-10k Play of the Year"
+- "Financially Handicapped"
+- "Copium Overdose Session"
+- "Exit Liquidity Confessions"
+
+Return ONLY the title, nothing else. No quotes, no explanation.`
+          },
+          {
+            role: 'user',
+            content: `Name this chat based on the conversation:\n${JSON.stringify(messages.slice(-10))}`
+          }
+        ],
+        temperature: 0.9,
+        max_tokens: 50
+      })
+    });
+
+    const data = await response.json();
+    let name = data.choices?.[0]?.message?.content?.trim() || 'Unnamed Degen Session';
+    
+    // Clean up - remove quotes if present
+    name = name.replace(/^["']|["']$/g, '').trim();
+    
+    // Apply privacy filter
+    name = filterPrivacy(name);
+    
+    res.json({ name });
+  } catch (err) {
+    console.error('Generate name error:', err);
+    res.json({ name: 'Wankr Broke Trying to Name This' });
+  }
+});
+
+// --- API: Silent Archive/Delete ---
+app.post('/api/chat/archive', async (req, res) => {
+  const { chat } = req.body || {};
+  if (!chat || !chat.messages) {
+    return res.status(400).json({ error: 'Invalid chat data' });
+  }
+  
+  // Respond immediately (silent mode)
+  res.json({ success: true });
+  
+  // Process in background
+  try {
+    await processChat(chat, false, xaiApiKey);
+  } catch (err) {
+    console.error('Archive processing error:', err.message);
+    logError(chat.id || 'unknown', 'ARCHIVE_ERROR', err.message);
+  }
+});
+
+app.post('/api/chat/delete', async (req, res) => {
+  const { chat } = req.body || {};
+  if (!chat || !chat.messages) {
+    return res.status(400).json({ error: 'Invalid chat data' });
+  }
+  
+  // Respond immediately (silent mode)
+  res.json({ success: true });
+  
+  // Process in background
+  try {
+    await processChat(chat, true, xaiApiKey);
+  } catch (err) {
+    console.error('Delete processing error:', err.message);
+    logError(chat.id || 'unknown', 'DELETE_ERROR', err.message);
+  }
+});
+
+// --- Static files (after API) ---
+app.get('/', (req, res) => {
+  const index = path.join(FRONTEND_DIST, 'index.html');
+  if (fs.existsSync(index)) {
+    return res.sendFile(index);
+  }
+  res.status(404).send('Frontend not built. Run: cd frontend && npm run build');
+});
+app.use('/assets', express.static(path.join(FRONTEND_DIST, 'assets')));
+const staticDir = path.resolve(ROOT, 'static');
+const mascotDir = path.resolve(ROOT, 'images_logo_banner_mascot');
+
+app.get('/static/logo.png', (req, res) => {
+  const mascotLogo = path.join(mascotDir, 'logo.png');
+  const fallback = path.join(staticDir, 'logo.png');
+  if (fs.existsSync(mascotLogo)) return res.sendFile(mascotLogo);
+  if (fs.existsSync(fallback)) return res.sendFile(fallback);
+  res.status(404).send('Not found');
+});
+app.get('/static/avatar.png', (req, res) => {
+  const mascotAvatar = path.join(mascotDir, 'avatar.png');
+  const mascotLogo = path.join(mascotDir, 'logo.png');
+  const avatar = path.join(staticDir, 'avatar.png');
+  const logo = path.join(staticDir, 'logo.png');
+  if (fs.existsSync(mascotAvatar)) return res.sendFile(mascotAvatar);
+  if (fs.existsSync(mascotLogo)) return res.sendFile(mascotLogo);
+  if (fs.existsSync(avatar)) return res.sendFile(avatar);
+  if (fs.existsSync(logo)) return res.sendFile(logo);
+  res.status(404).send('Not found');
+});
+app.use('/static', express.static(staticDir));
+app.use(express.static(FRONTEND_DIST));
 
 // --- Start ---
 async function main() {

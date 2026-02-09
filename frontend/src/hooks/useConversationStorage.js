@@ -45,33 +45,80 @@ export function useConversationStorage() {
     localStorage.setItem(STORAGE_CURRENT_MESSAGES, JSON.stringify(messages));
   }, []);
 
-  const persistArchived = useCallback((list) => {
-    const trimmed = list.slice(-MAX_ARCHIVED);
-    localStorage.setItem(STORAGE_ARCHIVED, JSON.stringify(trimmed));
-    setArchived(trimmed);
+  const persistArchived = useCallback((listOrFn) => {
+    setArchived(prev => {
+      const newList = typeof listOrFn === 'function' ? listOrFn(prev) : listOrFn;
+      const trimmed = newList.slice(-MAX_ARCHIVED);
+      localStorage.setItem(STORAGE_ARCHIVED, JSON.stringify(trimmed));
+      return trimmed;
+    });
   }, []);
 
   useEffect(() => {
     saveCurrent(currentId, conversation);
   }, [currentId, conversation, saveCurrent]);
 
+  // Update an archived chat's messages if it exists in the archive
+  const updateArchivedIfExists = useCallback((id, messages) => {
+    setArchived(prev => {
+      const idx = prev.findIndex(c => c.id === id);
+      if (idx === -1) return prev; // Not an archived chat, no update needed
+      
+      const updated = [...prev];
+      updated[idx] = {
+        ...updated[idx],
+        messages: [...messages],
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_ARCHIVED, JSON.stringify(updated.slice(-MAX_ARCHIVED)));
+      return updated;
+    });
+  }, []);
+
   const startNewChat = useCallback(() => {
+    // Update current archived chat before switching (if it exists in archive)
+    setArchived(prev => {
+      const idx = prev.findIndex(c => c.id === currentId);
+      if (idx === -1) return prev;
+      
+      const updated = [...prev];
+      updated[idx] = {
+        ...updated[idx],
+        messages: [...conversation],
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_ARCHIVED, JSON.stringify(updated.slice(-MAX_ARCHIVED)));
+      return updated;
+    });
+    
     setCurrentId(`c-${Date.now()}`);
     setConversation([]);
-  }, []);
+  }, [currentId, conversation]);
 
   const handleLoadArchived = useCallback(
     (id) => {
       const idx = archived.findIndex((c) => c.id === id);
       if (idx === -1) return;
+      
+      // Update current archived chat before switching (if it exists in archive)
+      const currentIdx = archived.findIndex(c => c.id === currentId);
+      if (currentIdx !== -1 && currentId !== id) {
+        const updated = [...archived];
+        updated[currentIdx] = {
+          ...updated[currentIdx],
+          messages: [...conversation],
+          updatedAt: new Date().toISOString(),
+        };
+        persistArchived(updated);
+      }
+      
       const c = archived[idx];
       setConversation(Array.isArray(c.messages) ? [...c.messages] : []);
       setCurrentId(c.id);
-      const next = archived.filter((x) => x.id !== id);
-      persistArchived(next);
-      return true; // caller can close archive modal
+      // Keep in sidebar - only remove on explicit delete or logout
+      return true;
     },
-    [archived, persistArchived]
+    [archived, currentId, conversation, persistArchived]
   );
 
   const currentLabel = conversation.length ? 'Current chat' : 'New chat';

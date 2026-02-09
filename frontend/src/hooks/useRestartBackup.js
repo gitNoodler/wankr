@@ -6,11 +6,15 @@
 import { useEffect, useRef } from 'react';
 import { api } from '../utils/api';
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 5000;
 
 export function useRestartBackup(conversation, currentId) {
   const backingUp = useRef(false);
   const pollingDisabled = useRef(false);
+  const conversationRef = useRef(conversation);
+  const currentIdRef = useRef(currentId);
+  conversationRef.current = conversation;
+  currentIdRef.current = currentId;
 
   useEffect(() => {
     if (pollingDisabled.current) return;
@@ -24,17 +28,16 @@ export function useRestartBackup(conversation, currentId) {
         if (!data?.restartRequested) return;
         backingUp.current = true;
         await api.post('/api/chat/backup', {
-          messages: conversation,
-          currentId: currentId || '',
+          messages: conversationRef.current,
+          currentId: currentIdRef.current || '',
         });
         await api.get('/api/restart/ack');
       } catch {
-        // If the backend is down, stop polling to avoid spam.
         pollingDisabled.current = true;
       } finally {
         backingUp.current = false;
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [conversation, currentId]);
+  }, []);
 }
