@@ -1,5 +1,5 @@
-# Railway: build and run wankr-backend
-FROM node:20-alpine
+# Railway: build and run wankr-backend (Debian for Infisical native bindings)
+FROM node:20-slim
 
 WORKDIR /app
 
