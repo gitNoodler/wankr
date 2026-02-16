@@ -75,6 +75,7 @@ export default function RobotScene({
         left: '50%',
         top: '50%',
         transform: 'translate(-50%, -50%)',
+        /* Viewport units preserve aspect ratio; same in Vite dev and production (root has overflow:hidden) */
         width: `min(100vw, 100vh * ${CANVAS.width / CANVAS.height})`,
         height: `min(100vh, 100vw * ${CANVAS.height / CANVAS.width})`,
         isolation: 'isolate',
@@ -93,13 +94,14 @@ export default function RobotScene({
       >
 {showLayerWankrBody && (
           <>
+            {/* Body only: Body scale/offset sliders control this */}
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 zIndex: 10,
                 pointerEvents: 'none',
-                transform: `translate(${robotOffsetX}%, ${robotOffsetY}%) scaleX(${robotScaleX / 100}) scaleY(${robotScaleY / 100})`,
+                transform: `translate(${backOffsetX}%, ${backOffsetY}%) scaleX(${backScaleX / 100}) scaleY(${backScaleY / 100})`,
                 transformOrigin: 'center center',
               }}
             >
@@ -111,27 +113,35 @@ export default function RobotScene({
                   backgroundSize: 'contain',
                   backgroundPosition: 'center',
                   backgroundRepeat: 'no-repeat',
-                  transform: `translate(${backOffsetX}%, ${backOffsetY}%) scaleX(${backScaleX / 100}) scaleY(${backScaleY / 100})`,
-                  transformOrigin: 'center center',
                   filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 3px rgba(0,255,65,0.1)) drop-shadow(0 0 10px rgba(0,255,65,0.08)) drop-shadow(0 -1px 4px rgba(0,255,80,0.06))`,
                 }}
               />
             </div>
+            {/* Robot (arms + hands): Robot scale/offset sliders control this wrapper — shoulder + hands */}
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 zIndex: 11,
                 pointerEvents: 'none',
-                backgroundImage: `url(${layer3Img})`,
-                backgroundSize: 'contain',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                transform: `translate(${shoulderOffsetX}%, ${shoulderOffsetY}%) scaleX(${shoulderScaleX / 100}) scaleY(${shoulderScaleY / 100})`,
+                transform: `translate(${robotOffsetX}%, ${robotOffsetY}%) scaleX(${robotScaleX / 100}) scaleY(${robotScaleY / 100})`,
                 transformOrigin: 'center center',
-                filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 3px rgba(0,255,65,0.08)) drop-shadow(0 0 8px rgba(0,255,65,0.06))`,
               }}
-            />
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundImage: `url(${layer3Img})`,
+                  backgroundSize: 'contain',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  transform: `translate(${shoulderOffsetX}%, ${shoulderOffsetY}%) scaleX(${shoulderScaleX / 100}) scaleY(${shoulderScaleY / 100})`,
+                  transformOrigin: 'center center',
+                  filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 3px rgba(0,255,65,0.08)) drop-shadow(0 0 8px rgba(0,255,65,0.06))`,
+                }}
+              />
+            </div>
           </>
         )}
         
