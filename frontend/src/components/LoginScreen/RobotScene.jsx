@@ -176,18 +176,18 @@ export default function RobotScene({
                 width: '100%',
                 height: '100%',
                 maxWidth: '100%',
-                containerType: 'inline-size',
-                padding: `clamp(8px, 2.5%, 20px) clamp(${4 * panelRightMargin / 100}px, ${1.25 * panelRightMargin / 100}cqi, ${10 * panelRightMargin / 100}px) clamp(${8 * buttonsBottomGap / 100}px, ${2.5 * buttonsBottomGap / 100}%, ${20 * buttonsBottomGap / 100}px) clamp(8px, 2.5%, 20px)`,
+                containerType: 'size',
+                padding: `${2 * (buttonsBottomGap / 100)}cqi ${1.25 * (panelRightMargin / 100)}cqi`,
                 marginLeft: panelContentOffsetX !== 0 ? `${panelContentOffsetX}%` : undefined,
                 background: panelBg,
-                borderRadius: 'clamp(8px, 2%, 16px)',
+                borderRadius: '2cqi',
                 border: `2px solid rgba(0, 255, 65, ${panelBorderBrightness / 100})`,
                 boxShadow: sparkActive
                   ? `inset 0 2px 12px rgba(255,255,255,0.12), inset 0 -2px 12px rgba(0,0,0,0.3), inset 2px 0 8px rgba(0,0,0,0.15), inset -2px 0 8px rgba(0,0,0,0.15), 0 0 24px rgba(0,255,65,${panelBorderBrightness / 100 * 0.6}), 0 0 48px rgba(0,255,65,${panelBorderBrightness / 100 * 0.35}), 0 0 80px rgba(200,255,120,0.2), 0 0 120px rgba(200,255,100,0.1), 0 4px 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.5)`
                   : `inset 0 2px 12px rgba(255,255,255,0.08), inset 0 -2px 12px rgba(0,0,0,0.35), inset 2px 0 8px rgba(0,0,0,0.2), inset -2px 0 8px rgba(0,0,0,0.2), 0 0 20px rgba(0,255,65,${panelBorderBrightness / 100 * 0.4}), 0 0 40px rgba(0,255,65,${panelBorderBrightness / 100 * 0.2}), 0 0 80px rgba(0,255,65,0.1), 0 4px 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.5)`,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 'clamp(4px, 1.25%, 14px)',
+                gap: '1.25cqi',
                 position: 'relative',
                 transition: 'box-shadow 0.1s ease-out',
               }}

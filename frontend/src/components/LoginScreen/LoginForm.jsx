@@ -41,29 +41,29 @@ export default function LoginForm({
 
   return (
     <>
-      {/* Main title - scaled up */}
+      {/* Main title - proportion-locked to pane (cqi/cqh) */}
       <div
         className="font-wankr"
         style={{
-          fontSize: `clamp(${54 * ts}px, ${12 * ts}cqi, ${108 * ts}px)`,
+          fontSize: `${12 * ts}cqi`,
           fontWeight: 900,
           color: 'var(--accent)',
           textAlign: 'center',
-          letterSpacing: '4px',
+          letterSpacing: '0.15cqi',
           textShadow: '0 0 16px rgba(0, 255, 65, 0.7)',
-          marginBottom: 'clamp(1px, 0.25cqi, 3px)',
+          marginBottom: '0.25cqi',
           transform: `translate(${titleOffsetX}%, ${titleOffsetY}%)`,
         }}
       >
         WANKR BOT
       </div>
-      {/* Subtitle - morphs between LOGIN and REGISTER */}
+      {/* Subtitle - proportion-locked */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 'clamp(6px, 1.5cqi, 12px)',
-          marginBottom: 'clamp(1px, 0.25cqi, 3px)',
+          gap: '1.5cqi',
+          marginBottom: '0.25cqi',
           transform: `translate(${subtitleOffsetX}%, ${subtitleOffsetY}%)`,
         }}
       >
@@ -76,7 +76,7 @@ export default function LoginForm({
               border: 'none',
               color: 'var(--accent)',
               cursor: 'pointer',
-              padding: '4px',
+              padding: '0.5cqi',
               display: 'flex',
               alignItems: 'center',
               opacity: 0.8,
@@ -91,11 +91,11 @@ export default function LoginForm({
         <div
           className="font-wankr"
           style={{
-            fontSize: `clamp(${24 * ss}px, ${6 * ss}cqi, ${48 * ss}px)`,
+            fontSize: `${6 * ss}cqi`,
             fontWeight: 700,
             color: 'var(--accent)',
             textAlign: 'center',
-            letterSpacing: '2px',
+            letterSpacing: '0.08cqi',
             textShadow: '0 0 12px rgba(0, 255, 65, 0.6)',
             flex: 1,
             transition: 'all 0.3s ease',
@@ -105,7 +105,7 @@ export default function LoginForm({
         </div>
       </div>
       {error && (
-        <div style={{ color: '#ff6b6b', fontSize: 'clamp(10px, 1.4cqi, 13px)', textAlign: 'center' }}>
+        <div style={{ color: '#ff6b6b', fontSize: '1.4cqi', textAlign: 'center' }}>
           {error}
         </div>
       )}
@@ -116,15 +116,15 @@ export default function LoginForm({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: `clamp(${4 * fg}px, ${1 * fg}cqi, ${10 * fg}px)`,
+          gap: `${1 * fg}cqi`,
           flex: 1,
           minHeight: 0,
           minWidth: 0,
-          marginTop: formMarginTop !== 0 ? `${formMarginTop}px` : undefined,
+          marginTop: formMarginTop !== 0 ? `${formMarginTop * 0.05}cqi` : undefined,
         }}
       >
-        {/* Username field with availability indicator - icon gap anchored */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(6px, 1.5cqi, 12px)' }}>
+        {/* Username field - proportion-locked */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5cqi' }}>
           <div style={{ color: 'var(--accent)', flexShrink: 0 }}><UserIcon /></div>
           <div style={{ flex: 1, minWidth: 0, position: 'relative', maxWidth: iws < 1 ? `${iws * 100}%` : undefined }}>
             <input
@@ -136,14 +136,14 @@ export default function LoginForm({
               style={{
                 width: '100%',
                 minWidth: 0,
-                padding: `clamp(${10 * ihs}px, ${2.5 * ihs}cqi, ${18 * ihs}px) clamp(12px, 3cqi, 24px)`,
-                paddingRight: isRegistering ? `clamp(${36 * ihs}px, ${8 * ihs}cqi, ${52 * ihs}px)` : 'clamp(12px, 3cqi, 24px)',
-                minHeight: `clamp(${36 * ihs}px, ${8 * ihs}cqi, ${52 * ihs}px)`,
+                padding: `${2.5 * ihs}cqi 3cqi`,
+                paddingRight: isRegistering ? `${8 * ihs}cqi` : '3cqi',
+                minHeight: `${8 * ihs}cqi`,
                 background: '#3a3a3a',
                 border: `2px solid ${isRegistering && usernameStatus.available === false ? 'rgba(255, 107, 107, 0.6)' : isRegistering && usernameStatus.available ? 'rgba(0, 255, 65, 0.6)' : 'rgba(100, 100, 100, 0.5)'}`,
-                borderRadius: 'clamp(8px, 2.5cqi, 14px)',
+                borderRadius: '2.5cqi',
                 color: 'var(--accent)',
-                fontSize: 'clamp(14px, 2.5cqi, 20px)',
+                fontSize: '2.5cqi',
                 outline: 'none',
                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)',
                 transition: 'border-color 0.2s',
@@ -152,14 +152,14 @@ export default function LoginForm({
             {isRegistering && username.trim().length >= 2 && (
               <div style={{
                 position: 'absolute',
-                right: '12px',
+                right: '1.5cqi',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 display: 'flex',
                 alignItems: 'center',
               }}>
                 {usernameStatus.checking ? (
-                  <div style={{ width: 16, height: 16, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <div style={{ width: '1.5cqi', height: '1.5cqi', border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                 ) : usernameStatus.available ? (
                   <CheckIcon />
                 ) : usernameStatus.available === false ? (
@@ -171,18 +171,18 @@ export default function LoginForm({
         </div>
 
         {isRegistering && usernameStatus.error && !usernameStatus.checking && (
-          <div style={{ color: '#ff6b6b', fontSize: 'clamp(9px, 1.2cqi, 12px)', marginLeft: '28px', marginTop: '-4px' }}>
+          <div style={{ color: '#ff6b6b', fontSize: '1.2cqi', marginLeft: '2cqi', marginTop: '-0.3cqi' }}>
             {usernameStatus.error}
           </div>
         )}
         {isRegistering && usernameStatus.available && !usernameStatus.checking && (
-          <div style={{ color: 'var(--accent)', fontSize: 'clamp(9px, 1.2cqi, 12px)', marginLeft: '28px', marginTop: '-4px' }}>
+          <div style={{ color: 'var(--accent)', fontSize: '1.2cqi', marginLeft: '2cqi', marginTop: '-0.3cqi' }}>
             Username available
           </div>
         )}
 
-        {/* Password field - icon gap anchored */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(6px, 1.5cqi, 12px)' }}>
+        {/* Password field - proportion-locked */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5cqi' }}>
           <div style={{ color: 'var(--accent)', flexShrink: 0 }}><KeyIcon /></div>
           <div style={{ flex: 1, minWidth: 0, maxWidth: iws < 1 ? `${iws * 100}%` : undefined }}>
           <input
@@ -191,13 +191,13 @@ export default function LoginForm({
             autoComplete="new-password"
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
-            style={{ width: '100%', minWidth: 0, minHeight: `clamp(${36 * ihs}px, ${8 * ihs}cqi, ${52 * ihs}px)`, padding: `clamp(${10 * ihs}px, ${2.5 * ihs}cqi, ${18 * ihs}px) clamp(12px, 3cqi, 24px)`, background: '#3a3a3a', border: '2px solid rgba(100, 100, 100, 0.5)', borderRadius: 'clamp(8px, 2.5cqi, 14px)', color: 'var(--accent)', fontSize: 'clamp(14px, 2.5cqi, 20px)', outline: 'none',                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)' }}
+            style={{ width: '100%', minWidth: 0, minHeight: `${8 * ihs}cqi`, padding: `${2.5 * ihs}cqi 3cqi`, background: '#3a3a3a', border: '2px solid rgba(100, 100, 100, 0.5)', borderRadius: '2.5cqi', color: 'var(--accent)', fontSize: '2.5cqi', outline: 'none', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)' }}
           />
           </div>
         </div>
 
         {isRegistering && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(6px, 1.5cqi, 12px)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5cqi' }}>
             <div style={{ color: 'var(--accent)', flexShrink: 0 }}><KeyIcon /></div>
             <div style={{ flex: 1, minWidth: 0, maxWidth: iws < 1 ? `${iws * 100}%` : undefined }}>
             <input
@@ -209,13 +209,13 @@ export default function LoginForm({
               style={{
                 flex: 1,
                 minWidth: 0,
-                minHeight: `clamp(${36 * ihs}px, ${8 * ihs}cqi, ${52 * ihs}px)`,
-                padding: `clamp(${10 * ihs}px, ${2.5 * ihs}cqi, ${18 * ihs}px) clamp(12px, 3cqi, 24px)`,
+                minHeight: `${8 * ihs}cqi`,
+                padding: `${2.5 * ihs}cqi 3cqi`,
                 background: '#3a3a3a',
                 border: `2px solid ${confirmPassword && password !== confirmPassword ? 'rgba(255, 107, 107, 0.6)' : 'rgba(100, 100, 100, 0.5)'}`,
-                borderRadius: 'clamp(8px, 2.5cqi, 14px)',
+                borderRadius: '2.5cqi',
                 color: 'var(--accent)',
-                fontSize: 'clamp(14px, 2.5cqi, 20px)',
+                fontSize: '2.5cqi',
                 outline: 'none',
                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)',
                 transition: 'border-color 0.2s',
@@ -232,11 +232,11 @@ export default function LoginForm({
           style={{
             width: '100%',
             minWidth: 0,
-            minHeight: `clamp(${44 * smhs}px, ${10 * smhs}cqi, ${64 * smhs}px)`,
-            padding: `clamp(${12 * smhs}px, ${3 * smhs}cqi, ${22 * smhs}px)`,
-            borderRadius: `clamp(${8 * smhs}px, ${2.5 * smhs}cqi, ${14 * smhs}px)`,
+            minHeight: `${10 * smhs}cqi`,
+            padding: `${3 * smhs}cqi`,
+            borderRadius: `${2.5 * smhs}cqi`,
             fontWeight: 'bold',
-            fontSize: `clamp(${14 * smhs}px, ${2.5 * smhs}cqi, ${20 * smhs}px)`,
+            fontSize: `${2.5 * smhs}cqi`,
             border: '2px solid var(--accent)',
             boxShadow: '0 0 12px rgba(0, 255, 65, 0.3)',
             opacity: (isRegistering && !usernameStatus.available) ? 0.5 : 1,
@@ -248,11 +248,11 @@ export default function LoginForm({
       </form>
 
       {!isRegistering && (
-        <div style={{ display: 'flex', gap: 'clamp(6px, 1.5cqi, 12px)', minWidth: 0, marginTop: bvg !== 1 ? `calc(${bvg - 1} * clamp(4px, 1.25cqi, 14px))` : undefined }}>
-          <button type="button" className="btn-primary" disabled style={{ flex: 1, minWidth: 0, minHeight: `clamp(${40 * bbs}px, ${9 * bbs}cqi, ${56 * bbs}px)`, padding: `clamp(${10 * bbs}px, ${2.5 * bbs}cqi, ${18 * bbs}px)`, borderRadius: 'clamp(8px, 2.5cqi, 14px)', fontWeight: 'bold', fontSize: 'clamp(14px, 2.5cqi, 18px)', border: '2px solid rgba(120,120,120,0.6)', background: 'rgba(60,60,60,0.8)', color: 'rgba(160,160,160,0.9)', cursor: 'not-allowed', opacity: 0.85 }}>
+        <div style={{ display: 'flex', gap: '1.5cqi', minWidth: 0, marginTop: bvg !== 1 ? `${(bvg - 1) * 1}cqi` : undefined }}>
+          <button type="button" className="btn-primary" disabled style={{ flex: 1, minWidth: 0, minHeight: `${9 * bbs}cqi`, padding: `${2.5 * bbs}cqi`, borderRadius: '2.5cqi', fontWeight: 'bold', fontSize: `${2.5 * bbs}cqi`, border: '2px solid rgba(120,120,120,0.6)', background: 'rgba(60,60,60,0.8)', color: 'rgba(160,160,160,0.9)', cursor: 'not-allowed', opacity: 0.85 }}>
             Coming soon
           </button>
-          <button type="button" className="btn" onClick={onSpectate} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: `clamp(${40 * bbs}px, ${9 * bbs}cqi, ${56 * bbs}px)`, padding: `clamp(${10 * bbs}px, ${2.5 * bbs}cqi, ${18 * bbs}px)`, borderRadius: 'clamp(8px, 2.5cqi, 14px)', fontSize: 'clamp(14px, 2.5cqi, 18px)', border: '2px solid var(--accent)', color: 'var(--accent)' }}>
+          <button type="button" className="btn" onClick={onSpectate} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: `${9 * bbs}cqi`, padding: `${2.5 * bbs}cqi`, borderRadius: '2.5cqi', fontSize: `${2.5 * bbs}cqi`, border: '2px solid var(--accent)', color: 'var(--accent)' }}>
             Spectate
           </button>
         </div>
