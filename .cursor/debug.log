@@ -3981,3 +3981,31 @@
 {"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771247987154,"hypothesisId":"H1"}
 {"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":2,"childrenCount":3},"timestamp":1771247987167,"hypothesisId":"H3"}
 {"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":4,"childrenCount":1},"timestamp":1771247987168,"hypothesisId":"H3"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248002017,"hypothesisId":"H1"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248002018,"hypothesisId":"H1"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":2,"childrenCount":3},"timestamp":1771248002043,"hypothesisId":"H3"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":4,"childrenCount":1},"timestamp":1771248002043,"hypothesisId":"H3"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248002629,"hypothesisId":"H1"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248002630,"hypothesisId":"H1"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":2,"childrenCount":3},"timestamp":1771248002656,"hypothesisId":"H3"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":4,"childrenCount":1},"timestamp":1771248002657,"hypothesisId":"H3"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248019591,"hypothesisId":"H1"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248019591,"hypothesisId":"H1"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":2,"childrenCount":3},"timestamp":1771248019618,"hypothesisId":"H3"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":4,"childrenCount":1},"timestamp":1771248019619,"hypothesisId":"H3"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248020216,"hypothesisId":"H1"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248020217,"hypothesisId":"H1"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":2,"childrenCount":3},"timestamp":1771248020236,"hypothesisId":"H3"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":4,"childrenCount":1},"timestamp":1771248020236,"hypothesisId":"H3"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248034508,"hypothesisId":"H1"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248034508,"hypothesisId":"H1"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":2,"childrenCount":3},"timestamp":1771248034528,"hypothesisId":"H3"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":4,"childrenCount":1},"timestamp":1771248034529,"hypothesisId":"H3"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248034651,"hypothesisId":"H1"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248034652,"hypothesisId":"H1"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":2,"childrenCount":3},"timestamp":1771248034680,"hypothesisId":"H3"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":4,"childrenCount":1},"timestamp":1771248034680,"hypothesisId":"H3"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248040013,"hypothesisId":"H1"}
+{"location":"App.jsx:305","message":"Black overlay opacity","data":{"appBackgroundBrightness":55,"overlayOpacity":0.44999999999999996,"clampedOpacity":0.44999999999999996},"timestamp":1771248040013,"hypothesisId":"H1"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":2,"childrenCount":3},"timestamp":1771248040033,"hypothesisId":"H3"}
+{"location":"EffectsBoundsLayer.jsx:5","message":"EffectsBoundsLayer rendered","data":{"zIndex":4,"childrenCount":1},"timestamp":1771248040033,"hypothesisId":"H3"}
