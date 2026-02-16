@@ -14,6 +14,8 @@
   --text-content: rgba(220, 220, 220, 0.88);
   --text-muted-content: rgba(200, 200, 200, 0.65);
   --accent-glow: 0 0 30px #00ff41;
+  --accent-edge: 2px solid var(--accent);
+  --accent-edge-glow: rgba(0, 255, 65, 0.15);
   --text-primary: #ffffff;
   --text-muted: #aaaaaa;
   --border: 1px solid rgba(140, 140, 140, 0.45);
@@ -158,6 +160,10 @@ body {
     0 2px 8px rgba(0, 0, 0, 0.4),
     inset 0 2px 4px rgba(0, 0, 0, 0.3),
     0 0 10px rgba(0, 255, 0, 0.2);
+}
+
+.header-menu-item:hover {
+  background: rgba(0, 255, 65, 0.1);
 }
 
 .input-field {
@@ -396,11 +402,27 @@ body {
   transition: box-shadow 0.3s ease;
 }
 
-.sidebar-panel {
-  border-color: rgba(120, 120, 120, 0.5);
+/* Center panel (chat): both inner edges catch the green light */
+.dashboard-main .wankr-panel {
+  border-left: var(--accent-edge);
+  border-right: var(--accent-edge);
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.9),
     0 12px 40px rgba(0, 0, 0, 0.7),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    -12px 0 40px var(--accent-edge-glow),
+    12px 0 40px var(--accent-edge-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-panel {
+  border-color: rgba(120, 120, 120, 0.5);
+  border-right: var(--accent-edge);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.9),
+    0 12px 40px rgba(0, 0, 0, 0.7),
+    12px 0 40px var(--accent-edge-glow),
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
@@ -789,6 +811,19 @@ body {
   flex-direction: column;
 }
 
+.training-panel.wankr-panel {
+  background: linear-gradient(180deg, #1c1c1c 0%, #141414 100%);
+  border: 1px solid rgba(120, 120, 120, 0.5);
+  border-left: var(--accent-edge);
+  border-radius: var(--dashboard-panel-radius);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.9),
+    0 12px 40px rgba(0, 0, 0, 0.7),
+    -12px 0 40px var(--accent-edge-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
 .training-panel.closed {
   width: var(--training-panel-width-closed);
   min-width: 0;
@@ -798,12 +833,89 @@ body {
   transform: translateX(30px);
 }
 
-.dashboard-body.with-training {
+.dashboard-body.with-training,
+.dashboard-body.with-placeholder {
   grid-template-columns: var(--dashboard-sidebar-width) 1fr var(--training-panel-width);
 }
 
 .dashboard-body.closed-training {
   grid-template-columns: var(--dashboard-sidebar-width) 1fr var(--training-panel-width-closed);
+}
+
+.dashboard-right {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.dashboard-right > * {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Login panel collapse animation */
+.login-panel-collapsing {
+  animation: login-panel-collapse 0.3s ease-out forwards;
+}
+
+@keyframes login-panel-collapse {
+  to {
+    width: 0;
+    min-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+}
+
+/* Dashboard sweep-in (sidebar from left, right panel from right) */
+.dashboard-body.sweep-in .dashboard-sidebar {
+  animation: sidebar-sweep-in 0.35s ease-out forwards;
+}
+
+.dashboard-body.sweep-in .dashboard-main {
+  animation: main-expand-in 0.25s ease-out forwards;
+}
+
+.dashboard-body.sweep-in .dashboard-right {
+  animation: right-panel-sweep-in 0.35s ease-out 0.05s both;
+}
+
+@keyframes sidebar-sweep-in {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes right-panel-sweep-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes main-expand-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* ── Conversation Items ── */

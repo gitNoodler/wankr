@@ -1,0 +1,7 @@
+{
+  "name": "wankr",
+  "private": true,
+  "scripts": {
+    "dev": "wankr.bat"
+  }
+}

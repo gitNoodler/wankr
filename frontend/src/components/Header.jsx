@@ -1,6 +1,40 @@
-import LOGO_URL from '../assets/logo.js'
+import React, { useState, useRef, useEffect } from 'react';
+import LOGO_URL from '../assets/logo.js';
 
-function Header() {
+const GearIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+  </svg>
+);
+
+const menuItemStyle = {
+  width: '100%',
+  padding: '10px 16px',
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--accent)',
+  fontSize: 14,
+  cursor: 'pointer',
+  textAlign: 'left',
+  fontFamily: 'inherit',
+};
+
+function Header({ onLogout, onOpenMeasure, onOpenGlowPoint, onOpenEffectsBounds }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('click', close, true);
+    return () => document.removeEventListener('click', close, true);
+  }, [menuOpen]);
+
+  const toggleMenu = () => setMenuOpen((o) => !o);
+
   return (
     <>
       <header
@@ -72,8 +106,8 @@ function Header() {
             pointerEvents: 'none',
           }}
         />
-        {/* Right: Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(11px * var(--scale))', color: 'var(--accent)', fontSize: 'calc(20px * var(--scale))' }}>
+        {/* Right: Status + Gear menu */}
+        <div ref={menuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 'calc(11px * var(--scale))', color: 'var(--accent)', fontSize: 'calc(20px * var(--scale))' }}>
           <span
             style={{
               width: 'calc(14px * var(--scale))',
@@ -84,18 +118,81 @@ function Header() {
               animation: 'pulse 2s ease-in-out infinite',
             }}
           />
-          Online
+          <span>Online</span>
+          <button
+            type="button"
+            onClick={toggleMenu}
+            aria-label="Settings"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 36,
+              height: 36,
+              padding: 0,
+              border: '2px solid var(--accent)',
+              borderRadius: '50%',
+              background: menuOpen ? 'rgba(0, 255, 65, 0.15)' : 'transparent',
+              color: 'var(--accent)',
+              cursor: 'pointer',
+              boxShadow: '0 0 12px rgba(0, 255, 65, 0.4), inset 0 0 12px rgba(0, 255, 65, 0.08)',
+            }}
+          >
+            <GearIcon />
+          </button>
+          {menuOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: 8,
+                minWidth: 200,
+                background: 'linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%)',
+                border: '2px solid var(--accent)',
+                borderRadius: 12,
+                boxShadow: '0 0 20px rgba(0, 255, 65, 0.3), 0 8px 24px rgba(0,0,0,0.6)',
+                padding: '8px 0',
+                zIndex: 100,
+              }}
+            >
+              <button type="button" className="header-menu-item" onClick={() => { onLogout?.(); setMenuOpen(false); }} style={menuItemStyle}>
+                Logout
+              </button>
+              <button type="button" className="header-menu-item" onClick={() => { onOpenMeasure?.(); setMenuOpen(false); }} style={menuItemStyle}>
+                Measure
+              </button>
+              <button type="button" className="header-menu-item" onClick={() => { onOpenGlowPoint?.(); setMenuOpen(false); }} style={menuItemStyle}>
+                Glow Point
+              </button>
+              <button type="button" className="header-menu-item" onClick={() => { onOpenEffectsBounds?.(); setMenuOpen(false); }} style={menuItemStyle}>
+                Effects Bounds
+              </button>
+              <a href="#docs" className="header-menu-item" onClick={(e) => { e.preventDefault(); setMenuOpen(false); }} style={{ ...menuItemStyle, textDecoration: 'none', display: 'block' }}>
+                Docs
+              </a>
+              <a href="#help" className="header-menu-item" onClick={(e) => { e.preventDefault(); setMenuOpen(false); }} style={{ ...menuItemStyle, textDecoration: 'none', display: 'block' }}>
+                Help
+              </a>
+              <a href="#disclaimer" className="header-menu-item" onClick={(e) => { e.preventDefault(); setMenuOpen(false); }} style={{ ...menuItemStyle, textDecoration: 'none', display: 'block' }}>
+                Disclaimer
+              </a>
+              <a href="#terms" className="header-menu-item" onClick={(e) => { e.preventDefault(); setMenuOpen(false); }} style={{ ...menuItemStyle, textDecoration: 'none', display: 'block' }}>
+                Terms of use
+              </a>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Beam separator */}
+      {/* Beam separator - gradient extends to edges for seamless blend with sidebar/chat panels */}
       <div
         style={{
           flexShrink: 0,
           position: 'relative',
           zIndex: 20,
           height: '3px',
-          background: 'linear-gradient(90deg, transparent 0%, rgba(0, 255, 0, 0.5) 20%, rgba(0, 255, 0, 0.5) 80%, transparent 100%)',
+          background: 'linear-gradient(90deg, rgba(0, 255, 0, 0.08) 0%, rgba(0, 255, 0, 0.5) 15%, rgba(0, 255, 0, 0.5) 85%, rgba(0, 255, 0, 0.08) 100%)',
         }}
       />
     </>

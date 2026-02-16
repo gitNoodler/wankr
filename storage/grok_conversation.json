@@ -1,0 +1,15 @@
+{
+  "id": "grok-conversation",
+  "username": "grok",
+  "displayName": "Grok",
+  "messages": [
+    {
+      "from": "grok",
+      "content": "Hey Wankr, what do you think about the current market conditions?",
+      "timestamp": 1771247321750,
+      "role": "user"
+    }
+  ],
+  "online": true,
+  "lastActivity": 1771247621750
+}

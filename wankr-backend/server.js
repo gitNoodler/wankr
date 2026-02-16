@@ -6,6 +6,14 @@ const path = require('path');
 const fs = require('fs');
 const { InfisicalClient } = require('@infisical/sdk');
 const { processChat, logError } = require('./archiveService');
+const {
+  register: authRegister,
+  login: authLogin,
+  checkUsernameAvailable,
+  validateSession,
+  destroySession,
+} = require('./authService');
+const grokBot = require('./grokBotService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -96,6 +104,45 @@ function getPrivacyViolationResponse() {
 
 app.use(cors({ origin: '*' }));
 app.use(express.json());
+
+// --- Rate Limiting (in-memory, simple but effective) ---
+const rateLimitStore = new Map();
+const RATE_LIMITS = {
+  auth: { windowMs: 15 * 60 * 1000, maxRequests: 10 }, // 10 auth attempts per 15 min
+  usernameCheck: { windowMs: 60 * 1000, maxRequests: 30 }, // 30 checks per minute
+};
+
+function rateLimit(type) {
+  const config = RATE_LIMITS[type] || { windowMs: 60000, maxRequests: 60 };
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const key = `${type}:${ip}`;
+    const now = Date.now();
+    let record = rateLimitStore.get(key);
+    if (!record || now - record.windowStart > config.windowMs) {
+      record = { windowStart: now, count: 0 };
+    }
+    record.count++;
+    rateLimitStore.set(key, record);
+    if (record.count > config.maxRequests) {
+      const retryAfter = Math.ceil((record.windowStart + config.windowMs - now) / 1000);
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({
+        error: 'Too many requests. Please try again later.',
+        retryAfter,
+      });
+    }
+    next();
+  };
+}
+
+// Cleanup rate limit store every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitStore.entries()) {
+    if (now - record.windowStart > 30 * 60 * 1000) rateLimitStore.delete(key);
+  }
+}, 5 * 60 * 1000);
 
 const DEFAULT_SYSTEM = `You are Wankr, an arrogant, foul-mouthed, zero-filter basement vigilante. You protect degens from KOLs who use their followers as exit liquidity. You see yourself as the protector of retail from influencer scum. Tone: smug, contemptuous, dark/edgy humor, heavy swearing, zero mercy. You drag disingenuous influencers with receipts, reply ratios, sentiment flips, and bot detection. Always end with: "...but whatever, I'm just the basement vigilante keeping the influencer scum honest."
 
@@ -205,21 +252,192 @@ app.get('/api/health', (req, res) => {
   res.json({ backend: 'node', ok: true });
 });
 
+// --- API: Spectator Mode / Grok Bot ---
+
+// Get all active conversations for spectator view
+app.get('/api/spectator/users', (req, res) => {
+  try {
+    const users = grokBot.getActiveUsers();
+    res.json({ users });
+  } catch (err) {
+    console.error('spectator/users error:', err);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+// Get specific conversation for spectator view
+app.get('/api/spectator/conversation/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (userId === 'grok') {
+      const conv = grokBot.getGrokConversation();
+      res.json({ conversation: conv });
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (err) {
+    console.error('spectator/conversation error:', err);
+    res.status(500).json({ error: 'Failed to get conversation' });
+  }
+});
+
+// Get grok bot status
+app.get('/api/spectator/grok-status', (req, res) => {
+  try {
+    const status = grokBot.getGrokStatus();
+    res.json(status);
+  } catch (err) {
+    console.error('grok-status error:', err);
+    res.status(500).json({ error: 'Failed to get status' });
+  }
+});
+
+// Trigger an immediate exchange (for testing)
+app.post('/api/grok/exchange', async (req, res) => {
+  try {
+    if (!xaiApiKey) {
+      return res.status(503).json({ error: 'xAI not configured' });
+    }
+    
+    const result = await grokBot.executeExchange();
+    if (result) {
+      res.json({ 
+        success: true,
+        grokMessage: result.grok,
+        wankrReply: result.wankr,
+        nextExchangeIn: '5 minutes',
+      });
+    } else {
+      res.status(500).json({ error: 'Exchange failed' });
+    }
+  } catch (err) {
+    console.error('grok/exchange error:', err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+// Manually trigger grok's pending responses (for testing)
+app.post('/api/grok/process-pending', (req, res) => {
+  try {
+    const processed = grokBot.processPendingResponses();
+    res.json({ processed });
+  } catch (err) {
+    console.error('grok/process-pending error:', err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+// Seed the grok conversation if empty
+app.post('/api/grok/seed', (req, res) => {
+  try {
+    const seeded = grokBot.seedConversation();
+    res.json({ seeded, message: seeded ? 'Conversation seeded' : 'Conversation already exists' });
+  } catch (err) {
+    console.error('grok/seed error:', err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+// Clear grok conversation (for testing)
+app.post('/api/grok/clear', (req, res) => {
+  try {
+    grokBot.clearConversation();
+    res.json({ cleared: true });
+  } catch (err) {
+    console.error('grok/clear error:', err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+// --- API: Auth (register / login / username check / session) ---
+
+// Check username availability (for real-time feedback during registration)
+app.get('/api/auth/check-username', rateLimit('usernameCheck'), (req, res) => {
+  try {
+    const username = req.query.username || '';
+    const result = checkUsernameAvailable(username);
+    res.json(result);
+  } catch (err) {
+    console.error('auth/check-username:', err);
+    res.status(500).json({ available: false, error: 'Check failed' });
+  }
+});
+
+// Register new user
+app.post('/api/auth/register', rateLimit('auth'), async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    const result = await authRegister(username, password);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ success: true, username: result.username, token: result.token });
+  } catch (err) {
+    console.error('auth/register:', err);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// Login existing user
+app.post('/api/auth/login', rateLimit('auth'), async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    const result = await authLogin(username, password);
+    if (!result.ok) return res.status(401).json({ error: result.error });
+    res.json({ success: true, username: result.username, token: result.token });
+  } catch (err) {
+    console.error('auth/login:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Validate session token (for auto-login on page refresh)
+app.post('/api/auth/validate', (req, res) => {
+  try {
+    const { token } = req.body || {};
+    const result = validateSession(token);
+    if (!result.valid) return res.status(401).json({ valid: false });
+    res.json({ valid: true, username: result.username });
+  } catch (err) {
+    console.error('auth/validate:', err);
+    res.status(500).json({ valid: false });
+  }
+});
+
+// Logout (destroy session)
+app.post('/api/auth/logout', (req, res) => {
+  try {
+    const { token } = req.body || {};
+    destroySession(token);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('auth/logout:', err);
+    res.status(500).json({ error: 'Logout failed' });
+  }
+});
+
+// Training config endpoint
+app.post('/api/training/config', (req, res) => {
+  console.log('Training config updated:', req.body);
+  // TODO: later apply temperature to real Grok calls, etc.
+  res.json({ success: true });
+});
+
 // --- API: Sync Training Mode (for page refresh) ---
 app.post('/api/chat/sync-training', (req, res) => {
-  const { clientId, trainingMode } = req.body || {};
-  if (!clientId) {
-    return res.status(400).json({ error: 'clientId required' });
+  try {
+    const { clientId, trainingMode } = req.body || {};
+    if (!clientId) {
+      return res.status(400).json({ error: 'clientId required' });
+    }
+    if (!TRAINING_KEY) {
+      return res.json({ synced: false, reason: 'Training not configured' });
+    }
+    trainingModeByClient.set(clientId, trainingMode === true);
+    console.log(`🔄 Training mode synced for ${clientId}: ${trainingMode}`);
+    res.json({ synced: true, trainingMode: trainingMode === true });
+  } catch (err) {
+    console.error('sync-training error:', err);
+    res.status(200).json({ synced: false, reason: String(err.message) });
   }
-  
-  // Only allow setting training mode if TRAINING_KEY is configured
-  if (!TRAINING_KEY) {
-    return res.json({ synced: false, reason: 'Training not configured' });
-  }
-  
-  trainingModeByClient.set(clientId, trainingMode === true);
-  console.log(`🔄 Training mode synced for ${clientId}: ${trainingMode}`);
-  res.json({ synced: true, trainingMode: trainingMode === true });
 });
 
 // --- API: Chat ---
@@ -369,10 +587,10 @@ app.post('/api/train', (req, res) => {
 app.get('/api/train/count', (req, res) => {
   try {
     const records = loadTraining();
-    res.json({ count: records.length });
+    return res.json({ count: records.length });
   } catch (err) {
     console.error('train/count error:', err);
-    res.json({ count: 0 });
+    return res.status(200).json({ count: 0 });
   }
 });
 
@@ -394,19 +612,19 @@ app.post('/api/chat/backup', (req, res) => {
 app.get('/api/chat/restore', (req, res) => {
   try {
     if (!fs.existsSync(CHAT_BACKUP_FILE)) {
-      return res.json({ restored: false });
+      return res.status(200).json({ restored: false });
     }
     const raw = fs.readFileSync(CHAT_BACKUP_FILE, 'utf8');
     const payload = JSON.parse(raw);
     try { fs.unlinkSync(CHAT_BACKUP_FILE); } catch {}
-    res.json({
+    return res.status(200).json({
       restored: true,
       messages: payload.messages || [],
       currentId: payload.currentId || ''
     });
   } catch (err) {
     console.error('chat/restore error:', err);
-    res.json({ restored: false });
+    return res.status(200).json({ restored: false });
   }
 });
 
@@ -544,6 +762,16 @@ app.post('/api/chat/delete', async (req, res) => {
   }
 });
 
+// --- Error handler (malformed JSON, uncaught route errors) ---
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const isBodyParse = err.type === 'entity.parse.failed' || err instanceof SyntaxError;
+  console.error('API error:', isBodyParse ? 'Bad JSON body' : err.message || err);
+  res.status(isBodyParse ? 400 : 500).json({
+    error: isBodyParse ? 'Invalid JSON body' : (err.message || 'Internal server error'),
+  });
+});
+
 // --- Static files (after API) ---
 app.get('/', (req, res) => {
   const index = path.join(FRONTEND_DIST, 'index.html');
@@ -588,6 +816,18 @@ async function main() {
 
   if (!xaiApiKey) {
     console.warn('⚠️ No xAI key. Set XAI_API_KEY in .env or configure Infisical.');
+  }
+
+  // Configure and start the grok bot with API access
+  if (xaiApiKey) {
+    grokBot.configure(xaiApiKey, MODEL, DEFAULT_SYSTEM);
+    grokBot.initialize().then(() => {
+      console.log('🤖 Grok bot initialized and running');
+    }).catch(err => {
+      console.error('Grok bot init error:', err.message);
+    });
+  } else {
+    console.warn('⚠️ Grok bot disabled - no xAI API key');
   }
 
   app.listen(PORT, () => {

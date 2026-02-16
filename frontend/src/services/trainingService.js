@@ -16,8 +16,14 @@ export async function addTraining(messages, systemPrompt = '') {
 }
 
 export async function getTrainCount() {
-  const res = await api.get('/api/train/count');
-  if (!res.ok) return 0;
-  const data = await res.json();
-  return data.count ?? 0;
+  try {
+    const res = await api.get('/api/train/count');
+    if (!res.ok) return 0;
+    const text = await res.text();
+    if (!text.trim()) return 0;
+    const data = JSON.parse(text);
+    return data.count ?? 0;
+  } catch {
+    return 0;
+  }
 }

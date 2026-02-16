@@ -1,0 +1,17 @@
+[
+  {
+    "username": "btc",
+    "passwordHash": "$2b$10$UHu9G.9vtYSshcu1ab3jae2TQOjpyZ1EHCddloewk1o8EEyqhtKxi",
+    "createdAt": "2026-02-10T22:50:31.139Z"
+  },
+  {
+    "username": "gitnoodler",
+    "passwordHash": "$2b$10$lQF/iO6ucFT0Zv3rNdBMIuSc76yttq140EjYO2Q2U3uCRm3JIyT1i",
+    "createdAt": "2026-02-16T12:46:57.715Z"
+  },
+  {
+    "username": "grok",
+    "passwordHash": "$2b$10$RBym5SORMqq2CB0SAOI2cuL0gnbjdRJzca6bIJOAsqi5Yz31YvC6C",
+    "createdAt": "2026-02-16T13:08:00.372Z"
+  }
+]

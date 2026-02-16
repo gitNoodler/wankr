@@ -1,0 +1,93 @@
+{
+  "canvas": {
+    "width": 1365,
+    "height": 2048,
+    "format": "PNG",
+    "color_space": "sRGB"
+  },
+  "login_panel_bbox_px": {
+    "x": 360,
+    "y": 644,
+    "w": 620,
+    "h": 520
+  },
+  "login_panel_bbox_pct": {
+    "left_pct": 26.3736,
+    "top_pct": 31.4453,
+    "width_pct": 45.4212,
+    "height_pct": 25.3906
+  },
+  "layer_stack_top_to_bottom": [
+    {
+      "name": "hands",
+      "file": "layer_30_hands.png",
+      "z_index": 30,
+      "notes": "Hands/fingers that sit in front of the login panel."
+    },
+    {
+      "name": "login",
+      "file": "layer_10_login.png",
+      "z_index": 20,
+      "notes": "Login panel extracted; inpainted behind hands so it can move independently."
+    },
+    {
+      "name": "wankr_body",
+      "file": "layer_20_wankr_body.png",
+      "z_index": 10,
+      "notes": "Robot body/head/legs/arms without hands and without login panel."
+    },
+    {
+      "name": "background",
+      "file": "layer_00_background.png",
+      "z_index": 0,
+      "notes": "Background inpainted where robot/panel were removed (good for parallax)."
+    }
+  ],
+  "recommended_animation": {
+    "background": {
+      "type": "parallax",
+      "translateX_px": [
+        -30,
+        30
+      ],
+      "translateY_px": [
+        -10,
+        10
+      ],
+      "scale": 1.05,
+      "duration_s": 20
+    },
+    "wankr_body": {
+      "type": "idle_bob",
+      "translateY_px": [
+        -12,
+        12
+      ],
+      "rotate_deg": [
+        -1,
+        1
+      ],
+      "duration_s": 4
+    },
+    "hands": {
+      "type": "micro_motion",
+      "translateY_px": [
+        -6,
+        6
+      ],
+      "rotate_deg": [
+        -2,
+        2
+      ],
+      "duration_s": 3
+    },
+    "login": {
+      "type": "hover",
+      "translateY_px": [
+        -4,
+        4
+      ],
+      "duration_s": 5
+    }
+  }
+}
