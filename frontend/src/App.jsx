@@ -20,16 +20,11 @@ import MeasureTool from './components/MeasureTool';
 import GlowPointTool from './components/GlowPointTool';
 import EffectsBoundsTool from './components/EffectsBoundsTool';
 import EffectsBoundsLayer from './components/EffectsBoundsLayer';
-import GlowPointDisplay from './components/GlowPointDisplay';
-import GlowPointPropagation from './components/GlowPointPropagation';
-import GlowTraverse from './components/GlowTraverse';
-import OrganicLightPropagation from './components/OrganicLightPropagation';
 import AmbientLightPropagation from './components/AmbientLightPropagation';
 import FloorPropagation from './components/FloorPropagation';
 import SparkReflectionOverlay from './components/SparkReflectionOverlay';
 import appBackgroundImg from '@mascot/bckground&Banner/uncroppedBackground.png';
 import { loadDevDefaults } from './components/LoginScreen/loginScreenConfig';
-import './App.css';
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -50,7 +45,7 @@ export default function App() {
     conversation,
     setConversation,
     archived,
-    currentLabel,
+    currentLabel: _currentLabel,
     startNewChat,
     handleLoadArchived: loadArchived,
     persistArchived,
@@ -71,7 +66,7 @@ export default function App() {
     setTrainingMode(enabled);
     try {
       localStorage.setItem('wankr_training_mode', String(enabled));
-    } catch {}
+    } catch { /* ignore */ }
   }, []);
   
   const chat = useChat(conversation, setConversation, systemPrompt, setTrainCount, currentId, handleTrainingModeChange);
@@ -80,7 +75,7 @@ export default function App() {
     openArchive,
     deleteArchivedChat,
     clearChat,
-    autoArchiveWithWankrName,
+    autoArchiveWithWankrName: _autoArchiveWithWankrName,
     isRecalledChat,
   } = useArchive(
     conversation,
@@ -103,11 +98,11 @@ export default function App() {
           setLoggedIn(true);
         }
       })
-      .catch(() => {})
+      .catch(() => { /* ignore */ })
       .finally(() => setSessionValidating(false));
   }, []);
 
-  const handleLoginSuccess = useCallback((payload) => {
+  const handleLoginSuccess = useCallback((_payload) => {
     if (transitionRef.current) return;
     setLoginCollapsing(true);
     transitionRef.current = setTimeout(() => {
@@ -137,7 +132,7 @@ export default function App() {
   const handleLogout = useCallback(async () => {
     try {
       await authLogout();
-    } catch {}
+    } catch { /* ignore */ }
     setLoggedIn(false);
     setSpectatorMode(false);
   }, []);
@@ -156,13 +151,12 @@ export default function App() {
   useEffect(() => {
     if (currentId) {
       console.log(`🔄 Syncing training mode: ${trainingMode} for client: ${currentId}`);
-      fetch('/api/chat/sync-training', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: currentId, trainingMode }),
-      })
+      api.post('/api/chat/sync-training', { clientId: currentId, trainingMode })
         .then(async (r) => {
-          if (!r.ok) return null;
+          if (!r.ok) {
+            if (r.status === 405) console.warn('Sync-training 405: backend not reached (is wankrbot.com on Tunnel + backend, not Workers?)');
+            return null;
+          }
           const text = await r.text();
           if (!text.trim()) return null;
           try {
@@ -172,7 +166,7 @@ export default function App() {
           }
         })
         .then((data) => { if (data != null) console.log('Sync response:', data); })
-        .catch((err) => console.error('Sync failed:', err));
+        .catch((err) => console.warn('Sync-training failed:', err.message || err));
     }
   }, [trainingMode, currentId]);
 
@@ -194,12 +188,7 @@ export default function App() {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
             
-            const response = await fetch('/api/chat/generate-name', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ messages: messagesSnapshot }),
-              signal: controller.signal,
-            });
+            const response = await api.post('/api/chat/generate-name', { messages: messagesSnapshot }, { signal: controller.signal });
             clearTimeout(timeoutId);
             
             const data = await response.json();
@@ -217,11 +206,7 @@ export default function App() {
             persistArchived(prev => [...prev, archivedChat]);
             
             // Send to backend silently
-            fetch('/api/chat/archive', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat: archivedChat }),
-            }).catch(() => {});
+            api.post('/api/chat/archive', { chat: archivedChat }).catch(() => {});
             
             console.log(`🎭 Wankr named your chat: "${name}"`);
           } catch (err) {
@@ -312,19 +297,10 @@ export default function App() {
       />
       <EffectsBoundsLayer version={effectsBoundsVersion} zIndex={2}>
         <StarfieldReflections />
-        <GlowTraverse version={glowPointVersion} sparkActive={sparkActive} />
-        <OrganicLightPropagation glowPointVersion={glowPointVersion} sparkActive={sparkActive} />
       </EffectsBoundsLayer>
       <AmbientLightPropagation />
       <FloorPropagation sparkActive={sparkActive} glowPointVersion={glowPointVersion} />
-      <GlowPointPropagation version={glowPointVersion} sparkActive={sparkActive} />
-      <EffectsBoundsLayer version={effectsBoundsVersion} zIndex={4}>
-        <GlowPointDisplay version={glowPointVersion} sparkActive={sparkActive} />
-      </EffectsBoundsLayer>
       <SparkReflectionOverlay sparkActive={sparkActive} />
-      {/* #region agent log */}
-      {(() => { fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:305',message:'Black overlay opacity',data:{appBackgroundBrightness,overlayOpacity:1-appBackgroundBrightness/100,clampedOpacity:Math.min(0.94,1-appBackgroundBrightness/100)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{}); return null; })()}
-      {/* #endregion */}
       <div
         style={{
           position: 'absolute',
@@ -387,11 +363,7 @@ export default function App() {
                   <TrainingPanel
                     trainingMode={trainingMode}
                     onConfigChange={(newConfig) => {
-                      fetch('/api/training/config', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newConfig),
-                      }).catch(() => {});
+                      api.post('/api/training/config', newConfig).catch(() => {});
                     }}
                     systemPrompt={systemPrompt}
                     onSystemPromptChange={setSystemPrompt}

@@ -74,3 +74,16 @@ cd ../wankr-backend && npm start
 Open **http://127.0.0.1:5000**.
 
 **Restart:** Run `wankr.bat` to stop, save chat, and relaunch. Chat is backed up before shutdown and restored when you refresh.
+
+## Going online (production) — Cloudflare Tunnel + backend
+
+The dashboard needs the **full Node backend** (Infisical, xAI, `/api`, training, Grok). Use **Cloudflare Tunnel** from the account that **owns wankrbot.com** to expose that backend. Do **not** use Workers for this (static-only, and custom domains require the Worker and domain in the same account).
+
+**Steps (see [docs/CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md) for full detail):**
+
+1. **Run backend** on a VPS (Hetzner, Contabo, ~$3–5/mo) or Railway: clone repo, `cd wankr-backend`, `npm install`, add `.env` or Infisical, build frontend (`cd ../frontend && npm run build`), then `infisical run --env=prod -- node server.js` (or `node server.js`).
+2. **Cloudflare Tunnel** (Zero Trust → Networks → Tunnels): create tunnel in the **same account as wankrbot.com**, run `cloudflared tunnel run --token ...` on the VPS (or wherever reaches the backend). Public hostname: **wankrbot.com** → **http://127.0.0.1:5000** (or your Railway URL if tunnel runs elsewhere).
+3. **DNS:** In the wankrbot.com zone, remove any A/CNAME for `@` or `www` that point elsewhere.
+4. **Frontend:** Build with `cd frontend && npm run build`; the backend serves `frontend/dist`. No `wrangler deploy`.
+
+Result: https://wankrbot.com shows the same dashboard as localhost:5173, with real Grok and training. When the tunnel is running, paste the `cloudflared tunnel run` output if you need exact hostname config.

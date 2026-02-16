@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { loadDevDefaults } from './loginScreenConfig';
+import { DEV_DEFAULTS } from './loginScreenConfig';
+import { api } from '../../utils/api';
 
 /** Builds a snapshot object from current dev state (for undo). */
 function buildSnapshotFrom(s) {
@@ -71,7 +72,9 @@ function buildSnapshotFrom(s) {
 
 /** Centralized state for the login screen layout and dev panel. */
 export function useLoginScreenState({ appBackgroundBrightness, appBackgroundSharpness, onAppBackgroundBrightnessChange, onAppBackgroundSharpnessChange }) {
-  const d = loadDevDefaults();
+  // Same initial state on 5173 and 5000 so first paint is identical; API overwrites after fetch
+  const d = { ...DEV_DEFAULTS };
+  const [defaultsReady, setDefaultsReady] = useState(false);
 
   const [meanBrightness, setMeanBrightness] = useState(d.meanBrightness);
   const [panelBorderBrightness, setPanelBorderBrightness] = useState(d.panelBorderBrightness);
@@ -153,6 +156,7 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
   };
 
   const buildSnapshot = useCallback(() => buildSnapshotFrom(stateRef.current), []);
+  const applySnapshotRef = useRef(null);
   const applySnapshot = useCallback((snap) => {
     if (!snap) return;
     setMeanBrightness(snap.meanBrightness);
@@ -218,6 +222,24 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
     setShowLayerHands(snap.showLayerHands ?? true);
     setCharacterSharpness(snap.characterSharpness ?? 100);
   }, [onAppBackgroundBrightnessChange, onAppBackgroundSharpnessChange]);
+  applySnapshotRef.current = applySnapshot;
+
+  // Sync sliders from backend (so 5000 and 5173 match); gate first paint until done so layout is identical
+  useEffect(() => {
+    let done = false;
+    const markReady = () => {
+      if (!done) { done = true; setDefaultsReady(true); }
+    };
+    api.get('/api/settings/dev-defaults')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && applySnapshotRef.current) applySnapshotRef.current(data);
+      })
+      .catch(() => {})
+      .finally(markReady);
+    const t = setTimeout(markReady, 1500);
+    return () => clearTimeout(t);
+  }, []);
 
   return {
     meanBrightness, setMeanBrightness,
@@ -264,5 +286,6 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
     characterSharpness, setCharacterSharpness,
     buildSnapshot,
     applySnapshot,
+    defaultsReady,
   };
 }

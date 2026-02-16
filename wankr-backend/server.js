@@ -421,6 +421,63 @@ app.post('/api/training/config', (req, res) => {
   res.json({ success: true });
 });
 
+// --- API: Login screen / dev panel slider defaults (sync 5173 ↔ 5000) ---
+const DEV_DEFAULTS_FILE = path.join(__dirname, 'storage', 'dev_defaults.json');
+function ensureStorageDir() {
+  const dir = path.dirname(DEV_DEFAULTS_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+app.get('/api/settings/dev-defaults', (req, res) => {
+  try {
+    ensureStorageDir();
+    if (fs.existsSync(DEV_DEFAULTS_FILE)) {
+      const raw = fs.readFileSync(DEV_DEFAULTS_FILE, 'utf8');
+      const data = JSON.parse(raw);
+      return res.json(data);
+    }
+  } catch (err) {
+    console.error('dev-defaults read:', err.message);
+  }
+  res.status(404).json({ error: 'No saved defaults' });
+});
+app.post('/api/settings/dev-defaults', (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    ensureStorageDir();
+    fs.writeFileSync(DEV_DEFAULTS_FILE, JSON.stringify(body, null, 2), 'utf8');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('dev-defaults write:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const DASHBOARD_SETTINGS_FILE = path.join(__dirname, 'storage', 'dashboard_settings.json');
+app.get('/api/settings/dashboard', (req, res) => {
+  try {
+    ensureStorageDir();
+    if (fs.existsSync(DASHBOARD_SETTINGS_FILE)) {
+      const raw = fs.readFileSync(DASHBOARD_SETTINGS_FILE, 'utf8');
+      const data = JSON.parse(raw);
+      return res.json(data);
+    }
+  } catch (err) {
+    console.error('dashboard-settings read:', err.message);
+  }
+  res.status(404).json({ error: 'No saved settings' });
+});
+app.post('/api/settings/dashboard', (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    ensureStorageDir();
+    fs.writeFileSync(DASHBOARD_SETTINGS_FILE, JSON.stringify(body, null, 2), 'utf8');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('dashboard-settings write:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- API: Sync Training Mode (for page refresh) ---
 app.post('/api/chat/sync-training', (req, res) => {
   try {
@@ -804,6 +861,12 @@ app.get('/static/avatar.png', (req, res) => {
 });
 app.use('/static', express.static(staticDir));
 app.use(express.static(FRONTEND_DIST));
+// SPA: any other GET (client-side route) serves index.html
+app.get('*', (req, res) => {
+  const index = path.join(FRONTEND_DIST, 'index.html');
+  if (fs.existsSync(index)) return res.sendFile(index);
+  res.status(404).send('Frontend not built. Run: cd frontend && npm run build');
+});
 
 // --- Start ---
 async function main() {

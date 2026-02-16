@@ -3,6 +3,7 @@
  */
 
 import { useCallback } from 'react';
+import { api } from '../utils/api';
 
 export function useArchive(
   conversation,
@@ -34,11 +35,7 @@ export function useArchive(
             messages: [...conversation],
             updatedAt: new Date().toISOString(),
           };
-          fetch('/api/chat/archive', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat: updatedChat }),
-          }).catch(err => console.error('Archive update backend failed:', err));
+          api.post('/api/chat/archive', { chat: updatedChat }).catch(err => console.error('Archive update backend failed:', err));
           return updatedChat;
         }
         return c;
@@ -57,11 +54,7 @@ export function useArchive(
     persistArchived(prev => [...prev, archivedChat]);
     startNewChat();
 
-    fetch('/api/chat/archive', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat: archivedChat }),
-    }).catch(err => console.error('Archive backend failed:', err));
+    api.post('/api/chat/archive', { chat: archivedChat }).catch(err => console.error('Archive backend failed:', err));
   }, [conversation, currentId, archived, isRecalledChat, persistArchived, startNewChat]);
 
   /**
@@ -71,11 +64,7 @@ export function useArchive(
     if (!chatToDelete) return;
     const updated = archived.filter(c => c.id !== chatToDelete.id);
     persistArchived(updated);
-    fetch('/api/chat/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat: chatToDelete }),
-    }).catch(err => console.error('Delete backend failed:', err));
+    api.post('/api/chat/delete', { chat: chatToDelete }).catch(err => console.error('Delete backend failed:', err));
   }, [archived, persistArchived]);
 
   /**
@@ -86,11 +75,7 @@ export function useArchive(
       const chatToDelete = archived.find(c => c.id === currentId);
       if (chatToDelete) {
         persistArchived(archived.filter(c => c.id !== currentId));
-        fetch('/api/chat/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat: chatToDelete }),
-        }).catch(err => console.error('Clear/delete backend failed:', err));
+        api.post('/api/chat/delete', { chat: chatToDelete }).catch(err => console.error('Clear/delete backend failed:', err));
       }
     }
     startNewChat();
@@ -107,11 +92,7 @@ export function useArchive(
     const messagesToArchive = [...conversation];
 
     try {
-      const response = await fetch('/api/chat/generate-name', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesToArchive }),
-      });
+      const response = await api.post('/api/chat/generate-name', { messages: messagesToArchive });
       const data = await response.json();
       const name = data.name || 'Unnamed Degen Session';
 
@@ -123,11 +104,7 @@ export function useArchive(
         autoNamed: true,
       };
 
-      fetch('/api/chat/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat: archivedChat }),
-      }).catch(err => console.error('Auto-archive backend failed:', err));
+      api.post('/api/chat/archive', { chat: archivedChat }).catch(err => console.error('Auto-archive backend failed:', err));
 
       return archivedChat;
     } catch (err) {

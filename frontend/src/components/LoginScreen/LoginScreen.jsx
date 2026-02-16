@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { api } from '../../utils/api';
 import ElectricitySparks from './ElectricitySparks';
 import SparkZonesTool from './SparkZonesTool';
 import SurfacePlaneTool from './SurfacePlaneTool';
@@ -150,6 +151,7 @@ export default function LoginScreen({
     fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginScreen.jsx:handleSaveDevDefaults',message:'Saving dev defaults',data:valuesToSave,timestamp:Date.now(),hypothesisId:'SAVE'})}).catch(()=>{});
     // #endregion
     saveDevDefaults(valuesToSave);
+    api.post('/api/settings/dev-defaults', valuesToSave).catch(() => {});
     handleLockLayers();
   }, [
     state.meanBrightness, state.panelBorderBrightness, state.loginBrightness, state.loginShadeOfGray, state.loginLightToBlack,
@@ -210,6 +212,7 @@ export default function LoginScreen({
       }}
     >
       <div style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
+        {state.defaultsReady ? (
         <RobotScene
           sceneRef={sceneRef}
           sceneUnitRef={sceneUnitRef}
@@ -295,6 +298,9 @@ export default function LoginScreen({
           }
           glowPointVersion={glowPointVersion}
         />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden="true" />
+        )}
       </div>
 
       {sparkZonesOpen && (

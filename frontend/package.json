@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy",
+    "clear-cache": "node -e \"const fs=require('fs');['node_modules/.vite','dist'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true});console.log('Removed',p)}catch(e){}})\""
   },
   "dependencies": {
     "framer-motion": "^11.15.0",
@@ -16,6 +18,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "wrangler": "^3.94.0",
     "@eslint/js": "^9.39.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",

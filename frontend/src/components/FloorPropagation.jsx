@@ -7,17 +7,18 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
  * - Surface shimmer effects that traverse all background strips
  * - Effects span from top to bottom of viewport
  */
-export default function FloorPropagation({ sparkActive = false, glowPointVersion = 0 }) {
+export default function FloorPropagation({ sparkActive = false, glowPointVersion: _glowPointVersion = 0 }) {
   const [time, setTime] = useState(0);
   const frameRef = useRef(null);
-  const startTimeRef = useRef(Date.now());
+  const startTimeRef = useRef(0);
 
   // Animation loop for smooth propagation
   useEffect(() => {
+    startTimeRef.current = performance.now();
     let running = true;
     const animate = () => {
       if (!running) return;
-      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      const elapsed = (performance.now() - startTimeRef.current) / 1000;
       setTime(elapsed);
       frameRef.current = requestAnimationFrame(animate);
     };
@@ -34,22 +35,7 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
     vanishY: 38,  // % vertical vanishing point (horizon)
   }), []);
 
-  // Pulse intensity based on spark activity
-  const pulseIntensity = sparkActive ? 1.5 : 1.0;
   const baseOpacity = sparkActive ? 0.08 : 0.045;
-
-  // Generate wave pulse positions (3 concurrent waves at different phases)
-  // Waves now propagate from center outward in all directions
-  const waves = useMemo(() => {
-    return [0, 0.33, 0.66].map((phaseOffset) => {
-      const cycleTime = 8; // seconds per full cycle
-      const phase = ((time / cycleTime) + phaseOffset) % 1;
-      return {
-        progress: phase,
-        opacity: Math.sin(phase * Math.PI) * pulseIntensity,
-      };
-    });
-  }, [time, pulseIntensity]);
 
   // Horizontal grid lines spanning full screen height
   const gridLines = useMemo(() => {
@@ -99,44 +85,6 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
         overflow: 'hidden',
       }}
     >
-      {/* Full-screen base gradient: creates depth from edges toward center */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: `
-            radial-gradient(
-              ellipse 60% 50% at ${config.vanishX}% ${config.vanishY}%,
-              transparent 0%,
-              rgba(0, 255, 65, ${baseOpacity * 0.2}) 40%,
-              rgba(0, 255, 65, ${baseOpacity * 0.4}) 70%,
-              rgba(0, 255, 65, ${baseOpacity * 0.6}) 100%
-            )
-          `,
-        }}
-      />
-
-      {/* Propagating wave pulses from center - full screen */}
-      {waves.map((wave, idx) => (
-        <div
-          key={idx}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: `
-              radial-gradient(
-                ellipse ${50 + wave.progress * 100}% ${40 + wave.progress * 80}% at ${config.vanishX}% ${config.vanishY}%,
-                rgba(180, 255, 120, ${wave.opacity * baseOpacity * 1.5}) 0%,
-                rgba(0, 255, 65, ${wave.opacity * baseOpacity * 0.8}) ${30 + wave.progress * 20}%,
-                transparent ${60 + wave.progress * 40}%
-              )
-            `,
-            opacity: wave.opacity,
-            transition: 'opacity 0.1s ease-out',
-          }}
-        />
-      ))}
-
       {/* Horizontal grid line traversals - full screen height */}
       {gridLines.map((line, idx) => (
         <div
@@ -331,27 +279,6 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
             )
           `,
           opacity: 0.6 + Math.sin(time * 0.5) * 0.2,
-        }}
-      />
-
-      {/* Center glow at vanishing point */}
-      <div
-        style={{
-          position: 'absolute',
-          left: '25%',
-          right: '25%',
-          top: `${config.vanishY - 15}%`,
-          height: '30%',
-          background: `
-            radial-gradient(
-              ellipse 80% 60% at 50% 50%,
-              rgba(0, 255, 65, ${baseOpacity * pulseIntensity * 1.2}) 0%,
-              rgba(180, 255, 120, ${baseOpacity * pulseIntensity * 0.6}) 40%,
-              transparent 70%
-            )
-          `,
-          opacity: 0.6 + Math.sin(time * 1.5) * 0.25,
-          mixBlendMode: 'screen',
         }}
       />
 

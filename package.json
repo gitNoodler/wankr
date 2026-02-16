@@ -2,6 +2,7 @@
   "name": "wankr",
   "private": true,
   "scripts": {
-    "dev": "wankr.bat"
+    "dev": "wankr.bat",
+    "sync-online": "cd frontend && npm run clear-cache && npm run build"
   }
 }

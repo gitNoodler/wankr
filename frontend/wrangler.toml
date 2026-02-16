@@ -1,5 +1,16 @@
-name = "wankrbot"
+name = "wankr"
 compatibility_date = "2024-01-01"
 
 [assets]
 directory = "./dist"
+not_found_handling = "single-page-application"
+
+# Custom domain: wankrbot.com must be added to Cloudflare first (Dashboard → Add site).
+# Then deploy; Cloudflare will attach this Worker and handle DNS/SSL.
+[[routes]]
+pattern = "wankrbot.com"
+custom_domain = true
+
+[[routes]]
+pattern = "www.wankrbot.com"
+custom_domain = true

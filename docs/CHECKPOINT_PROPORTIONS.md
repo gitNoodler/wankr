@@ -25,6 +25,22 @@ These keep the same “full viewport” behavior in dev and production.
 - Don’t change viewport meta to allow user scaling if we want fixed proportions.
 - Keep slider state and API (`/api/settings/dev-defaults`, `/api/settings/dashboard`) in sync so 5000 and 5173 (and production) share the same proportions once loaded.
 
+## Make online identical to 5173
+
+1. **Build once (same code as 5173):**
+   - From repo root: `npm run sync-online`  
+   - Or from `frontend/`: `npm run clear-cache` then `npm run build`  
+   - This produces a fresh `frontend/dist/` with no Vite cache.
+
+2. **Deploy that build:**
+   - **Tunnel + backend:** Copy `frontend/dist/` to the server that runs the backend (e.g. rsync, or redeploy so the server has the new dist). Restart the Node process if it caches static files. Backend serves the SPA from the same origin, so no `VITE_API_BASE` needed.
+   - **Workers (wrangler):** From `frontend/`: `npm run deploy` (builds and deploys `dist/` to Cloudflare). Set `VITE_API_BASE` to your backend URL if API is on another origin.
+
+3. **Avoid old cache online:** Hard refresh (Ctrl+Shift+R) or devtools → Disable cache when checking. Vite build uses hashed filenames (`index-XXXX.js`), so a new deploy serves new URLs and browsers load the new assets.
+
+- **5173** = local Vite dev (`npm run dev`); **online** = the deployed `dist/` from step 2. Same source, same layout and effects after a fresh build + deploy.
+- Current codebase: no center strip, no leg reflection effects (OrbReflection), no central glow (FloorPropagation, GlowPoint*). If online still shows those, redeploy the new dist and hard refresh.
+
 ## Git checkpoint
 
 The tag **`checkpoint/proportions`** marks this stack: layout and proportion rules above are in effect, and the app is intended to maintain proportions from Vite dev through build and online deploy.

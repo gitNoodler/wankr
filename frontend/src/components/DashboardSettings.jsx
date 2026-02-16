@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { api } from '../utils/api';
 import './DashboardSettings.css';
 
 const DEFAULTS = {
@@ -73,6 +74,19 @@ export default function DashboardSettings() {
     applyCssVariables(getInitialSettings());
   }, [applyCssVariables]);
 
+  // Sync dashboard sliders from backend (so 5000 and 5173 match)
+  useEffect(() => {
+    api.get('/api/settings/dashboard')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && typeof data === 'object') {
+          setSettings((prev) => ({ ...prev, ...data }));
+          applyCssVariables({ ...DEFAULTS, ...data });
+        }
+      })
+      .catch(() => {});
+  }, [applyCssVariables]);
+
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -81,6 +95,7 @@ export default function DashboardSettings() {
     try {
       localStorage.setItem('wankr_dashboard_settings', JSON.stringify(settings));
       applyCssVariables(settings);
+      api.post('/api/settings/dashboard', settings).catch(() => {});
     } catch {
       // ignore storage errors
     }

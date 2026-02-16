@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './SpectatorView.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../../utils/api';
 
 function UserBubble({ user, onClick, isSelected }) {
   const [showPreview, setShowPreview] = useState(false);
@@ -55,7 +54,7 @@ function ConversationView({ user, onClose }) {
   const fetchConversation = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch(`${API_BASE}/api/spectator/conversation/${user.id}`);
+      const res = await api.get(`/api/spectator/conversation/${user.id}`);
       if (res.ok) {
         const data = await res.json();
         if (data.conversation?.messages) {
@@ -71,7 +70,7 @@ function ConversationView({ user, onClose }) {
   const fetchGrokStatus = useCallback(async () => {
     if (user?.id !== 'grok') return;
     try {
-      const res = await fetch(`${API_BASE}/api/spectator/grok-status`);
+      const res = await api.get('/api/spectator/grok-status');
       if (res.ok) {
         const data = await res.json();
         setGrokStatus(data);
@@ -219,7 +218,7 @@ export default function SpectatorView({ onExit }) {
   // Fetch active users from API
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/spectator/users`);
+      const res = await api.get('/api/spectator/users');
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users || []);
