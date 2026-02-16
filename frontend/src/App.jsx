@@ -38,8 +38,26 @@ export default function App() {
   const [sparkActive, setSparkActive] = useState(false);
   const [effectsBoundsVersion, setEffectsBoundsVersion] = useState(0);
   const [glowPointVersion, setGlowPointVersion] = useState(0);
+  const [orientationKey, setOrientationKey] = useState(0);
   const transitionRef = useRef(null);
   const storage = useConversationStorage();
+
+  // Reorient layout when iOS (or any device) rotates or app is opened from background
+  useEffect(() => {
+    const reflow = () => {
+      document.documentElement.style.setProperty('--viewport-height', `${window.innerHeight}px`);
+      setOrientationKey((k) => k + 1);
+    };
+    window.addEventListener('orientationchange', reflow);
+    window.addEventListener('resize', reflow);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reflow(); });
+    reflow();
+    return () => {
+      window.removeEventListener('orientationchange', reflow);
+      window.removeEventListener('resize', reflow);
+      document.removeEventListener('visibilitychange', reflow);
+    };
+  }, []);
   const {
     currentId,
     conversation,

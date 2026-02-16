@@ -232,12 +232,11 @@ export default function LoginForm({
           style={{
             width: '100%',
             minWidth: 0,
-            flex: 1,
             minHeight: `clamp(${44 * smhs}px, ${10 * smhs}cqi, ${64 * smhs}px)`,
             padding: `clamp(${12 * smhs}px, ${3 * smhs}cqi, ${22 * smhs}px)`,
-            borderRadius: 'clamp(8px, 2.5cqi, 14px)',
+            borderRadius: `clamp(${8 * smhs}px, ${2.5 * smhs}cqi, ${14 * smhs}px)`,
             fontWeight: 'bold',
-            fontSize: 'clamp(14px, 2.5cqi, 20px)',
+            fontSize: `clamp(${14 * smhs}px, ${2.5 * smhs}cqi, ${20 * smhs}px)`,
             border: '2px solid var(--accent)',
             boxShadow: '0 0 12px rgba(0, 255, 65, 0.3)',
             opacity: (isRegistering && !usernameStatus.available) ? 0.5 : 1,
@@ -250,8 +249,8 @@ export default function LoginForm({
 
       {!isRegistering && (
         <div style={{ display: 'flex', gap: 'clamp(6px, 1.5cqi, 12px)', minWidth: 0, marginTop: bvg !== 1 ? `calc(${bvg - 1} * clamp(4px, 1.25cqi, 14px))` : undefined }}>
-          <button type="button" className="btn-primary" onClick={onNewUser} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: `clamp(${40 * bbs}px, ${9 * bbs}cqi, ${56 * bbs}px)`, padding: `clamp(${10 * bbs}px, ${2.5 * bbs}cqi, ${18 * bbs}px)`, borderRadius: 'clamp(8px, 2.5cqi, 14px)', fontWeight: 'bold', fontSize: 'clamp(14px, 2.5cqi, 18px)', border: '2px solid var(--accent)', boxShadow: '0 0 8px rgba(0, 255, 65, 0.25)' }}>
-            New User
+          <button type="button" className="btn-primary" disabled style={{ flex: 1, minWidth: 0, minHeight: `clamp(${40 * bbs}px, ${9 * bbs}cqi, ${56 * bbs}px)`, padding: `clamp(${10 * bbs}px, ${2.5 * bbs}cqi, ${18 * bbs}px)`, borderRadius: 'clamp(8px, 2.5cqi, 14px)', fontWeight: 'bold', fontSize: 'clamp(14px, 2.5cqi, 18px)', border: '2px solid rgba(120,120,120,0.6)', background: 'rgba(60,60,60,0.8)', color: 'rgba(160,160,160,0.9)', cursor: 'not-allowed', opacity: 0.85 }}>
+            Coming soon
           </button>
           <button type="button" className="btn" onClick={onSpectate} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: `clamp(${40 * bbs}px, ${9 * bbs}cqi, ${56 * bbs}px)`, padding: `clamp(${10 * bbs}px, ${2.5 * bbs}cqi, ${18 * bbs}px)`, borderRadius: 'clamp(8px, 2.5cqi, 14px)', fontSize: 'clamp(14px, 2.5cqi, 18px)', border: '2px solid var(--accent)', color: 'var(--accent)' }}>
             Spectate
