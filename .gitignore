@@ -28,6 +28,14 @@ logs/
 
 # Cursor (optional: keep plans local)
 .cursor/plans/
+.cursor/debug.log
+.cursor/*.log
+
+# Runtime / local storage
+storage/grok_conversation.json
+storage/grok_queue.json
+storage/*.json
+wankr-backend/storage/
 
 # OS
 .DS_Store
