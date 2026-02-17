@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { loadDevDefaults, ALLOWED_DEV_DEFAULT_KEYS } from './loginScreenConfig';
 import { buildSnapshotFrom, getSnapshotFallbacks, normalizeLoginBoxHeight } from './helpers';
 
@@ -76,26 +76,30 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
   const [characterSharpness, setCharacterSharpness] = useState(d.characterSharpness ?? 100);
 
   const stateRef = useRef({});
-  stateRef.current = {
-    meanBrightness, appBackgroundBrightness, panelBorderBrightness, loginBrightness, loginShadeOfGray, loginLightToBlack,
-    leftCushion, topCushion, scaleX, scaleY, aspectLock,
-    backScaleX, backScaleY, backOffsetX, backOffsetY, appBackgroundSharpness,
-    sceneScaleX, sceneScaleY, sceneOffsetX, sceneOffsetY,
-    robotScaleX, robotScaleY, robotOffsetX, robotOffsetY,
-    shoulderScaleX, shoulderScaleY, shoulderOffsetX, shoulderOffsetY,
-    handLeftScaleX, handLeftScaleY, handLeftOffsetX, handLeftOffsetY,
-    handRightScaleX, handRightScaleY, handRightOffsetX, handRightOffsetY,
-    loginBoxWidth, loginBoxHeight, titleOffsetX, titleOffsetY, titleScale,
-    subtitleOffsetX, subtitleOffsetY, subtitleScale, formMarginTop, inputHeightScale, inputWidthScale, formGap,
-    submitMinHeightScale, bottomButtonsHeightScale, buttonsVerticalGap, buttonsBottomGap, panelContentOffsetX, panelRightMargin,
-    sparkBoundsTop, sparkBoundsBottom, sparkBoltThickness,
-    showLayerBackground, showLayerWankrBody, showLayerLogin, showLayerHands,
-    characterSharpness,
-  };
-
   const settersRef = useRef({});
-  settersRef.current = {
-    meanBrightness: setMeanBrightness, panelBorderBrightness: setPanelBorderBrightness, loginBrightness: setLoginBrightness,
+
+  useEffect(() => {
+    stateRef.current = {
+      meanBrightness, appBackgroundBrightness, panelBorderBrightness, loginBrightness, loginShadeOfGray, loginLightToBlack,
+      leftCushion, topCushion, scaleX, scaleY, aspectLock,
+      backScaleX, backScaleY, backOffsetX, backOffsetY, appBackgroundSharpness,
+      sceneScaleX, sceneScaleY, sceneOffsetX, sceneOffsetY,
+      robotScaleX, robotScaleY, robotOffsetX, robotOffsetY,
+      shoulderScaleX, shoulderScaleY, shoulderOffsetX, shoulderOffsetY,
+      handLeftScaleX, handLeftScaleY, handLeftOffsetX, handLeftOffsetY,
+      handRightScaleX, handRightScaleY, handRightOffsetX, handRightOffsetY,
+      loginBoxWidth, loginBoxHeight, titleOffsetX, titleOffsetY, titleScale,
+      subtitleOffsetX, subtitleOffsetY, subtitleScale, formMarginTop, inputHeightScale, inputWidthScale, formGap,
+      submitMinHeightScale, bottomButtonsHeightScale, buttonsVerticalGap, buttonsBottomGap, panelContentOffsetX, panelRightMargin,
+      sparkBoundsTop, sparkBoundsBottom, sparkBoltThickness,
+      showLayerBackground, showLayerWankrBody, showLayerLogin, showLayerHands,
+      characterSharpness,
+    };
+  });
+
+  useEffect(() => {
+    settersRef.current = {
+      meanBrightness: setMeanBrightness, panelBorderBrightness: setPanelBorderBrightness, loginBrightness: setLoginBrightness,
     loginShadeOfGray: setLoginShadeOfGray, loginLightToBlack: setLoginLightToBlack,
     leftCushion: setLeftCushion, topCushion: setTopCushion, scaleX: setScaleX, scaleY: setScaleY, aspectLock: setAspectLock,
     backScaleX: setBackScaleX, backScaleY: setBackScaleY, backOffsetX: setBackOffsetX, backOffsetY: setBackOffsetY,
@@ -116,7 +120,8 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
     sparkBoundsTop: setSparkBoundsTop, sparkBoundsBottom: setSparkBoundsBottom, sparkBoltThickness: setSparkBoltThickness,
     showLayerBackground: setShowLayerBackground, showLayerWankrBody: setShowLayerWankrBody, showLayerLogin: setShowLayerLogin, showLayerHands: setShowLayerHands,
     characterSharpness: setCharacterSharpness,
-  };
+    };
+  }, []);
 
   const buildSnapshot = useCallback(() => buildSnapshotFrom(stateRef.current), []);
   const applySnapshotRef = useRef(null);
@@ -134,7 +139,10 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
       setter(value);
     }
   }, [onAppBackgroundBrightnessChange, onAppBackgroundSharpnessChange]);
-  applySnapshotRef.current = applySnapshot;
+
+  useEffect(() => {
+    applySnapshotRef.current = applySnapshot;
+  }, [applySnapshot]);
 
   return {
     meanBrightness, setMeanBrightness,

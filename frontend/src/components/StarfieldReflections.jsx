@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 
 const REFLECTION_PLANE_Y = 0.45;
 const REFLECTION_ZONE_TOP = 0.68;
@@ -80,30 +80,39 @@ function LightAura({ id, x, y, speed, intensity, delay, sizeScale, isSource }) {
   );
 }
 
+function generatePoints() {
+  const greens = [];
+  for (let i = 0; i < NUM_POINTS; i++) {
+    const x = 0.05 + Math.random() * 0.9;
+    const y = Math.random() * REFLECTION_PLANE_Y;
+    const speed = 0.8 + Math.random() * 2.5;
+    const intensity = Math.random();
+    const delay = Math.random() * speed;
+    const sizeScale = 0.12 + Math.random() * 1.5;
+    greens.push({ x, y, speed, intensity, delay, sizeScale });
+  }
+  const reds = greens
+    .map((p) => ({
+      ...p,
+      y: 2 * REFLECTION_PLANE_Y - p.y,
+    }))
+    .filter((p) => p.y >= REFLECTION_ZONE_TOP && p.y <= REFLECTION_ZONE_BOTTOM);
+  const excludeCenter = (p) => p.x < 0.35 || p.x > 0.65;
+  return {
+    greenPoints: greens.filter(excludeCenter),
+    redPoints: reds.filter(excludeCenter),
+  };
+}
+
 export default function StarfieldReflections() {
-  const { greenPoints, redPoints } = useMemo(() => {
-    const greens = [];
-    for (let i = 0; i < NUM_POINTS; i++) {
-      const x = 0.05 + Math.random() * 0.9;
-      const y = Math.random() * REFLECTION_PLANE_Y;
-      const speed = 0.8 + Math.random() * 2.5;
-      const intensity = Math.random();
-      const delay = Math.random() * speed;
-      const sizeScale = 0.12 + Math.random() * 1.5;
-      greens.push({ x, y, speed, intensity, delay, sizeScale });
-    }
-    const reds = greens
-      .map((p) => ({
-        ...p,
-        y: 2 * REFLECTION_PLANE_Y - p.y,
-      }))
-      .filter((p) => p.y >= REFLECTION_ZONE_TOP && p.y <= REFLECTION_ZONE_BOTTOM);
-    const excludeCenter = (p) => p.x < 0.35 || p.x > 0.65;
-    return {
-      greenPoints: greens.filter(excludeCenter),
-      redPoints: reds.filter(excludeCenter),
-    };
-  }, []);
+  const [points, setPoints] = useState(null);
+  useLayoutEffect(() => {
+    if (points === null) queueMicrotask(() => setPoints(generatePoints()));
+  }, [points]);
+
+  if (points === null) return null;
+
+  const { greenPoints, redPoints } = points;
 
   return (
     <>

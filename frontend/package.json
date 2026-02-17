@@ -6,8 +6,12 @@
   "scripts": {
     "predev": "npx kill-port 5173",
     "dev": "vite",
+    "dev:open": "vite --open",
+    "dev:mobile": "vite --host 0.0.0.0 --open",
+    "dev:force": "vite --force",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "npm run lint && npm run build",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
     "clear-cache": "node -e \"const fs=require('fs');['node_modules/.vite','dist'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true});console.log('Removed',p)}catch(e){}})\""
@@ -15,7 +19,8 @@
   "dependencies": {
     "framer-motion": "^11.15.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-window": "~1.8.10"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

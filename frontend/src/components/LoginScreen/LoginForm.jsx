@@ -13,7 +13,7 @@ export default function LoginForm({
   onPasswordChange,
   onConfirmPasswordChange,
   onSubmit,
-  onNewUser: _onNewUser,
+  onNewUser: _onNewUser, // eslint-disable-line no-unused-vars -- accepted for API, not used
   onSpectate,
   onBackToLogin,
   titleOffsetX = 0,
@@ -136,8 +136,10 @@ export default function LoginForm({
               style={{
                 width: '100%',
                 minWidth: 0,
-                padding: `${2.5 * chs}cqi 3cqi`,
+                paddingTop: `${2.5 * chs}cqi`,
                 paddingRight: isRegistering ? `${8 * chs}cqi` : '3cqi',
+                paddingBottom: `${2.5 * chs}cqi`,
+                paddingLeft: '3cqi',
                 minHeight: hCqi,
                 background: 'linear-gradient(180deg, #404040 0%, #353535 40%, #2d2d2d 100%)',
                 border: `2px solid ${isRegistering && usernameStatus.available === false ? 'rgba(255, 107, 107, 0.6)' : isRegistering && usernameStatus.available ? 'rgba(0, 255, 65, 0.6)' : 'rgba(140, 140, 140, 0.55)'}`,

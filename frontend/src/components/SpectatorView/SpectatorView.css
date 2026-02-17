@@ -595,6 +595,11 @@
   padding-right: 8px;
 }
 
+.live-messages-virtual {
+  overflow: hidden;
+  padding-right: 0;
+}
+
 .jump-to-current-btn {
   position: absolute;
   bottom: 16px;

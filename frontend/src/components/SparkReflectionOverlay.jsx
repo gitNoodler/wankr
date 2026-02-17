@@ -14,21 +14,46 @@ export default function SparkReflectionOverlay({ sparkActive = false }) {
         mixBlendMode: 'screen',
       }}
     >
-      {/* Full-screen subtle propagation – light spreads across entire viewport */}
+      {/* Edge propagation – light only along left and right bounds */}
       <div
         style={{
           position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(ellipse 120% 80% at 50% 50%, rgba(200,255,150,0.06) 0%, rgba(180,255,120,0.02) 50%, transparent 75%)',
+          left: 0,
+          top: 0,
+          width: '8%',
+          height: '100%',
+          background: 'linear-gradient(to right, rgba(180,255,120,0.04) 0%, transparent 100%)',
         }}
       />
-      {/* Full-width propagation – seamless across entire viewport */}
       <div
         style={{
           position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(to right, rgba(200,255,140,0.2) 0%, rgba(180,255,120,0.08) 25%, rgba(180,255,120,0.06) 50%, rgba(180,255,120,0.08) 75%, rgba(200,255,140,0.2) 100%)',
-          transition: 'opacity 0.1s ease-out',
+          right: 0,
+          top: 0,
+          width: '8%',
+          height: '100%',
+          background: 'linear-gradient(to left, rgba(180,255,120,0.04) 0%, transparent 100%)',
+        }}
+      />
+      {/* Top and bottom bounds */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          height: '6%',
+          background: 'linear-gradient(to bottom, rgba(180,255,120,0.035) 0%, transparent 100%)',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: '8%',
+          background: 'linear-gradient(to top, rgba(180,255,120,0.035) 0%, transparent 100%)',
         }}
       />
     </div>

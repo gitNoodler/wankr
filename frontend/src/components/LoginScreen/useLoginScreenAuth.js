@@ -46,7 +46,7 @@ export function useLoginScreenAuth({ onLogin }) {
 
   useEffect(() => {
     if (isRegistering) {
-      checkUsernameAvailability(username);
+      queueMicrotask(() => checkUsernameAvailability(username));
     } else {
       queueMicrotask(() => setUsernameStatus({ checking: false, available: null, error: null }));
     }

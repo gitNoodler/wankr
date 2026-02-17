@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 const STORAGE_KEY = 'wankr_spark_zones';
 
@@ -87,14 +87,18 @@ export default function SparkZonesTool({ onClose, onZonesSaved, sceneRef }) {
     [rect, channelPoints.length, shiftCorner1, shiftCorner2]
   );
 
-  const shiftZone = shiftCorner1 && shiftCorner2
-    ? {
-        left: Math.min(shiftCorner1.x, shiftCorner2.x),
-        top: Math.min(shiftCorner1.y, shiftCorner2.y),
-        right: Math.max(shiftCorner1.x, shiftCorner2.x),
-        bottom: Math.max(shiftCorner1.y, shiftCorner2.y),
-      }
-    : null;
+  const shiftZone = useMemo(
+    () =>
+      shiftCorner1 && shiftCorner2
+        ? {
+            left: Math.min(shiftCorner1.x, shiftCorner2.x),
+            top: Math.min(shiftCorner1.y, shiftCorner2.y),
+            right: Math.max(shiftCorner1.x, shiftCorner2.x),
+            bottom: Math.max(shiftCorner1.y, shiftCorner2.y),
+          }
+        : null,
+    [shiftCorner1, shiftCorner2]
+  );
 
   const memorize = useCallback(() => {
     if (channelPoints.length >= 2) {

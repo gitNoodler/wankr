@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 const STORAGE_KEY = 'wankr_glow_point';
 
@@ -19,9 +19,11 @@ function saveGlowPoint(data) {
   } catch { /* ignore */ }
 }
 
+const DEFAULT_POINT = { x: 50, y: 50 };
+
 export default function GlowPointTool({ onClose, onSave, initialPoint = null }) {
   const saved = loadSaved();
-  const defaultPoint = { x: 50, y: 50 };
+  const defaultPoint = useMemo(() => DEFAULT_POINT, []);
   const [point, setPoint] = useState(initialPoint ?? saved ?? defaultPoint);
   const [size, setSize] = useState(saved?.size ?? 200);
   const [intensity, setIntensity] = useState(saved?.intensity ?? 0.2);
@@ -62,7 +64,7 @@ export default function GlowPointTool({ onClose, onSave, initialPoint = null }) 
     onSave?.();
     setSavedFeedback(true);
     setTimeout(() => setSavedFeedback(false), 1500);
-  }, [point, size, intensity, pulseSpeed, armLength, haloBlur, onSave]);
+  }, [point, defaultPoint, size, intensity, pulseSpeed, armLength, haloBlur, onSave]);
 
   const reset = useCallback(() => {
     setPoint(null);

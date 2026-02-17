@@ -39,7 +39,7 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
     vanishY: 38,  // % vertical vanishing point (horizon)
   }), []);
 
-  const baseOpacity = sparkActive ? 0.08 : 0.045;
+  const baseOpacity = sparkActive ? 0.035 : 0.028;
 
   // Horizontal grid lines spanning full screen height
   const gridLines = useMemo(() => {
@@ -50,7 +50,7 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
       const phase = ((time / cycleTime) + i * 0.25) % 1;
       lines.push({
         y: phase * 100, // 0% to 100% of viewport
-        opacity: Math.sin(phase * Math.PI) * 0.25,
+        opacity: Math.sin(phase * Math.PI) * 0.12,
         direction: 'down',
       });
     }
@@ -60,23 +60,11 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
       const phase = ((time / cycleTime) + i * 0.25) % 1;
       lines.push({
         y: 100 - phase * 100, // 100% to 0% of viewport
-        opacity: Math.sin(phase * Math.PI) * 0.25,
+        opacity: Math.sin(phase * Math.PI) * 0.12,
         direction: 'up',
       });
     }
     return lines;
-  }, [time]);
-
-  // Surface shimmer (left-right traverse) - full height
-  const shimmerPhase = useMemo(() => {
-    const cycleTime = 6;
-    return ((time / cycleTime) % 1) * 200 - 50; // -50% to 150%
-  }, [time]);
-
-  // Vertical shimmer (top-bottom traverse)
-  const verticalShimmerPhase = useMemo(() => {
-    const cycleTime = 8;
-    return ((time / cycleTime) % 1) * 200 - 50;
   }, [time]);
 
   return (
@@ -102,12 +90,13 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
             background: `linear-gradient(
               to right,
               rgba(0, 255, 65, ${line.opacity * 0.4}) 0%,
-              rgba(0, 255, 65, ${line.opacity * 0.2}) 15%,
-              rgba(180, 255, 120, ${line.opacity * 0.5}) 50%,
-              rgba(0, 255, 65, ${line.opacity * 0.2}) 85%,
+              rgba(0, 255, 65, ${line.opacity * 0.06}) 18%,
+              transparent 45%,
+              transparent 55%,
+              rgba(0, 255, 65, ${line.opacity * 0.06}) 82%,
               rgba(0, 255, 65, ${line.opacity * 0.4}) 100%
             )`,
-            boxShadow: `0 0 12px rgba(0, 255, 65, ${line.opacity * 0.3})`,
+            boxShadow: `0 0 8px rgba(0, 255, 65, ${line.opacity * 0.18})`,
             opacity: line.opacity > 0.05 ? 1 : 0,
           }}
         />
@@ -135,7 +124,7 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
           const endXUp = config.vanishX - Math.tan(radians) * 50;
           const endYUp = 0;
           const pulseOffset = ((time / 5) + idx * 0.1) % 1;
-          const lineOpacity = baseOpacity * (0.25 + Math.sin(pulseOffset * Math.PI * 2) * 0.15);
+          const lineOpacity = baseOpacity * (0.2 + Math.sin(pulseOffset * Math.PI * 2) * 0.1);
           
           return (
             <g key={`vline-${idx}`}>
@@ -148,7 +137,7 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
                 stroke={`rgba(0, 255, 65, ${lineOpacity})`}
                 strokeWidth="1"
                 style={{
-                  filter: `drop-shadow(0 0 4px rgba(0, 255, 65, ${lineOpacity * 0.4}))`,
+                  filter: `drop-shadow(0 0 3px rgba(0, 255, 65, ${lineOpacity * 0.25}))`,
                 }}
               />
               {/* Line going up */}
@@ -157,10 +146,10 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
                 y1={`${startY}%`}
                 x2={`${Math.max(0, Math.min(100, endXUp))}%`}
                 y2={`${endYUp}%`}
-                stroke={`rgba(0, 255, 65, ${lineOpacity * 0.6})`}
+                stroke={`rgba(0, 255, 65, ${lineOpacity * 0.5})`}
                 strokeWidth="1"
                 style={{
-                  filter: `drop-shadow(0 0 4px rgba(0, 255, 65, ${lineOpacity * 0.3}))`,
+                  filter: `drop-shadow(0 0 3px rgba(0, 255, 65, ${lineOpacity * 0.2}))`,
                 }}
               />
             </g>
@@ -168,125 +157,123 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
         })}
       </svg>
 
-      {/* Horizontal shimmer effect - full screen */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: `
-            linear-gradient(
-              90deg,
-              transparent ${shimmerPhase - 25}%,
-              rgba(180, 255, 140, ${baseOpacity * 0.3}) ${shimmerPhase - 8}%,
-              rgba(200, 255, 180, ${baseOpacity * 0.6}) ${shimmerPhase}%,
-              rgba(180, 255, 140, ${baseOpacity * 0.3}) ${shimmerPhase + 8}%,
-              transparent ${shimmerPhase + 25}%
-            )
-          `,
-          mixBlendMode: 'screen',
-        }}
-      />
-
-      {/* Vertical shimmer effect - full screen */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: `
-            linear-gradient(
-              180deg,
-              transparent ${verticalShimmerPhase - 30}%,
-              rgba(180, 255, 140, ${baseOpacity * 0.25}) ${verticalShimmerPhase - 10}%,
-              rgba(200, 255, 180, ${baseOpacity * 0.5}) ${verticalShimmerPhase}%,
-              rgba(180, 255, 140, ${baseOpacity * 0.25}) ${verticalShimmerPhase + 10}%,
-              transparent ${verticalShimmerPhase + 30}%
-            )
-          `,
-          mixBlendMode: 'screen',
-        }}
-      />
-
-      {/* Left strip enhancement - full height */}
+      {/* Horizontal shimmer – edge-bound, sweeps along left/right margins */}
       <div
         style={{
           position: 'absolute',
           left: 0,
           top: 0,
-          width: '20%',
+          width: '12%',
+          height: '100%',
+          background: `
+            linear-gradient(
+              90deg,
+              rgba(180, 255, 140, ${baseOpacity * 0.35}) 0%,
+              transparent 100%
+            )
+          `,
+          opacity: 0.4 + Math.sin(time * 0.5) * 0.15,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          width: '12%',
+          height: '100%',
+          background: `
+            linear-gradient(
+              270deg,
+              rgba(180, 255, 140, ${baseOpacity * 0.35}) 0%,
+              transparent 100%
+            )
+          `,
+          opacity: 0.4 + Math.sin(time * 0.5 + Math.PI) * 0.15,
+        }}
+      />
+
+      {/* Left edge – environmental bound */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: '8%',
           height: '100%',
           background: `
             linear-gradient(
               to right,
               rgba(0, 255, 65, ${baseOpacity * 0.5}) 0%,
-              rgba(0, 255, 65, ${baseOpacity * 0.25}) 40%,
+              rgba(0, 255, 65, ${baseOpacity * 0.12}) 55%,
               transparent 100%
             )
           `,
-          opacity: 0.6 + Math.sin(time * 0.4) * 0.2,
+          opacity: 0.6 + Math.sin(time * 0.4) * 0.12,
         }}
       />
 
-      {/* Right strip enhancement - full height */}
+      {/* Right edge – environmental bound */}
       <div
         style={{
           position: 'absolute',
           right: 0,
           top: 0,
-          width: '20%',
+          width: '8%',
           height: '100%',
           background: `
             linear-gradient(
               to left,
               rgba(0, 255, 65, ${baseOpacity * 0.5}) 0%,
-              rgba(0, 255, 65, ${baseOpacity * 0.25}) 40%,
+              rgba(0, 255, 65, ${baseOpacity * 0.12}) 55%,
               transparent 100%
             )
           `,
-          opacity: 0.6 + Math.sin(time * 0.4 + Math.PI) * 0.2,
+          opacity: 0.6 + Math.sin(time * 0.4 + Math.PI) * 0.12,
         }}
       />
 
-      {/* Top strip enhancement */}
+      {/* Top edge – environmental bound */}
       <div
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
           top: 0,
-          height: '15%',
+          height: '10%',
           background: `
             linear-gradient(
               to bottom,
-              rgba(0, 255, 65, ${baseOpacity * 0.4}) 0%,
-              rgba(0, 255, 65, ${baseOpacity * 0.2}) 50%,
+              rgba(0, 255, 65, ${baseOpacity * 0.45}) 0%,
+              rgba(0, 255, 65, ${baseOpacity * 0.1}) 50%,
               transparent 100%
             )
           `,
-          opacity: 0.5 + Math.sin(time * 0.6 + Math.PI / 2) * 0.15,
+          opacity: 0.55 + Math.sin(time * 0.5 + Math.PI / 2) * 0.1,
         }}
       />
 
-      {/* Bottom strip enhancement */}
+      {/* Bottom edge – environmental bound */}
       <div
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
-          height: '20%',
+          height: '12%',
           background: `
             linear-gradient(
               to top,
-              rgba(0, 255, 65, ${baseOpacity * 0.6}) 0%,
-              rgba(0, 255, 65, ${baseOpacity * 0.3}) 50%,
+              rgba(0, 255, 65, ${baseOpacity * 0.5}) 0%,
+              rgba(0, 255, 65, ${baseOpacity * 0.12}) 50%,
               transparent 100%
             )
           `,
-          opacity: 0.6 + Math.sin(time * 0.5) * 0.2,
+          opacity: 0.55 + Math.sin(time * 0.5) * 0.1,
         }}
       />
 
-      {/* Corner vignette pulses */}
+      {/* Corner vignettes – environmental bounds */}
       {[
         { left: 0, top: 0, origin: 'top left' },
         { right: 0, top: 0, origin: 'top right' },
@@ -298,17 +285,17 @@ export default function FloorPropagation({ sparkActive = false, glowPointVersion
           style={{
             position: 'absolute',
             ...corner,
-            width: '35%',
-            height: '35%',
+            width: '22%',
+            height: '22%',
             background: `
               radial-gradient(
                 ellipse 100% 100% at ${corner.origin},
                 rgba(0, 255, 65, ${baseOpacity * 0.4}) 0%,
-                rgba(0, 255, 65, ${baseOpacity * 0.15}) 40%,
-                transparent 70%
+                rgba(0, 255, 65, ${baseOpacity * 0.15}) 35%,
+                transparent 65%
               )
             `,
-            opacity: 0.4 + Math.sin(time * 0.3 + idx * Math.PI / 2) * 0.2,
+            opacity: 0.5 + Math.sin(time * 0.3 + idx * Math.PI / 2) * 0.12,
           }}
         />
       ))}

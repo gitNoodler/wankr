@@ -36,7 +36,7 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
     return null;
   };
 
-  const getTrainingKey = () => {
+  const GET_TRAINING_KEY = () => {
     const existing = getStoredTrainingKey();
     if (existing) return existing;
     const key = window.prompt('Enter training key:');
@@ -51,22 +51,20 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
     return null;
   };
 
-  const normalizeCommand = (value) =>
-    String(value || '')
-      .toLowerCase()
-      .replace(/[^\w\s/]+/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  const detectTrainingCommand = (value) => {
-    const normalized = normalizeCommand(value);
-    if (/^\/?wankr\s+n\s+da\s+clankr$/.test(normalized)) return 'enable';
-    if (/^\/?gangstr\s+is\s+uh\s+prankstr$/.test(normalized)) return 'disable';
-    return null;
-  };
-
   const handleSend = useCallback(
     async (msg) => {
+      const normalizeCommand = (value) =>
+        String(value || '')
+          .toLowerCase()
+          .replace(/[^\w\s/]+/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      const detectTrainingCommand = (value) => {
+        const normalized = normalizeCommand(value);
+        if (/^\/?wankr\s+n\s+da\s+clankr$/.test(normalized)) return 'enable';
+        if (/^\/?gangstr\s+is\s+uh\s+prankstr$/.test(normalized)) return 'disable';
+        return null;
+      };
       const trimmed = msg.trim();
       const commandType = detectTrainingCommand(trimmed);
       const isTrainingEnable = commandType === 'enable';

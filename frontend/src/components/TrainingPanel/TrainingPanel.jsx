@@ -284,7 +284,7 @@ const Slider = ({ label, value, min, max, step, onChange, displayValue }) => {
   const isControlled = inputStr === '';
   const display = displayValue != null ? displayValue : value;
   useEffect(() => {
-    setInputStr('');
+    queueMicrotask(() => setInputStr(''));
   }, [value]);
   const handleInputChange = (e) => {
     const raw = e.target.value;
@@ -364,8 +364,10 @@ const LearningRateSlider = ({ value, min, max, onChange }) => {
     if (num !== prevValue.current) {
       prevValue.current = num;
       const p = toLRParts(num);
-      setCoeff(p.coeff);
-      setExp(p.exp);
+      queueMicrotask(() => {
+        setCoeff(p.coeff);
+        setExp(p.exp);
+      });
     }
   }, [value]);
 

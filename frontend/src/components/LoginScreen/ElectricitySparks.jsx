@@ -260,8 +260,8 @@ export default function ElectricitySparks({ boundsTop, boundsBottom, boltThickne
       };
     }
 
-    const schedule = () => {
-      const delay = 5000 + Math.random() * 12000;
+    const schedule = (isFirst) => {
+      const delay = isFirst ? 4000 + Math.random() * 6000 : 5000 + Math.random() * 12000;
       timeoutRef.current = setTimeout(() => {
         const coords = getCoords();
         let parts;
@@ -293,11 +293,10 @@ export default function ElectricitySparks({ boundsTop, boundsBottom, boltThickne
           setActive(false);
           onSparkActive?.(false);
         }, duration);
-        schedule();
+        schedule(false);
       }, delay);
     };
-    const initialDelay = 4000 + Math.random() * 6000;
-    timeoutRef.current = setTimeout(schedule, initialDelay);
+    timeoutRef.current = setTimeout(() => schedule(true), 0);
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };

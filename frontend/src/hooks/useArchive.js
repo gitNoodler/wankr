@@ -1,24 +1,46 @@
 /**
- * Archive hook - Silent archive/delete: instant localStorage update + POST to backend
+ * Archive hook - Silent archive/delete: instant localStorage update + POST to backend.
+ * Names prompts run at convenient times: pre-generated after 4+ messages, or when archiving/switching.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { api } from '../utils/api';
+
+const PRE_GENERATE_MESSAGE_COUNT = 4;
 
 export function useArchive(
   conversation,
   currentId,
   archived,
   persistArchived,
-  startNewChat
+  startNewChat,
+  onChatNamed
 ) {
   const isRecalledChat = useCallback(() => {
     return archived.some(c => c.id === currentId);
   }, [archived, currentId]);
 
+  const pendingNameRef = useRef({});
+  const requestedForRef = useRef(new Set());
+
+  // Pre-generate name at a convenient time (after enough back-and-forth)
+  useEffect(() => {
+    if (conversation.length < PRE_GENERATE_MESSAGE_COUNT || isRecalledChat()) return;
+    if (requestedForRef.current.has(currentId)) return;
+
+    requestedForRef.current.add(currentId);
+    api.post('/api/chat/generate-name', { messages: [...conversation] })
+      .then((res) => res.json())
+      .then((data) => {
+        const name = (data.name || '').trim();
+        if (name) pendingNameRef.current[currentId] = name;
+      })
+      .catch(() => {});
+  }, [conversation, currentId, isRecalledChat]);
+
   /**
    * Archive current chat silently: remove from view, add to sidebar, fire POST.
-   * No modal - uses "Unnamed" for new archives.
+   * Uses pre-generated name if ready, otherwise "Unnamed" and names in background.
    */
   const openArchive = useCallback(() => {
     if (conversation.length === 0) {
@@ -45,9 +67,12 @@ export function useArchive(
       return;
     }
 
+    const initialName = pendingNameRef.current[currentId] || 'Unnamed';
+    if (pendingNameRef.current[currentId]) delete pendingNameRef.current[currentId];
+
     const archivedChat = {
       id: currentId,
-      name: 'Unnamed',
+      name: initialName,
       messages: [...conversation],
       createdAt: new Date().toISOString(),
     };
@@ -55,7 +80,23 @@ export function useArchive(
     startNewChat();
 
     api.post('/api/chat/archive', { chat: archivedChat }).catch(err => console.error('Archive backend failed:', err));
-  }, [conversation, currentId, archived, isRecalledChat, persistArchived, startNewChat]);
+
+    if (initialName !== 'Unnamed') {
+      onChatNamed?.(currentId, initialName);
+      return;
+    }
+
+    // Get Wankr-generated name in background and update the archive entry
+    api.post('/api/chat/generate-name', { messages: [...conversation] })
+      .then((res) => res.json())
+      .then((data) => {
+        const name = (data.name || '').trim() || 'Unnamed Degen Session';
+        persistArchived(prev => prev.map(c => c.id === currentId ? { ...c, name } : c));
+        api.post('/api/chat/archive', { chat: { ...archivedChat, name } }).catch(() => {});
+        onChatNamed?.(currentId, name);
+      })
+      .catch(() => {});
+  }, [conversation, currentId, archived, isRecalledChat, persistArchived, startNewChat, onChatNamed]);
 
   /**
    * Delete an archived chat: remove from sidebar, fire POST as delete.

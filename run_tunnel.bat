@@ -14,16 +14,23 @@ if "%CLOUDFLARE_TUNNEL_TOKEN%"=="" (
   echo Edit this file and paste your token after the = on the CLOUDFLARE_TUNNEL_TOKEN line:
   echo   %~dp0.env
   echo.
-  echo Get the token: Cloudflare Zero Trust ^> Networks ^> Tunnels ^> your tunnel ^> copy "Run" command, use the part after --token
+  echo Get the token: Cloudflare Zero Trust ^> Networks ^> Tunnels ^> your tunnel ^> copy the "Run" command and use the part after --token. Use the RUN token, not "service install".
   echo Then run run_tunnel.bat again.
   echo.
   pause
   exit /b 1
 )
 
+REM Default HTTP/2 to avoid "control stream encountered a failure" (QUIC often fails on Windows/firewalls). Set TUNNEL_PROTOCOL=quic to use QUIC.
+set "TUNNEL_EXTRA=--protocol http2"
+if "%TUNNEL_PROTOCOL%"=="quic" set "TUNNEL_EXTRA="
+
 echo [Tunnel] Running cloudflared (backend should be on localhost:5000)...
+echo.
 if exist "C:\Program Files (x86)\cloudflared\cloudflared.exe" (
-  "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel run --token %CLOUDFLARE_TUNNEL_TOKEN%
+  "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel run --token %CLOUDFLARE_TUNNEL_TOKEN% %TUNNEL_EXTRA%
+) else if exist "C:\Program Files\cloudflared\cloudflared.exe" (
+  "C:\Program Files\cloudflared\cloudflared.exe" tunnel run --token %CLOUDFLARE_TUNNEL_TOKEN% %TUNNEL_EXTRA%
 ) else (
-  cloudflared tunnel run --token %CLOUDFLARE_TUNNEL_TOKEN%
+  cloudflared tunnel run --token %CLOUDFLARE_TUNNEL_TOKEN% %TUNNEL_EXTRA%
 )

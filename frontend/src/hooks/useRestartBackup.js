@@ -24,6 +24,7 @@ export function useRestartBackup(conversation, currentId) {
       if (backingUp.current) return;
       try {
         const res = await api.get('/api/restart/status');
+        if (!res.ok) return; // Don't throw on 5xx; stop polling on repeated failure handled below
         const data = await res.json();
         if (!data?.restartRequested) return;
         backingUp.current = true;

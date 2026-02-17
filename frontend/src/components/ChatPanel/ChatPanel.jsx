@@ -1,10 +1,16 @@
-import { useRef, useLayoutEffect, useMemo, useState, useEffect } from 'react';
+import { useRef, useLayoutEffect, useMemo, useState, useEffect, useCallback } from 'react';
+import { VariableSizeList } from 'react-window';
 import LOGO_URL from '../../assets/logo.js';
+
+const VIRTUAL_LIST_THRESHOLD = 50;
 
 function ChatPanel({ messages, onSend, onStop, disabled }) {
   const chatRef = useRef(null);
+  const listRef = useRef(null);
+  const measureRef = useRef(null);
   const inputRef = useRef(null);
   const [inputValue, setInputValue] = useState('');
+  const [containerHeight, setContainerHeight] = useState(0);
 
   const getScale = () => {
     if (typeof window === 'undefined') return 1;
@@ -13,7 +19,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
   };
 
-  const resizeTextarea = () => {
+  const resizeTextarea = useCallback(() => {
     const ta = inputRef.current;
     if (!ta) return;
     const scale = getScale();
@@ -21,29 +27,43 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
     const maxHeight = Math.max(minHeight, Math.round(168 * scale));
     ta.style.height = `${minHeight}px`;
     ta.style.height = `${Math.min(ta.scrollHeight, maxHeight)}px`;
-  };
+  }, []);
 
   useEffect(() => {
     resizeTextarea();
-  }, [inputValue]);
+  }, [inputValue, resizeTextarea]);
 
   useEffect(() => {
     const handleResize = () => resizeTextarea();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [resizeTextarea]);
+
+  const useVirtual = (messages?.length ?? 0) > VIRTUAL_LIST_THRESHOLD;
+  const messageCount = messages?.length ?? 0;
+
+  useLayoutEffect(() => {
+    if (!measureRef.current || !useVirtual) return;
+    const el = measureRef.current;
+    const ro = new ResizeObserver(() => {
+      setContainerHeight(el.getBoundingClientRect().height);
+    });
+    ro.observe(el);
+    setContainerHeight(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, [useVirtual]);
 
   // Auto-scroll to bottom when messages change
   useLayoutEffect(() => {
-    const el = chatRef.current;
-    if (!el) return;
     const id = setTimeout(() => {
-      if (chatRef.current) {
+      if (useVirtual && listRef.current) {
+        listRef.current.scrollToItem(messageCount - 1, 'end');
+      } else if (chatRef.current && !useVirtual) {
         chatRef.current.scrollTop = chatRef.current.scrollHeight;
       }
     }, 10);
     return () => clearTimeout(id);
-  }, [messages, disabled]);
+  }, [messages, disabled, useVirtual, messageCount]);
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -72,6 +92,29 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
     return false;
   }, [messages]);
   const avatarSrc = LOGO_URL;
+
+  const getItemSize = useCallback((index) => {
+    const contentLen = (messages[index]?.content || '').length;
+    const estimatedContent = 56 + Math.min(120, Math.ceil(contentLen / 2));
+    return estimatedContent + 14;
+  }, [messages]);
+
+  const Row = useCallback(({ index, style, data }) => {
+    const m = data[index];
+    if (!m) return null;
+    return (
+      <div style={style} className={`wankr-message ${m.role === 'user' ? 'user' : 'ai'}`}>
+        {m.role !== 'user' && (
+          <div className="wankr-ai-avatar">
+            <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = LOGO_URL; }} />
+          </div>
+        )}
+        <div className="wankr-message-bubble">
+          {m.content}
+        </div>
+      </div>
+    );
+  }, [avatarSrc]);
 
   return (
     <div className="wankr-panel">
@@ -115,11 +158,11 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
 
       {/* Messages Area with visible scrollbar */}
       <div
-        ref={chatRef}
+        ref={!useVirtual ? chatRef : undefined}
         className="wankr-messages scroll-area"
         style={{
           flex: 1,
-          overflowY: 'auto',
+          overflowY: useVirtual ? 'hidden' : 'auto',
           overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -136,9 +179,35 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
             <p>Start a conversation with Wankr</p>
             <p className="wankr-empty-hint">Ask anything. He&apos;s in a mood.</p>
           </div>
+        ) : useVirtual && containerHeight > 0 ? (
+          <>
+            <div ref={measureRef} style={{ flex: 1, minHeight: 0 }}>
+              <VariableSizeList
+                ref={listRef}
+                height={containerHeight}
+                width="100%"
+                itemCount={messageCount}
+                itemSize={getItemSize}
+                itemData={messages}
+                style={{ overflowX: 'hidden' }}
+              >
+                {Row}
+              </VariableSizeList>
+            </div>
+            {disabled && (
+              <div className="wankr-message ai" style={{ flexShrink: 0 }}>
+                <div className="wankr-ai-avatar">
+                  <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = LOGO_URL; }} />
+                </div>
+                <div className="wankr-message-bubble wankr-typing">
+                  <span /><span /><span />
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <>
-            {messages.map((m, i) => (
+            {!useVirtual && messages.map((m, i) => (
               <div
                 key={i}
                 className={`wankr-message ${m.role === 'user' ? 'user' : 'ai'}`}

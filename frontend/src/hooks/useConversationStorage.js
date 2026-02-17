@@ -59,7 +59,7 @@ export function useConversationStorage() {
   }, [currentId, conversation, saveCurrent]);
 
   // Update an archived chat's messages if it exists in the archive
-  const updateArchivedIfExists = useCallback((id, messages) => {
+  const UPDATE_ARCHIVED_IF_EXISTS = useCallback((id, messages) => {
     setArchived(prev => {
       const idx = prev.findIndex(c => c.id === id);
       if (idx === -1) return prev; // Not an archived chat, no update needed

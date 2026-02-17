@@ -698,10 +698,11 @@ app.get('/api/restart/request', (req, res) => {
 
 app.get('/api/restart/status', (req, res) => {
   try {
-    res.json({ restartRequested: fs.existsSync(RESTART_FLAG_FILE) });
+    const restartRequested = fs.existsSync(RESTART_FLAG_FILE);
+    res.status(200).json({ restartRequested });
   } catch (err) {
     console.error('restart/status error:', err);
-    res.json({ restartRequested: false });
+    res.status(200).json({ restartRequested: false });
   }
 });
 
@@ -895,8 +896,38 @@ async function main() {
     console.warn('⚠️ Grok bot disabled - no xAI API key');
   }
 
-  app.listen(PORT, () => {
-    console.log(`🚀 Wankr API on http://127.0.0.1:${PORT}`);
+  const { server, port: actualPort } = await tryListenPort(PORT);
+  console.log(`🚀 Wankr API on http://127.0.0.1:${actualPort}`);
+  if (actualPort !== 5000) {
+    console.warn(`⚠️ Frontend proxy expects port 5000. This process is on ${actualPort}. Stop the other backend or use PORT=5000.`);
+  }
+  server.on('error', (err) => {
+    console.error('Server error:', err);
+    process.exit(1);
+  });
+}
+
+/** Try ports from startPort up to 5010; resolve with { server, port } or reject. */
+function tryListenPort(startPort) {
+  const maxPort = 5010;
+  return new Promise((resolve, reject) => {
+    function attempt(port) {
+      if (port > maxPort) {
+        return reject(new Error(`Ports ${startPort}-${maxPort} in use`));
+      }
+      const server = app.listen(port, () => {
+        resolve({ server, port });
+      });
+      server.once('error', (err) => {
+        server.close(() => {});
+        if (err.code === 'EADDRINUSE') {
+          attempt(port + 1);
+        } else {
+          reject(err);
+        }
+      });
+    }
+    attempt(startPort);
   });
 }
 

@@ -33,9 +33,9 @@ export default function RobotScene({
   handRightOffsetY,
   handRightScaleX,
   handRightScaleY,
-  showLayerBackground: _showLayerBackground = true,
+  showLayerBackground: _showLayerBackground = true, // eslint-disable-line no-unused-vars
   showLayerWankrBody = true,
-  showLayerLogin: _showLayerLogin = true,
+  showLayerLogin: _showLayerLogin = true, // eslint-disable-line no-unused-vars
   showLayerHands = true,
   characterSharpness = 100,
   leftCushion,

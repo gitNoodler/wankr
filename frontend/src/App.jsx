@@ -39,6 +39,8 @@ export default function App() {
   const [effectsBoundsVersion, setEffectsBoundsVersion] = useState(0);
   const [glowPointVersion, setGlowPointVersion] = useState(0);
   const [, setOrientationKey] = useState(0);
+  const [namedToast, setNamedToast] = useState(null);
+  const namedToastTimeoutRef = useRef(null);
   const transitionRef = useRef(null);
   const storage = useConversationStorage();
 
@@ -94,6 +96,15 @@ export default function App() {
   
   const chat = useChat(conversation, setConversation, systemPrompt, setTrainCount, currentId, handleTrainingModeChange);
 
+  const showNamedToast = useCallback((name) => {
+    if (namedToastTimeoutRef.current) clearTimeout(namedToastTimeoutRef.current);
+    setNamedToast({ name });
+    namedToastTimeoutRef.current = setTimeout(() => {
+      setNamedToast(null);
+      namedToastTimeoutRef.current = null;
+    }, 2800);
+  }, []);
+
   const {
     openArchive,
     deleteArchivedChat,
@@ -105,8 +116,15 @@ export default function App() {
     currentId,
     archived,
     persistArchived,
-    startNewChat
+    startNewChat,
+    showNamedToast
   );
+
+  useEffect(() => {
+    return () => {
+      if (namedToastTimeoutRef.current) clearTimeout(namedToastTimeoutRef.current);
+    };
+  }, []);
 
   // Auto-login: validate session token on page load
   useEffect(() => {
@@ -227,18 +245,19 @@ export default function App() {
             
             // Add to sidebar
             persistArchived(prev => [...prev, archivedChat]);
-            
+
             // Send to backend silently
             api.post('/api/chat/archive', { chat: archivedChat }).catch(() => {});
-            
-            console.log(`🎭 Wankr named your chat: "${name}"`);
+
+            // Show name at a convenient time (right after switch)
+            showNamedToast(name);
           } catch (err) {
             console.error('Auto-archive failed:', err.name === 'AbortError' ? 'timeout' : err);
           }
         })();
       }
     },
-    [loadArchived, conversation, currentId, isRecalledChat, persistArchived]
+    [loadArchived, conversation, currentId, isRecalledChat, persistArchived, showNamedToast]
   );
 
   useEffect(() => {
@@ -414,6 +433,30 @@ export default function App() {
           onClose={() => setEffectsBoundsOpen(false)}
           onSave={() => setEffectsBoundsVersion((v) => v + 1)}
         />
+      )}
+      {namedToast && (
+        <div
+          className="named-toast"
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: 'calc(24px * var(--scale))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: 'calc(10px * var(--scale)) calc(18px * var(--scale))',
+            background: 'linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%)',
+            border: '1px solid rgba(0, 255, 0, 0.35)',
+            borderRadius: 'var(--dashboard-input-border-radius)',
+            color: 'var(--accent)',
+            fontSize: 'calc(14px * var(--scale))',
+            fontWeight: 600,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5), 0 0 20px rgba(0, 255, 0, 0.15)',
+            zIndex: 10000,
+          }}
+        >
+          Named: {namedToast.name}
+        </div>
       )}
     </div>
   );

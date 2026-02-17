@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { VariableSizeList } from 'react-window';
 import { getRestoreScrollTop } from './scrollRestore';
 import './SpectatorView.css';
 import { api } from '../../utils/api';
 import LOGO_URL from '../../assets/logo.js';
+
+const VIRTUAL_LIST_THRESHOLD = 50;
 
 function UserBubble({ user, onClick, isSelected }) {
   const [showPreview, setShowPreview] = useState(false);
@@ -53,8 +56,12 @@ function ConversationView({ user, onClose }) {
   const [loading, setLoading] = useState(false);
   const [grokStatus, setGrokStatus] = useState(null);
   const messagesContainerRef = useRef(null);
+  const listRef = useRef(null);
+  const measureRef = useRef(null);
+  const [containerHeight, setContainerHeight] = useState(0);
   const savedScrollTopRef = useRef(null);
   const [atBottom, setAtBottom] = useState(true);
+  const useVirtual = messages.length > VIRTUAL_LIST_THRESHOLD;
 
   // Fetch full conversation for this user
   const fetchConversation = useCallback(async () => {
@@ -91,9 +98,15 @@ function ConversationView({ user, onClose }) {
   // Initial fetch and polling
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
-    fetchConversation().finally(() => setLoading(false));
-    fetchGrokStatus();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      fetchConversation().finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+      fetchGrokStatus();
+    });
 
     // Poll for updates every 5 seconds
     const interval = setInterval(() => {
@@ -101,7 +114,10 @@ function ConversationView({ user, onClose }) {
       fetchGrokStatus();
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [user, fetchConversation, fetchGrokStatus]);
 
   const checkAtBottom = useCallback(() => {
@@ -120,6 +136,16 @@ function ConversationView({ user, onClose }) {
     }
   }, []);
 
+  useLayoutEffect(() => {
+    if (!measureRef.current || !useVirtual) return;
+    const el = measureRef.current;
+    const updateHeight = () => setContainerHeight(el.getBoundingClientRect().height);
+    const ro = new ResizeObserver(updateHeight);
+    ro.observe(el);
+    updateHeight();
+    return () => ro.disconnect();
+  }, [useVirtual]);
+
   // Restore scroll position after poll updates messages so the user isn't forced back to bottom
   useLayoutEffect(() => {
     const saved = savedScrollTopRef.current;
@@ -131,12 +157,41 @@ function ConversationView({ user, onClose }) {
     if (messages.length > 0) checkAtBottom();
   }, [messages, checkAtBottom]);
 
+  const getItemSize = useCallback((index) => {
+    const contentLen = (messages[index]?.content || '').length;
+    return 56 + Math.min(120, Math.ceil(contentLen / 2)) + 14;
+  }, [messages]);
+
+  const MessageRow = useCallback(({ index, style, data }) => {
+    const msg = data[index];
+    if (!msg) return null;
+    return (
+      <div style={style} className={`message ${msg.from || msg.role}`}>
+        <span className="message-author">
+          {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : 'GROK'}
+        </span>
+        <p className="message-content">{msg.content}</p>
+        {msg.timestamp && (
+          <span className="message-time">
+            {new Date(msg.timestamp).toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+    );
+  }, []);
+
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    queueMicrotask(() => setNow(Date.now()));
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   if (!user) return null;
 
-  // Calculate time until next grok response
   const getCountdown = () => {
-    if (!grokStatus?.nextResponseAt) return null;
-    const remaining = grokStatus.nextResponseAt - Date.now();
+    if (!grokStatus?.nextResponseAt || !now) return null;
+    const remaining = grokStatus.nextResponseAt - now;
     if (remaining <= 0) return 'Responding soon...';
     const minutes = Math.floor(remaining / 60000);
     const seconds = Math.floor((remaining % 60000) / 1000);
@@ -173,25 +228,45 @@ function ConversationView({ user, onClose }) {
             </div>
             {messages.length > 0 ? (
               <div className="live-messages-wrapper">
-                <div
-                  ref={messagesContainerRef}
-                  className="live-messages"
-                  onScroll={checkAtBottom}
-                >
-                  {messages.map((msg, idx) => (
-                    <div key={idx} className={`message ${msg.from || msg.role}`}>
-                      <span className="message-author">
-                        {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : 'GROK'}
-                      </span>
-                      <p className="message-content">{msg.content}</p>
-                      {msg.timestamp && (
-                        <span className="message-time">
-                          {new Date(msg.timestamp).toLocaleTimeString()}
+                {useVirtual ? (
+                  <div ref={measureRef} className="live-messages live-messages-virtual" style={{ height: '60vh', minHeight: 200 }}>
+                    {containerHeight > 0 && (
+                      <VariableSizeList
+                        ref={listRef}
+                        outerRef={messagesContainerRef}
+                        height={containerHeight}
+                        width="100%"
+                        itemCount={messages.length}
+                        itemSize={getItemSize}
+                        itemData={messages}
+                        onScroll={checkAtBottom}
+                        style={{ overflowX: 'hidden' }}
+                      >
+                        {MessageRow}
+                      </VariableSizeList>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    ref={messagesContainerRef}
+                    className="live-messages"
+                    onScroll={checkAtBottom}
+                  >
+                    {messages.map((msg, idx) => (
+                      <div key={idx} className={`message ${msg.from || msg.role}`}>
+                        <span className="message-author">
+                          {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : 'GROK'}
                         </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        <p className="message-content">{msg.content}</p>
+                        {msg.timestamp && (
+                          <span className="message-time">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {!atBottom && (
                   <button
                     type="button"

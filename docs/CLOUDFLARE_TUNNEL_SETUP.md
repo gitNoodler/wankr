@@ -167,3 +167,30 @@ If the domain shows nothing after removing the Worker, the Tunnel isn’t runnin
 
 - **Cause:** Something in front (Worker or static host) is answering for wankrbot.com and only allows GET.
 - **Fix:** Remove Worker from the domain (Steps 2–4 above), use Tunnel + backend only, clean DNS, hard refresh.
+
+---
+
+### `control stream encountered a failure while serving` (tunnel never registers)
+
+- **Cause:** QUIC (UDP) to Cloudflare’s edge is failing or being closed (common on Windows, some firewalls, or strict networks).
+- **Fix:** The repo’s `run_tunnel.bat` now uses **HTTP/2** by default (`--protocol http2`) so the tunnel uses TCP instead of QUIC. Run `run_tunnel.bat` again; you should see the tunnel register. If you prefer QUIC, set `TUNNEL_PROTOCOL=quic` in `.env` or in the environment before running.
+- **Token:** Use the token from the **Run** command in Zero Trust (the one you paste into `cloudflared tunnel run --token ...`). Do **not** use the token from “service install”; that’s a different one-time token.
+
+---
+
+### Error 1033 — "Cloudflare is currently unable to resolve it"
+
+- **Cause:** The tunnel for wankrbot.com is not connected. Cloudflare’s edge has no live connector for that hostname.
+- **Fix (in order):**
+  1. **Token:** In Zero Trust → Networks → Tunnels → your tunnel, copy the **Run** command and take the token (the part after `--token`). Put it in `.env` as `CLOUDFLARE_TUNNEL_TOKEN=...`. If you see "Invalid tunnel secret" in the tunnel log, the token is wrong or expired — get a new one the same way.
+  2. **Public hostname:** In the same tunnel, open **Public Hostname**. Ensure there is an entry: **Subdomain** (blank for apex), **Domain** `wankrbot.com`, **Service** HTTP, **URL** `http://127.0.0.1:5000`. Save. Add `www` as well if you use it.
+  3. **Run the tunnel:** On the machine where the backend runs, run `run_tunnel.bat`. Leave the window open. Wait until the log shows the tunnel is registered (e.g. "Registered tunnel connection" or no more "Register tunnel error").
+  4. **Backend:** Ensure the backend is listening on port 5000 (e.g. run `wankr.bat` first).
+- Then reload https://wankrbot.com (hard refresh). 1033 should go away once the tunnel is connected and the hostname is set.
+
+---
+
+### `cloudflared.exe` is not recognized
+
+- **Cause:** `cloudflared` isn’t on your PATH when you run it from the repo directory.
+- **Fix:** Use `run_tunnel.bat` (it uses the full path to cloudflared if installed in Program Files). Or run cloudflared by full path: `"C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel run --token YOUR_RUN_TOKEN` (or `C:\Program Files\cloudflared\cloudflared.exe` if that’s where it’s installed). To install: `winget install Cloudflare.cloudflared`.

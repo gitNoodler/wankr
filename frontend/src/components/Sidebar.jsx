@@ -1,3 +1,8 @@
+import { useRef, useState, useLayoutEffect, useMemo, useCallback } from 'react';
+import { FixedSizeList } from 'react-window';
+
+const ARCHIVED_VIRTUAL_THRESHOLD = 100;
+
 function Sidebar({
   currentId,
   hasMessages,
@@ -9,9 +14,93 @@ function Sidebar({
   onDeleteArchived,
   thoughts,
 }) {
+  const archivedListRef = useRef(null);
+  const [archivedListHeight, setArchivedListHeight] = useState(0);
+
+  const archivedReversed = useMemo(() => [...archived].reverse(), [archived]);
+  const useVirtualArchived = archived.length > ARCHIVED_VIRTUAL_THRESHOLD;
+
+  useLayoutEffect(() => {
+    if (!archivedListRef.current || !useVirtualArchived) return;
+    const el = archivedListRef.current;
+    const update = () => setArchivedListHeight(el.getBoundingClientRect().height);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    update();
+    return () => ro.disconnect();
+  }, [useVirtualArchived]);
+
+  const ArchivedRow = useCallback(({ index, style, data }) => {
+    const c = data[index];
+    if (!c) return null;
+    const isActive = c.id === currentId;
+    return (
+      <div
+        style={{
+          ...style,
+          padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
+          borderRadius: 'calc(6px * var(--scale))',
+          color: 'var(--text-content)',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '4px',
+          boxSizing: 'border-box',
+        }}
+        className={`convo-item ${isActive ? 'convo-active' : ''}`}
+        title={`${c.name || 'Unnamed'}${c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString()}` : ''}`}
+      >
+        <span
+          onClick={() => onLoadArchived(c.id)}
+          style={{
+            flex: 1,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {c.name?.trim() || 'Unnamed'}
+        </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteArchived(c);
+          }}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'rgba(255, 100, 100, 0.6)',
+            cursor: 'pointer',
+            padding: '2px 6px',
+            fontSize: 'calc(14px * var(--scale))',
+            fontWeight: 'bold',
+            lineHeight: 1,
+            borderRadius: '4px',
+            transition: 'all 0.2s ease',
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.color = '#ff4444';
+            e.target.style.background = 'rgba(255, 68, 68, 0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.color = 'rgba(255, 100, 100, 0.6)';
+            e.target.style.background = 'transparent';
+          }}
+          title="Delete this chat"
+        >
+          ×
+        </button>
+      </div>
+    );
+  }, [currentId, onLoadArchived, onDeleteArchived]);
+
   // Check if viewing a recalled archived chat
   const isViewingArchived = archived.some(c => c.id === currentId);
-  
+
   // Top label: "New Chat" if viewing archived or no messages, "Current chat" if has messages
   const topLabel = isViewingArchived ? 'New Chat' : (hasMessages ? 'Current chat' : 'New Chat');
   const topIsActive = !isViewingArchived && hasMessages;
@@ -107,7 +196,8 @@ function Sidebar({
               flexDirection: 'column',
               gap: '4px',
               maxHeight: 'calc(280px * var(--scale))',
-              overflowY: 'auto',
+              height: useVirtualArchived ? 'calc(280px * var(--scale))' : undefined,
+              overflowY: useVirtualArchived ? 'hidden' : 'auto',
               fontSize: 'calc(14px * var(--scale))',
             }}
           >
@@ -128,73 +218,91 @@ function Sidebar({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 cursor: isViewingArchived ? 'pointer' : 'default',
+                flexShrink: 0,
               }}
             >
               {topLabel}
             </div>
-            {[...archived].reverse().map((c) => {
-              const isActive = c.id === currentId;
-              return (
-              <div
-                key={c.id}
-                className={`convo-item ${isActive ? 'convo-active' : ''}`}
-                style={{
-                  padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
-                  borderRadius: 'calc(6px * var(--scale))',
-                  color: 'var(--text-content)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '4px',
-                }}
-                title={`${c.name || 'Unnamed'}${c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString()}` : ''}`}
-              >
-                <span
-                  onClick={() => onLoadArchived(c.id)}
-                  style={{
-                    flex: 1,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {c.name?.trim() || 'Unnamed'}
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteArchived(c);
-                  }}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'rgba(255, 100, 100, 0.6)',
-                    cursor: 'pointer',
-                    padding: '2px 6px',
-                    fontSize: 'calc(14px * var(--scale))',
-                    fontWeight: 'bold',
-                    lineHeight: 1,
-                    borderRadius: '4px',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.color = '#ff4444';
-                    e.target.style.background = 'rgba(255, 68, 68, 0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.color = 'rgba(255, 100, 100, 0.6)';
-                    e.target.style.background = 'transparent';
-                  }}
-                  title="Delete this chat"
-                >
-                  ×
-                </button>
+            {useVirtualArchived ? (
+              <div ref={archivedListRef} style={{ flex: 1, minHeight: 0 }}>
+                {archivedListHeight > 0 && (
+                  <FixedSizeList
+                    height={archivedListHeight}
+                    width="100%"
+                    itemCount={archivedReversed.length}
+                    itemSize={44}
+                    itemData={archivedReversed}
+                    style={{ overflowX: 'hidden' }}
+                  >
+                    {ArchivedRow}
+                  </FixedSizeList>
+                )}
               </div>
-              );
-            })}
+            ) : (
+              archivedReversed.map((c) => {
+                const isActive = c.id === currentId;
+                return (
+                  <div
+                    key={c.id}
+                    className={`convo-item ${isActive ? 'convo-active' : ''}`}
+                    style={{
+                      padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
+                      borderRadius: 'calc(6px * var(--scale))',
+                      color: 'var(--text-content)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '4px',
+                    }}
+                    title={`${c.name || 'Unnamed'}${c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString()}` : ''}`}
+                  >
+                    <span
+                      onClick={() => onLoadArchived(c.id)}
+                      style={{
+                        flex: 1,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {c.name?.trim() || 'Unnamed'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteArchived(c);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'rgba(255, 100, 100, 0.6)',
+                        cursor: 'pointer',
+                        padding: '2px 6px',
+                        fontSize: 'calc(14px * var(--scale))',
+                        fontWeight: 'bold',
+                        lineHeight: 1,
+                        borderRadius: '4px',
+                        transition: 'all 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.color = '#ff4444';
+                        e.target.style.background = 'rgba(255, 68, 68, 0.15)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.color = 'rgba(255, 100, 100, 0.6)';
+                        e.target.style.background = 'transparent';
+                      }}
+                      title="Delete this chat"
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
