@@ -64,18 +64,6 @@ export default function RobotScene({
         return `${midX * 100}% ${midY * 100}%`;
       })()
     : 'center center';
-  // #region agent log
-  React.useEffect(() => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const aspectRatio = CANVAS.width / CANVAS.height;
-    const sceneWidth = Math.min(vw, vh * aspectRatio);
-    const sceneHeight = Math.min(vh, vw / aspectRatio);
-    const leftGap = (vw - sceneWidth) / 2;
-    const rightGap = leftGap;
-    fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RobotScene.jsx:75',message:'RobotScene dimensions',data:{viewportWidth:vw,viewportHeight:vh,sceneWidth,sceneHeight,leftGap,rightGap,aspectRatio},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-  }, []);
-  // #endregion
 
   const panelFloatRef = useRef(null);
   const [panelSize, setPanelSize] = useState(null);

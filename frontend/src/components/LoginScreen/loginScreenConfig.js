@@ -34,7 +34,7 @@ export function isPortrait() {
 export const DEV_DEFAULTS_KEY = 'wankr_login_dev_defaults';
 export const DEV_DEFAULTS_KEY_IOS = 'wankr_login_dev_defaults_ios';
 /** Bump this when code defaults change; stored data with an older version is ignored so new defaults apply automatically. */
-export const DEFAULTS_VERSION = 5;
+export const DEFAULTS_VERSION = 6;
 export const LAYERS_LOCKED_KEY = 'wankr_layers_locked';
 export const DUCT_TAPE_STRIPS_KEY = 'wankr_duct_tape_strips';
 export const RESPECT_DUCT_TAPE_KEY = 'wankr_respect_duct_tape';
@@ -44,13 +44,13 @@ export const BODY_PANEL_LOCKED_KEY = 'wankr_body_panel_locked';
 /** Desktop defaults: locked-in layout from dev panel (scene, robot, body, hands, login pane, layout, effects). */
 export const DEV_DEFAULTS = {
   meanBrightness: 50,
-  appBackgroundBrightness: 50,
-  panelBorderBrightness: 60,
-  loginBrightness: 33,
+  appBackgroundBrightness: 62,
+  panelBorderBrightness: 5,
+  loginBrightness: 14,
   loginShadeOfGray: 100,
-  loginLightToBlack: 100,
-  backlayerSharpness: 100,
-  characterSharpness: 100,
+  loginLightToBlack: 95,
+  backlayerSharpness: 162,
+  characterSharpness: 88,
   leftCushion: -1,
   topCushion: 3,
   scaleX: 95,
@@ -71,15 +71,15 @@ export const DEV_DEFAULTS = {
   shoulderScaleX: 100,
   shoulderScaleY: 100,
   shoulderOffsetX: 0,
-  shoulderOffsetY: 0,
+  shoulderOffsetY: 32.5,
   handLeftScaleX: 14,
-  handLeftScaleY: 19,
-  handLeftOffsetX: 72,
-  handLeftOffsetY: -0.5,
-  handRightScaleX: 14,
-  handRightScaleY: 19,
-  handRightOffsetX: -63,
-  handRightOffsetY: -0.5,
+  handLeftScaleY: 16,
+  handLeftOffsetX: 65,
+  handLeftOffsetY: 35.5,
+  handRightScaleX: 10,
+  handRightScaleY: 13,
+  handRightOffsetX: -71,
+  handRightOffsetY: 36.5,
   loginBoxWidth: 98,
   loginBoxHeight: 92,
   panelContentOffsetX: 0,
@@ -106,8 +106,8 @@ export const DEV_DEFAULTS = {
   submitToButtonsGap: 1,
   controlHeightScale: 100,
   sparkBoundsTop: 10,
-  sparkBoundsBottom: 90,
-  sparkBoltThickness: 100,
+  sparkBoundsBottom: 44,
+  sparkBoltThickness: 20,
   showLayerBackground: true,
   showLayerWankrBody: true,
   showLayerLogin: true,
