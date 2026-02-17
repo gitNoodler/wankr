@@ -250,6 +250,10 @@ function detectTrainingCommand(value) {
 }
 
 // --- API routes first (before static) ---
+// Root /health for Railway/load-balancer liveness (plain 200)
+app.get('/health', (req, res) => {
+  res.status(200).send('ok');
+});
 app.get('/api/health', (req, res) => {
   res.json({ backend: 'node', ok: true });
 });

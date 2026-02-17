@@ -1,6 +1,10 @@
 # Bring wankrbot.com back online
 
-Minimal runbook. **Cloudflare dashboard steps:** [docs/CLOUDFLARE_CONFIG_CHECKLIST.md](docs/CLOUDFLARE_CONFIG_CHECKLIST.md). Full details: [docs/CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md).
+**Full relaunch checklist (Cloudflare + local):** [RELAUNCH.md](RELAUNCH.md).  
+**First-time setup** (domain, tunnel, token, cloudflared): [GET_WANKRBOT_ONLINE.md](GET_WANKRBOT_ONLINE.md).  
+**Cloudflare-only checklist:** [docs/CLOUDFLARE_CONFIG_CHECKLIST.md](docs/CLOUDFLARE_CONFIG_CHECKLIST.md). Details: [docs/CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md).
+
+Minimal runbook below for **every time** you bring the site up.
 
 ## 1. Build frontend
 
