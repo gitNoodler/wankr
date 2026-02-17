@@ -896,7 +896,12 @@ async function main() {
     console.warn('⚠️ Grok bot disabled - no xAI API key');
   }
 
-  const { server, port: actualPort } = await tryListenPort(PORT);
+  // Railway (and similar) set PORT; use that port only. Local dev uses 5000 with fallback range.
+  const portFromEnv = process.env.PORT;
+  const { server, port: actualPort } = portFromEnv
+    ? await listenSingle(Number(portFromEnv))
+    : await tryListenPort(5000);
+
   console.log(`🚀 Wankr API on http://127.0.0.1:${actualPort}`);
   if (actualPort !== 5000) {
     console.warn(`⚠️ Frontend proxy expects port 5000. This process is on ${actualPort}. Stop the other backend or use PORT=5000.`);
@@ -907,7 +912,15 @@ async function main() {
   });
 }
 
-/** Try ports from startPort up to 5010; resolve with { server, port } or reject. */
+/** Listen on a single port (for Railway etc.). Resolves with { server, port } or rejects. */
+function listenSingle(port) {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, () => resolve({ server, port }));
+    server.once('error', reject);
+  });
+}
+
+/** Try ports from startPort up to 5010; resolve with { server, port } or reject. Used when PORT is not set (local dev). */
 function tryListenPort(startPort) {
   const maxPort = 5010;
   return new Promise((resolve, reject) => {
