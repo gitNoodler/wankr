@@ -7,7 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      babel: {
+        plugins: [['babel-plugin-react-compiler', { target: '19' }]],
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@mascot': path.resolve(__dirname, '../images_logo_banner_mascot'),

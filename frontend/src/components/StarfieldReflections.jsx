@@ -37,8 +37,7 @@ function LightAura({ id, x, y, speed, intensity, delay, sizeScale, isSource }) {
         pointerEvents: 'none',
         '--pulse-min': minOp,
         '--pulse-max': maxOp,
-        animation: `auraPulse ${currentSpeed}s ease-in-out infinite`,
-        animationDelay: `${delay}s`,
+        animation: `auraPulse ${currentSpeed}s ease-in-out ${delay}s infinite`,
       }}
     >
       <svg width={size} height={size} viewBox="-24 -24 48 48">

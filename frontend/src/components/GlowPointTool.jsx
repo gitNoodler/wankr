@@ -9,14 +9,14 @@ function loadSaved() {
       const parsed = JSON.parse(raw);
       return parsed;
     }
-  } catch {}
+  } catch { /* ignore */ }
   return null;
 }
 
 function saveGlowPoint(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {}
+  } catch { /* ignore */ }
 }
 
 export default function GlowPointTool({ onClose, onSave, initialPoint = null }) {
@@ -69,7 +69,7 @@ export default function GlowPointTool({ onClose, onSave, initialPoint = null }) 
     try {
       localStorage.removeItem(STORAGE_KEY);
       onSave?.();
-    } catch {}
+    } catch { /* ignore */ }
   }, [onSave]);
 
   const pointPx = point && rect

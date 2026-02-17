@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { getRestoreScrollTop } from './scrollRestore';
 import './SpectatorView.css';
 import { api } from '../../utils/api';
+import LOGO_URL from '../../assets/logo.js';
 
 function UserBubble({ user, onClick, isSelected }) {
   const [showPreview, setShowPreview] = useState(false);
@@ -44,15 +46,21 @@ function UserBubble({ user, onClick, isSelected }) {
   );
 }
 
+const SCROLL_AT_BOTTOM_THRESHOLD = 60;
+
 function ConversationView({ user, onClose }) {
   const [messages, setMessages] = useState(user?.lastMessages || []);
   const [loading, setLoading] = useState(false);
   const [grokStatus, setGrokStatus] = useState(null);
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const savedScrollTopRef = useRef(null);
+  const [atBottom, setAtBottom] = useState(true);
 
   // Fetch full conversation for this user
   const fetchConversation = useCallback(async () => {
     if (!user) return;
+    const el = messagesContainerRef.current;
+    if (el) savedScrollTopRef.current = el.scrollTop;
     try {
       const res = await api.get(`/api/spectator/conversation/${user.id}`);
       if (res.ok) {
@@ -96,10 +104,32 @@ function ConversationView({ user, onClose }) {
     return () => clearInterval(interval);
   }, [user, fetchConversation, fetchGrokStatus]);
 
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const checkAtBottom = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight <= SCROLL_AT_BOTTOM_THRESHOLD;
+    setAtBottom(isAtBottom);
+  }, []);
+
+  const scrollToCurrent = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      setAtBottom(true);
+    }
+  }, []);
+
+  // Restore scroll position after poll updates messages so the user isn't forced back to bottom
+  useLayoutEffect(() => {
+    const saved = savedScrollTopRef.current;
+    if (saved != null && messagesContainerRef.current) {
+      savedScrollTopRef.current = null;
+      const el = messagesContainerRef.current;
+      el.scrollTop = getRestoreScrollTop(saved, el.scrollHeight, el.clientHeight);
+    }
+    if (messages.length > 0) checkAtBottom();
+  }, [messages, checkAtBottom]);
 
   if (!user) return null;
 
@@ -142,21 +172,36 @@ function ConversationView({ user, onClose }) {
               <span>Live conversation with {user.username}</span>
             </div>
             {messages.length > 0 ? (
-              <div className="live-messages">
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`message ${msg.from || msg.role}`}>
-                    <span className="message-author">
-                      {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : 'GROK'}
-                    </span>
-                    <p className="message-content">{msg.content}</p>
-                    {msg.timestamp && (
-                      <span className="message-time">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
+              <div className="live-messages-wrapper">
+                <div
+                  ref={messagesContainerRef}
+                  className="live-messages"
+                  onScroll={checkAtBottom}
+                >
+                  {messages.map((msg, idx) => (
+                    <div key={idx} className={`message ${msg.from || msg.role}`}>
+                      <span className="message-author">
+                        {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : 'GROK'}
                       </span>
-                    )}
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
+                      <p className="message-content">{msg.content}</p>
+                      {msg.timestamp && (
+                        <span className="message-time">
+                          {new Date(msg.timestamp).toLocaleTimeString()}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {!atBottom && (
+                  <button
+                    type="button"
+                    className="jump-to-current-btn"
+                    onClick={scrollToCurrent}
+                    title="Jump to latest message"
+                  >
+                    ↓ Current
+                  </button>
+                )}
               </div>
             ) : (
               <div className="no-messages">
@@ -270,7 +315,7 @@ export default function SpectatorView({ onExit }) {
           ✕
         </button>
         <div className="header-title">
-          <span className="robot-icon">🤖</span>
+          <img className="wankr-header-logo" src={LOGO_URL} alt="Wankr" />
           <span className="title-text">WANKR VISION</span>
           <span className="live-dot" />
         </div>

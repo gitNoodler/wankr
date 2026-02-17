@@ -35,11 +35,14 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
 
   // Auto-scroll to bottom when messages change
   useLayoutEffect(() => {
-    if (!chatRef.current) return;
-    // Use setTimeout to ensure DOM has updated
-    setTimeout(() => {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    const el = chatRef.current;
+    if (!el) return;
+    const id = setTimeout(() => {
+      if (chatRef.current) {
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      }
     }, 10);
+    return () => clearTimeout(id);
   }, [messages, disabled]);
 
   const handleSubmit = (e) => {

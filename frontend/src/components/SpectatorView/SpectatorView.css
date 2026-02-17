@@ -45,8 +45,13 @@
   gap: 10px;
 }
 
-.robot-icon {
-  font-size: 24px;
+.wankr-header-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 0, 0.45)) drop-shadow(0 0 8px rgba(0, 255, 0, 0.25));
+  opacity: 0.95;
 }
 
 .title-text {
@@ -575,6 +580,11 @@
 }
 
 /* Live messages */
+.live-messages-wrapper {
+  position: relative;
+  width: 100%;
+}
+
 .live-messages {
   display: flex;
   flex-direction: column;
@@ -583,6 +593,28 @@
   max-height: 60vh;
   overflow-y: auto;
   padding-right: 8px;
+}
+
+.jump-to-current-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  padding: 10px 16px;
+  background: rgba(0, 255, 65, 0.9);
+  border: 1px solid rgba(0, 255, 65, 0.5);
+  color: #000;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: background 0.2s, transform 0.15s;
+}
+
+.jump-to-current-btn:hover {
+  background: rgba(0, 255, 65, 1);
+  transform: translateY(-1px);
 }
 
 .live-messages .message {

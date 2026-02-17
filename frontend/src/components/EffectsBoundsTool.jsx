@@ -1,31 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
-
-const STORAGE_KEY = 'wankr_effects_bounds';
-
-function loadSaved() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const p = JSON.parse(raw);
-      if (p?.left != null && p?.top != null && p?.right != null && p?.bottom != null) return p;
-    }
-  } catch {}
-  return null;
-}
-
-export function loadEffectsBounds() {
-  return loadSaved();
-}
-
-function saveBounds(bounds) {
-  try {
-    if (bounds) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(bounds));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {}
-}
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { loadSaved, saveBounds } from './effectsBoundsStorage';
 
 /** Tool to define a box that clips all background effects (stars, glow traverse, glow point) to the selected region. */
 export default function EffectsBoundsTool({ onClose, onSave }) {
@@ -51,14 +25,14 @@ export default function EffectsBoundsTool({ onClose, onSave }) {
     }
   }, [corner1, corner2]);
 
-  const bounds = corner1 && corner2
+  const bounds = useMemo(() => (corner1 && corner2
     ? {
         left: Math.min(corner1.x, corner2.x),
         top: Math.min(corner1.y, corner2.y),
         right: Math.max(corner1.x, corner2.x),
         bottom: Math.max(corner1.y, corner2.y),
       }
-    : null;
+    : null), [corner1, corner2]);
 
   const memorize = useCallback(() => {
     if (bounds) {

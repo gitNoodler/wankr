@@ -7,10 +7,14 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
  * - Surface shimmer effects that traverse all background strips
  * - Effects span from top to bottom of viewport
  */
-export default function FloorPropagation({ sparkActive = false, glowPointVersion: _glowPointVersion = 0 }) {
+export default function FloorPropagation({ sparkActive = false, glowPointVersion = 0 }) {
   const [time, setTime] = useState(0);
   const frameRef = useRef(null);
   const startTimeRef = useRef(0);
+
+  useEffect(() => {
+    startTimeRef.current = performance.now();
+  }, [glowPointVersion]);
 
   // Animation loop for smooth propagation
   useEffect(() => {
