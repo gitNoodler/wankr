@@ -48,7 +48,7 @@ export function useLoginScreenAuth({ onLogin }) {
     if (isRegistering) {
       checkUsernameAvailability(username);
     } else {
-      setUsernameStatus({ checking: false, available: null, error: null });
+      queueMicrotask(() => setUsernameStatus({ checking: false, available: null, error: null }));
     }
   }, [username, isRegistering, checkUsernameAvailability]);
 

@@ -1,6 +1,18 @@
 /**
  * Login scene — Wankr stationary (like original). Occasional subtle "waiting" expression only.
+ * iOS: safe-area and viewport handled in JSX/index.css; tap highlight and touch below.
  */
+
+/* iOS: remove tap highlight so buttons/inputs don't show gray flash */
+.login-screen,
+.login-screen * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.login-screen input,
+.login-screen button {
+  touch-action: manipulation;
+}
 
 /* No movement: background, hands, panel are static */
 

@@ -7,12 +7,13 @@ import React, { useState, useEffect, useRef } from 'react';
 export default function OrbReflection({ sparkActive = false }) {
   const [time, setTime] = useState(0);
   const frameRef = useRef(null);
-  const startTimeRef = useRef(Date.now());
+  const startTimeRef = useRef(null);
 
   useEffect(() => {
+    startTimeRef.current = Date.now();
     let running = true;
     const animate = () => {
-      if (!running) return;
+      if (!running || startTimeRef.current == null) return;
       const elapsed = (Date.now() - startTimeRef.current) / 1000;
       setTime(elapsed);
       frameRef.current = requestAnimationFrame(animate);

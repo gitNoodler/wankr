@@ -7,29 +7,47 @@ function loadSaved() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.origin && parsed.receiving) return parsed;
+      if (parsed.channelPoints && Array.isArray(parsed.channelPoints) && parsed.channelPoints.length >= 2) {
+        return parsed;
+      }
+      if (parsed.origin && parsed.receiving) {
+        return {
+          channelPoints: [parsed.origin, parsed.receiving],
+          shiftZone: parsed.fillArea || undefined,
+        };
+      }
     }
-  } catch {}
+  } catch { /* ignore */ }
   return null;
 }
 
-function saveZones(origin, receiving, fillArea) {
+function saveZones(channelPoints, shiftZone) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ origin, receiving, fillArea: fillArea || undefined }));
-  } catch {}
+    const payload = { channelPoints, shiftZone: shiftZone || undefined };
+    if (channelPoints.length >= 2) {
+      payload.origin = channelPoints[0];
+      payload.receiving = channelPoints[channelPoints.length - 1];
+      if (shiftZone) payload.fillArea = shiftZone;
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch { /* ignore */ }
 }
+
+const CHANNEL_POINTS_COUNT = 4;
+const CHANNEL_COLORS = ['rgba(0,255,65,0.9)', 'rgba(100,255,100,0.8)', 'rgba(150,255,120,0.8)', 'rgba(255,180,80,0.9)'];
 
 export default function SparkZonesTool({ onClose, onZonesSaved, sceneRef }) {
   const saved = loadSaved();
-  const initFillArea = saved?.fillArea;
-  const [origin, setOrigin] = useState(saved?.origin ?? null);
-  const [receiving, setReceiving] = useState(saved?.receiving ?? null);
-  const [fillAreaCorner1, setFillAreaCorner1] = useState(
-    initFillArea ? { x: initFillArea.left, y: initFillArea.top } : null
-  );
-  const [fillAreaCorner2, setFillAreaCorner2] = useState(
-    initFillArea ? { x: initFillArea.right, y: initFillArea.bottom } : null
-  );
+  const initChannel = saved?.channelPoints ?? null;
+  const initShift = saved?.shiftZone ?? null;
+
+  const [channelPoints, setChannelPoints] = useState(() => {
+    if (initChannel && initChannel.length === CHANNEL_POINTS_COUNT) return initChannel;
+    if (initChannel && initChannel.length >= 2) return [...initChannel];
+    return [];
+  });
+  const [shiftCorner1, setShiftCorner1] = useState(initShift ? { x: initShift.left, y: initShift.top } : null);
+  const [shiftCorner2, setShiftCorner2] = useState(initShift ? { x: initShift.right, y: initShift.bottom } : null);
   const [rect, setRect] = useState(null);
 
   useEffect(() => {
@@ -50,52 +68,48 @@ export default function SparkZonesTool({ onClose, onZonesSaved, sceneRef }) {
       const xClamped = Math.max(0, Math.min(1, x));
       const yClamped = Math.max(0, Math.min(1, y));
       const point = { x: xClamped, y: yClamped };
-      if (!origin) {
-        setOrigin(point);
-        setReceiving(null);
-        setFillAreaCorner1(null);
-        setFillAreaCorner2(null);
-      } else if (!receiving) {
-        setReceiving(point);
-        setFillAreaCorner1(null);
-        setFillAreaCorner2(null);
-      } else if (!fillAreaCorner1) {
-        setFillAreaCorner1(point);
-        setFillAreaCorner2(null);
-      } else if (!fillAreaCorner2) {
-        setFillAreaCorner2(point);
+
+      if (channelPoints.length < CHANNEL_POINTS_COUNT) {
+        setChannelPoints((prev) => [...prev, point]);
+        setShiftCorner1(null);
+        setShiftCorner2(null);
+      } else if (!shiftCorner1) {
+        setShiftCorner1(point);
+        setShiftCorner2(null);
+      } else if (!shiftCorner2) {
+        setShiftCorner2(point);
       } else {
-        setOrigin(point);
-        setReceiving(null);
-        setFillAreaCorner1(null);
-        setFillAreaCorner2(null);
+        setChannelPoints([point]);
+        setShiftCorner1(null);
+        setShiftCorner2(null);
       }
     },
-    [rect, origin, receiving, fillAreaCorner1, fillAreaCorner2]
+    [rect, channelPoints.length, shiftCorner1, shiftCorner2]
   );
 
-  const fillArea = fillAreaCorner1 && fillAreaCorner2
+  const shiftZone = shiftCorner1 && shiftCorner2
     ? {
-        left: Math.min(fillAreaCorner1.x, fillAreaCorner2.x),
-        top: Math.min(fillAreaCorner1.y, fillAreaCorner2.y),
-        right: Math.max(fillAreaCorner1.x, fillAreaCorner2.x),
-        bottom: Math.max(fillAreaCorner1.y, fillAreaCorner2.y),
+        left: Math.min(shiftCorner1.x, shiftCorner2.x),
+        top: Math.min(shiftCorner1.y, shiftCorner2.y),
+        right: Math.max(shiftCorner1.x, shiftCorner2.x),
+        bottom: Math.max(shiftCorner1.y, shiftCorner2.y),
       }
     : null;
 
   const memorize = useCallback(() => {
-    if (origin && receiving) {
-      saveZones(origin, receiving, fillArea);
+    if (channelPoints.length >= 2) {
+      saveZones(channelPoints, shiftZone);
       onZonesSaved?.();
     }
-  }, [origin, receiving, fillArea, onZonesSaved]);
+  }, [channelPoints, shiftZone, onZonesSaved]);
 
   const reset = useCallback(() => {
-    setOrigin(null);
-    setReceiving(null);
-    setFillAreaCorner1(null);
-    setFillAreaCorner2(null);
+    setChannelPoints([]);
+    setShiftCorner1(null);
+    setShiftCorner2(null);
   }, []);
+
+  const channelComplete = channelPoints.length === CHANNEL_POINTS_COUNT;
 
   return (
     <div
@@ -127,26 +141,29 @@ export default function SparkZonesTool({ onClose, onZonesSaved, sceneRef }) {
           boxShadow: '0 0 24px rgba(0,255,65,0.2)',
           color: 'var(--accent)',
           fontSize: 14,
-          minWidth: 300,
+          minWidth: 320,
         }}
       >
-        <div style={{ marginBottom: 16, fontWeight: 700, fontSize: 16 }}>Spark Zones</div>
-        <div style={{ marginBottom: 16, opacity: 0.9 }}>
-          1) Click <strong>origin</strong>, 2) <strong>receiving</strong>, 3) two corners for <strong>fill area</strong> (optional). Sparks stay within the rectangle.
+        <div style={{ marginBottom: 16, fontWeight: 700, fontSize: 16 }}>Spark channel & shift zone</div>
+        <div style={{ marginBottom: 12, opacity: 0.9 }}>
+          1) Click <strong>4 points</strong> in order for the channel (preferred path the spark follows on each strike).
         </div>
-        {origin && (
+        <div style={{ marginBottom: 16, opacity: 0.9 }}>
+          2) Then click <strong>2 corners</strong> for the shift zone (where the channel can move on other strikes).
+        </div>
+        {channelPoints.length > 0 && (
           <div style={{ marginBottom: 8, fontSize: 12 }}>
-            Origin: {((origin.x || 0) * 100).toFixed(1)}% × {((origin.y || 0) * 100).toFixed(1)}%
+            Channel: {channelPoints.length}/4 points
+            {channelPoints.map((p, i) => (
+              <span key={i} style={{ marginLeft: 8 }}>
+                P{i + 1} ({(p.x * 100).toFixed(0)},{(p.y * 100).toFixed(0)})
+              </span>
+            ))}
           </div>
         )}
-        {receiving && (
-          <div style={{ marginBottom: 8, fontSize: 12 }}>
-            Receiving: {((receiving.x || 0) * 100).toFixed(1)}% × {((receiving.y || 0) * 100).toFixed(1)}%
-          </div>
-        )}
-        {fillArea && (
+        {shiftZone && (
           <div style={{ marginBottom: 16, fontSize: 12 }}>
-            Fill area: {((fillArea.left || 0) * 100).toFixed(0)}–{((fillArea.right || 0) * 100).toFixed(0)}% × {((fillArea.top || 0) * 100).toFixed(0)}–{((fillArea.bottom || 0) * 100).toFixed(0)}%
+            Shift zone: ({(shiftZone.left * 100).toFixed(0)}–{(shiftZone.right * 100).toFixed(0)}%) × ({(shiftZone.top * 100).toFixed(0)}–{(shiftZone.bottom * 100).toFixed(0)}%)
           </div>
         )}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -156,8 +173,8 @@ export default function SparkZonesTool({ onClose, onZonesSaved, sceneRef }) {
               e.stopPropagation();
               memorize();
             }}
-            disabled={!origin || !receiving}
-            title={fillArea ? 'Save zones and fill area' : 'Save (fill area optional)'}
+            disabled={channelPoints.length < 2}
+            title={channelComplete ? 'Save channel and shift zone' : 'Need at least 2 channel points'}
             className="btn-primary"
             style={{ padding: '8px 16px', borderRadius: 8 }}
           >
@@ -187,54 +204,61 @@ export default function SparkZonesTool({ onClose, onZonesSaved, sceneRef }) {
           </button>
         </div>
       </div>
-      {rect && origin && (
+      {rect && channelPoints.map((p, i) => (
         <div
+          key={i}
           style={{
             position: 'fixed',
-            left: rect.left + origin.x * rect.width - 8,
-            top: rect.top + origin.y * rect.height - 8,
+            left: rect.left + p.x * rect.width - 8,
+            top: rect.top + p.y * rect.height - 8,
             width: 16,
             height: 16,
             borderRadius: '50%',
-            border: '2px solid rgba(0,255,65,0.9)',
-            background: 'rgba(0,255,65,0.3)',
+            border: `2px solid ${CHANNEL_COLORS[i]}`,
+            background: CHANNEL_COLORS[i].replace('0.9', '0.35').replace('0.8', '0.3'),
             pointerEvents: 'none',
             zIndex: 9999,
           }}
-          title="Origin"
+          title={`Channel point ${i + 1}`}
         />
-      )}
-      {rect && receiving && (
-        <div
+      ))}
+      {rect && channelPoints.length >= 2 && (
+        <svg
           style={{
             position: 'fixed',
-            left: rect.left + receiving.x * rect.width - 8,
-            top: rect.top + receiving.y * rect.height - 8,
-            width: 16,
-            height: 16,
-            borderRadius: '50%',
-            border: '2px solid rgba(255,180,80,0.9)',
-            background: 'rgba(255,180,80,0.3)',
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
             pointerEvents: 'none',
-            zIndex: 9999,
+            zIndex: 9998,
           }}
-          title="Receiving"
-        />
+          viewBox="0 0 1 1"
+          preserveAspectRatio="none"
+        >
+          <polyline
+            points={channelPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke="rgba(0,255,65,0.4)"
+            strokeWidth={0.008}
+            strokeDasharray="0.02 0.02"
+          />
+        </svg>
       )}
-      {rect && fillArea && (
+      {rect && shiftZone && (
         <div
           style={{
             position: 'fixed',
-            left: rect.left + fillArea.left * rect.width,
-            top: rect.top + fillArea.top * rect.height,
-            width: (fillArea.right - fillArea.left) * rect.width,
-            height: (fillArea.bottom - fillArea.top) * rect.height,
-            border: '2px dashed rgba(100,200,255,0.8)',
-            background: 'rgba(100,200,255,0.08)',
+            left: rect.left + shiftZone.left * rect.width,
+            top: rect.top + shiftZone.top * rect.height,
+            width: (shiftZone.right - shiftZone.left) * rect.width,
+            height: (shiftZone.bottom - shiftZone.top) * rect.height,
+            border: '2px dashed rgba(255,180,80,0.9)',
+            background: 'rgba(255,180,80,0.08)',
             pointerEvents: 'none',
             zIndex: 9997,
           }}
-          title="Fill area"
+          title="Shift zone (channel can move here on other strikes)"
         />
       )}
     </div>
