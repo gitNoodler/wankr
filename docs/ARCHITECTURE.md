@@ -15,7 +15,7 @@ The UI is a **React 19** app (Vite) that talks to the backend over REST.
 | **Production** | Built to `frontend/dist/`, served by Express static server | Same origin; requests go to `/api/*` on the same host |
 | **Development** | Vite dev server on port 5173 | Vite proxies `/api/*` to backend at `http://127.0.0.1:5000` |
 
-**Source:** `frontend/src/` — App.jsx, components (LoginScreen, ChatPanel, Sidebar, TrainingPanel, SpectatorView), hooks, and services (chatService, authService, trainingService).
+**Source:** `frontend/src/` — App.jsx, components (LoginScreen, ChatPanel, Sidebar, TrainingPanel, SpectatorView, DevPasswordGate, WankingLive dev panel and placement overlay), hooks, and services (chatService, authService, trainingService). Dev panel is gated by password (DevPasswordGate) and can be locked to require password again on next open.
 
 ```mermaid
 flowchart TB
@@ -63,6 +63,7 @@ flowchart TB
             AuthSvc[authService.js]
             GrokBot[grokBotService.js]
             ArchiveSvc[archiveService.js]
+            ActiveChatSvc[activeChatService.js]
             StaticServe[Static File Server]
         end
         
@@ -72,6 +73,7 @@ flowchart TB
             ChatBackup[chat_backup.json]
             GrokConvo[grok_conversation.json]
             Archives[archivedChatsLogs/]
+            ActiveChats[activeChats/ - per-user active chats]
         end
         
         FrontendDist[frontend/dist - Built React App]
@@ -97,11 +99,13 @@ flowchart TB
     API --> AuthSvc
     API --> GrokBot
     API --> ArchiveSvc
+    API --> ActiveChatSvc
     
     AuthSvc --> Users
     AuthSvc --> Sessions
     GrokBot --> GrokConvo
     ArchiveSvc --> Archives
+    ActiveChatSvc --> ActiveChats
     API --> ChatBackup
     
     API -->|Chat Completions| xAI
@@ -123,7 +127,10 @@ flowchart TB
 | Backend        | xAI API         | HTTPS REST      |
 | Backend        | Infisical       | HTTPS SDK       |
 | Frontend       | Backend         | `/api/*` proxy  |
+| SpectatorView  | Backend         | GET /api/spectator/users, GET /api/spectator/conversation/:userId |
 | Services       | Storage         | File I/O        |
+
+**Spectator mode:** Live user list is built from grok bot plus `authService.getActiveUsernames()` (valid sessions). Per-user conversation comes from `grokBotService` (grok) or `activeChatService` (real users; latest active chat). Frontend shows username as author for non-grok users.
 
 ---
 
@@ -215,6 +222,10 @@ flowchart LR
 
 ## Data Flow Summary
 
+**Main chat:** User → wankrbot.com → Tunnel → Backend; Backend serves React; POST /api/chat → xAI → response; chat backup and active chats persisted.
+
+**Spectator mode:** SpectatorView polls GET /api/spectator/users (grok + real users from sessions via getActiveUsernames); on user click, GET /api/spectator/conversation/:userId (grok conversation or that user’s latest active chat from activeChatService). Scroll position is restored on poll updates so viewers can read history.
+
 ```mermaid
 sequenceDiagram
     participant User
@@ -229,7 +240,7 @@ sequenceDiagram
     User->>Backend: POST /api/chat
     Backend->>xAI: Chat completion request
     xAI-->>Backend: Grok response
-    Backend->>Storage: Save to chat_backup.json
+    Backend->>Storage: Save to chat_backup.json / activeChats
     Backend-->>User: JSON response
 ```
 
