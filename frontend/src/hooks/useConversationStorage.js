@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect } from 'react';
 const STORAGE_CURRENT_ID = 'wankr_current_id';
 const STORAGE_CURRENT_MESSAGES = 'wankr_current_messages';
 const STORAGE_ARCHIVED = 'wankr_archived';
-const MAX_ARCHIVED = 50;
+const MAX_ARCHIVED = 20;
 
 function loadMessages() {
   try {

@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { FEET_ANCHOR_PCT, USE_ANCHOR_OVERRIDES, ANCHOR_REFERENCE_PCT } from './loginScreenConfig';
 
 /**
  * OrbReflection: Creates upward light reflections from the floor orb
  * onto the robot's legs, simulating light bouncing up from below.
+ * When useAnchorOverrides: orb center is ANCHOR_REFERENCE_PCT.orbToPanelBottom above panel bottom (194px at 2048).
  */
-export default function OrbReflection({ sparkActive = false }) {
+export default function OrbReflection({
+  sparkActive = false,
+  panelBottomPct,
+  useAnchorOverrides = USE_ANCHOR_OVERRIDES,
+}) {
   const [time, setTime] = useState(0);
   const frameRef = useRef(null);
   const startTimeRef = useRef(null);
@@ -25,9 +31,11 @@ export default function OrbReflection({ sparkActive = false }) {
     };
   }, []);
 
-  // Orb position (center bottom of the grid floor)
-  const orbX = 50; // center
-  const orbY = 92; // near bottom
+  const orbX = FEET_ANCHOR_PCT.x;
+  const orbY =
+    useAnchorOverrides && panelBottomPct != null
+      ? panelBottomPct - ANCHOR_REFERENCE_PCT.orbToPanelBottom
+      : FEET_ANCHOR_PCT.y;
 
   const baseOpacity = sparkActive ? 0.9 : 0.6;
   const pulseIntensity = 0.8 + Math.sin(time * 2) * 0.2;
@@ -126,6 +134,38 @@ export default function OrbReflection({ sparkActive = false }) {
               transparent 80%
             )
           `,
+        }}
+      />
+
+      {/* Feet/floor contact shadow */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '26%',
+          right: '26%',
+          top: '86%',
+          height: '8%',
+          background: `radial-gradient(ellipse 100% 50% at 50% 50%,
+            rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.28) 35%,
+            rgba(0,255,65,0.1) 65%, transparent 100%)`,
+          filter: 'blur(4px)',
+        }}
+      />
+
+      {/* Leg reflection (subtle upward green gradient) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '35%',
+          right: '35%',
+          top: '60%',
+          height: '30%',
+          background: `linear-gradient(to top,
+            rgba(0,255,65,${baseOpacity * 0.12 * pulseIntensity}) 0%,
+            rgba(0,255,65,${baseOpacity * 0.06 * pulseIntensity}) 40%,
+            transparent 100%)`,
+          filter: 'blur(8px)',
+          borderRadius: '50%',
         }}
       />
     </div>

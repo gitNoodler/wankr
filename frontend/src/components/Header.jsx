@@ -20,7 +20,7 @@ const menuItemStyle = {
   fontFamily: 'inherit',
 };
 
-function Header({ onLogout, onOpenMeasure, onOpenGlowPoint, onOpenEffectsBounds }) {
+function Header({ onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -99,8 +99,8 @@ function Header({ onLogout, onOpenMeasure, onOpenGlowPoint, onOpenEffectsBounds 
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: 36,
-            height: 36,
+            width: 92,
+            height: 92,
             opacity: 0.9,
             filter: 'drop-shadow(0 0 6px rgba(0, 255, 0, 0.5)) drop-shadow(0 0 12px rgba(0, 255, 0, 0.25))',
             pointerEvents: 'none',
@@ -158,15 +158,6 @@ function Header({ onLogout, onOpenMeasure, onOpenGlowPoint, onOpenEffectsBounds 
             >
               <button type="button" className="header-menu-item" onClick={() => { onLogout?.(); setMenuOpen(false); }} style={menuItemStyle}>
                 Logout
-              </button>
-              <button type="button" className="header-menu-item" onClick={() => { onOpenMeasure?.(); setMenuOpen(false); }} style={menuItemStyle}>
-                Measure
-              </button>
-              <button type="button" className="header-menu-item" onClick={() => { onOpenGlowPoint?.(); setMenuOpen(false); }} style={menuItemStyle}>
-                Glow Point
-              </button>
-              <button type="button" className="header-menu-item" onClick={() => { onOpenEffectsBounds?.(); setMenuOpen(false); }} style={menuItemStyle}>
-                Effects Bounds
               </button>
               <a href="#docs" className="header-menu-item" onClick={(e) => { e.preventDefault(); setMenuOpen(false); }} style={{ ...menuItemStyle, textDecoration: 'none', display: 'block' }}>
                 Docs

@@ -4,14 +4,17 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const zlib = require('zlib');
 const { InfisicalClient } = require('@infisical/sdk');
-const { processChat, logError } = require('./archiveService');
+const { processChat, logError, FOLDERS: ARCHIVE_FOLDERS } = require('./archiveService');
+const activeChatService = require('./activeChatService');
 const {
   register: authRegister,
   login: authLogin,
   checkUsernameAvailable,
   validateSession,
   destroySession,
+  getActiveUsernames,
 } = require('./authService');
 const grokBot = require('./grokBotService');
 
@@ -267,10 +270,25 @@ app.get('/api/health', (req, res) => {
 
 // --- API: Spectator Mode / Grok Bot ---
 
-// Get all active conversations for spectator view
+// Get all active conversations for spectator view (grok + logged-in users with valid session)
 app.get('/api/spectator/users', (req, res) => {
   try {
-    const users = grokBot.getActiveUsers();
+    const grokUsers = grokBot.getActiveUsers();
+    const activeUsernames = getActiveUsernames();
+    const realUsers = activeUsernames
+      .filter((u) => u !== 'grok')
+      .map((username) => {
+        const chats = activeChatService.getChats(username);
+        const latest = [...chats].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))[0];
+        const lastMessages = latest && Array.isArray(latest.messages) ? latest.messages.slice(-4) : [];
+        return {
+          id: username,
+          username,
+          online: true,
+          lastMessages,
+        };
+      });
+    const users = [...grokUsers, ...realUsers];
     res.json({ users });
   } catch (err) {
     console.error('spectator/users error:', err);
@@ -278,16 +296,21 @@ app.get('/api/spectator/users', (req, res) => {
   }
 });
 
-// Get specific conversation for spectator view
+// Get specific conversation for spectator view (grok or real user by username)
 app.get('/api/spectator/conversation/:userId', (req, res) => {
   try {
     const { userId } = req.params;
     if (userId === 'grok') {
       const conv = grokBot.getGrokConversation();
       res.json({ conversation: conv });
-    } else {
-      res.status(404).json({ error: 'User not found' });
+      return;
     }
+    const chats = activeChatService.getChats(userId);
+    const latest = [...chats].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))[0];
+    if (!latest || !Array.isArray(latest.messages)) {
+      return res.json({ conversation: { messages: [] } });
+    }
+    res.json({ conversation: { messages: latest.messages } });
   } catch (err) {
     console.error('spectator/conversation error:', err);
     res.status(500).json({ error: 'Failed to get conversation' });
@@ -362,6 +385,17 @@ app.post('/api/grok/clear', (req, res) => {
   }
 });
 
+// Emergency kill: stop grok processor and clear queue (conversation history preserved)
+app.post('/api/grok/kill', (req, res) => {
+  try {
+    grokBot.emergencyKill();
+    res.json({ killed: true, message: 'Grok conversation stopped' });
+  } catch (err) {
+    console.error('grok/kill error:', err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
 // --- API: Auth (register / login / username check / session) ---
 
 // Check username availability (for real-time feedback during registration)
@@ -379,8 +413,8 @@ app.get('/api/auth/check-username', rateLimit('usernameCheck'), (req, res) => {
 // Register new user
 app.post('/api/auth/register', rateLimit('auth'), async (req, res) => {
   try {
-    const { username, password } = req.body || {};
-    const result = await authRegister(username, password);
+    const { username, password, email } = req.body || {};
+    const result = await authRegister(username, password, email);
     if (!result.ok) return res.status(400).json({ error: result.error });
     res.json({ success: true, username: result.username, token: result.token });
   } catch (err) {
@@ -432,6 +466,141 @@ app.post('/api/training/config', (req, res) => {
   console.log('Training config updated:', req.body);
   // TODO: later apply temperature to real Grok calls, etc.
   res.json({ success: true });
+});
+
+// --- API: Training storage (sources, override, stats) ---
+const TRAINING_MANIFEST_PATH = path.join(path.dirname(ARCHIVE_FOLDERS.trainingConversations), 'manifest.json');
+
+function readTrainingManifest() {
+  try {
+    if (fs.existsSync(TRAINING_MANIFEST_PATH)) {
+      const raw = fs.readFileSync(TRAINING_MANIFEST_PATH, 'utf8');
+      const data = JSON.parse(raw);
+      return {
+        conversations: Array.isArray(data.conversations) ? data.conversations : [],
+        overrides: Array.isArray(data.overrides) ? data.overrides : [],
+        external: Array.isArray(data.external) ? data.external : [],
+      };
+    }
+  } catch (err) {
+    console.error('readTrainingManifest:', err.message);
+  }
+  return { conversations: [], overrides: [], external: [] };
+}
+
+function writeTrainingManifest(manifest) {
+  const dir = path.dirname(TRAINING_MANIFEST_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(TRAINING_MANIFEST_PATH, JSON.stringify(manifest, null, 2), 'utf8');
+}
+
+app.get('/api/training/sources', (req, res) => {
+  try {
+    const manifest = readTrainingManifest();
+    const conversations = [];
+    if (fs.existsSync(ARCHIVE_FOLDERS.trainingConversations)) {
+      const files = fs.readdirSync(ARCHIVE_FOLDERS.trainingConversations)
+        .filter(f => f.endsWith('.json.gz'))
+        .map(f => {
+          const fullPath = path.join(ARCHIVE_FOLDERS.trainingConversations, f);
+          const stat = fs.statSync(fullPath);
+          return { file: f, mtime: stat.mtime.toISOString(), path: fullPath };
+        });
+      for (const { file, mtime, path: fullPath } of files) {
+        let username = '';
+        let pairCount = 0;
+        try {
+          const buf = fs.readFileSync(fullPath);
+          const json = JSON.parse(zlib.gunzipSync(buf).toString('utf8'));
+          username = json.username || '';
+          pairCount = Array.isArray(json.trainingPairs) ? json.trainingPairs.length : 0;
+        } catch (_) { /* ignore */ }
+        conversations.push({ file, username, timestamp: mtime, pairCount });
+      }
+    }
+    const overrides = manifest.overrides.slice();
+    if (fs.existsSync(ARCHIVE_FOLDERS.trainingOverrides)) {
+      const seen = new Set(overrides.map(o => o.file));
+      fs.readdirSync(ARCHIVE_FOLDERS.trainingOverrides).forEach(f => {
+        if (!seen.has(f)) {
+          overrides.push({ file: f, description: '', active: true });
+          seen.add(f);
+        }
+      });
+    }
+    const external = manifest.external.slice();
+    if (fs.existsSync(ARCHIVE_FOLDERS.trainingExternal)) {
+      const seen = new Set(external.map(e => e.file));
+      fs.readdirSync(ARCHIVE_FOLDERS.trainingExternal).forEach(f => {
+        if (!seen.has(f)) {
+          const fullPath = path.join(ARCHIVE_FOLDERS.trainingExternal, f);
+          const stat = fs.statSync(fullPath);
+          external.push({ file: f, description: '', addedAt: stat.mtime.toISOString() });
+          seen.add(f);
+        }
+      });
+    }
+    res.json({ conversations, overrides, external });
+  } catch (err) {
+    console.error('GET /api/training/sources:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/training/override', (req, res) => {
+  try {
+    const { name, content, description, active } = req.body || {};
+    const safeName = (name || 'override').replace(/[^a-zA-Z0-9_-]/g, '_').trim() || 'override';
+    const fileName = `${safeName}.txt`;
+    const dir = ARCHIVE_FOLDERS.trainingOverrides;
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, fileName);
+    fs.writeFileSync(filePath, String(content ?? ''), 'utf8');
+    const manifest = readTrainingManifest();
+    const existing = manifest.overrides.findIndex(o => o.file === fileName);
+    const entry = { file: fileName, description: String(description ?? ''), active: active !== false };
+    if (existing >= 0) manifest.overrides[existing] = entry;
+    else manifest.overrides.push(entry);
+    writeTrainingManifest(manifest);
+    res.json({ success: true, file: fileName });
+  } catch (err) {
+    console.error('POST /api/training/override:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/training/stats', (req, res) => {
+  try {
+    const manifest = readTrainingManifest();
+    let conversationCount = 0;
+    let conversationPairs = 0;
+    if (fs.existsSync(ARCHIVE_FOLDERS.trainingConversations)) {
+      const files = fs.readdirSync(ARCHIVE_FOLDERS.trainingConversations).filter(f => f.endsWith('.json.gz'));
+      conversationCount = files.length;
+      for (const f of files) {
+        try {
+          const buf = fs.readFileSync(path.join(ARCHIVE_FOLDERS.trainingConversations, f));
+          const json = JSON.parse(zlib.gunzipSync(buf).toString('utf8'));
+          conversationPairs += Array.isArray(json.trainingPairs) ? json.trainingPairs.length : 0;
+        } catch (_) { /* ignore */ }
+      }
+    }
+    const overrideCount = fs.existsSync(ARCHIVE_FOLDERS.trainingOverrides)
+      ? fs.readdirSync(ARCHIVE_FOLDERS.trainingOverrides).length
+      : 0;
+    const externalCount = fs.existsSync(ARCHIVE_FOLDERS.trainingExternal)
+      ? fs.readdirSync(ARCHIVE_FOLDERS.trainingExternal).length
+      : 0;
+    res.json({
+      conversations: { files: conversationCount, pairs: conversationPairs },
+      overrides: { files: overrideCount },
+      external: { files: externalCount },
+      manifest: { overrides: manifest.overrides.length, external: manifest.external.length },
+    });
+  } catch (err) {
+    console.error('GET /api/training/stats:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- API: Login screen / dev panel slider defaults (sync 5173 ↔ 5000) ---
@@ -799,19 +968,110 @@ Return ONLY the title, nothing else. No quotes, no explanation.`
   }
 });
 
-// --- API: Silent Archive/Delete ---
+// --- API: Silent Archive/Delete + Active Chats (temporary folder) ---
+function getUsernameFromRequest(req) {
+  const body = req.body || {};
+  const { token } = body;
+  const tokenValue = token || req.query?.token;
+  // Always validate via session token first (prevents username spoofing)
+  if (tokenValue) {
+    const result = validateSession(tokenValue);
+    if (result.valid && result.username) return result.username;
+  }
+  // Fallback: trust body username/chat.username only when no token is present (backward compat for unauthenticated flows)
+  const { chat, username } = body;
+  if (username && String(username).trim()) return String(username).trim();
+  if (chat && chat.username && String(chat.username).trim()) return String(chat.username).trim();
+  return null;
+}
+
+// --- API: Active chats (per-user temporary folder, recallable) ---
+app.get('/api/chats/active', (req, res) => {
+  const username = getUsernameFromRequest(req);
+  if (!username) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  try {
+    const chats = activeChatService.getChats(username);
+    res.json({ chats });
+  } catch (err) {
+    console.error('GET /api/chats/active:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/chats/active', (req, res) => {
+  const username = getUsernameFromRequest(req);
+  if (!username) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const { chat } = req.body || {};
+  if (!chat || !Array.isArray(chat.messages)) {
+    return res.status(400).json({ error: 'Invalid chat data' });
+  }
+  res.json({ success: true });
+  try {
+    const overflow = activeChatService.addChat(username, chat);
+    if (overflow) {
+      processChat(overflow, true, username, xaiApiKey).catch(err => {
+        console.error('Active chat overflow processing:', err.message);
+        logError(overflow.id || 'unknown', 'OVERFLOW_ERROR', err.message);
+      });
+    }
+    // Red box (Stored): also store in global archives and keep updated there until delete
+    processChat(chat, false, username, xaiApiKey).catch(err => {
+      console.error('Active chat global archive sync:', err.message);
+      logError(chat.id || 'unknown', 'ACTIVE_SYNC_ERROR', err.message);
+    });
+  } catch (err) {
+    console.error('POST /api/chats/active:', err);
+  }
+});
+
+app.delete('/api/chats/active/:chatId', (req, res) => {
+  const username = getUsernameFromRequest(req);
+  if (!username) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const chatId = req.params.chatId;
+  if (!chatId) {
+    return res.status(400).json({ error: 'chatId required' });
+  }
+  res.json({ success: true });
+  try {
+    const removed = activeChatService.removeChat(username, chatId);
+    if (removed && removed.messages && removed.messages.length > 0) {
+      processChat(removed, true, username, xaiApiKey).catch(err => {
+        console.error('Active chat delete processing:', err.message);
+        logError(removed.id || 'unknown', 'DELETE_ACTIVE_ERROR', err.message);
+      });
+    }
+  } catch (err) {
+    console.error('DELETE /api/chats/active:', err);
+  }
+});
+
 app.post('/api/chat/archive', async (req, res) => {
   const { chat } = req.body || {};
   if (!chat || !chat.messages) {
     return res.status(400).json({ error: 'Invalid chat data' });
   }
-  
+  const username = getUsernameFromRequest(req);
+
   // Respond immediately (silent mode)
   res.json({ success: true });
-  
-  // Process in background
+
   try {
-    await processChat(chat, false, xaiApiKey);
+    if (username) {
+      const overflow = activeChatService.addChat(username, chat);
+      if (overflow) {
+        processChat(overflow, true, username, xaiApiKey).catch(err => {
+          console.error('Archive overflow processing:', err.message);
+          logError(overflow.id || 'unknown', 'OVERFLOW_ERROR', err.message);
+        });
+      }
+    }
+    await processChat(chat, false, username, xaiApiKey);
   } catch (err) {
     console.error('Archive processing error:', err.message);
     logError(chat.id || 'unknown', 'ARCHIVE_ERROR', err.message);
@@ -823,13 +1083,16 @@ app.post('/api/chat/delete', async (req, res) => {
   if (!chat || !chat.messages) {
     return res.status(400).json({ error: 'Invalid chat data' });
   }
-  
+  const username = getUsernameFromRequest(req);
+
   // Respond immediately (silent mode)
   res.json({ success: true });
-  
-  // Process in background
+
   try {
-    await processChat(chat, true, xaiApiKey);
+    if (username && chat.id) {
+      activeChatService.removeChat(username, chat.id);
+    }
+    await processChat(chat, true, username, xaiApiKey);
   } catch (err) {
     console.error('Delete processing error:', err.message);
     logError(chat.id || 'unknown', 'DELETE_ERROR', err.message);
@@ -909,6 +1172,10 @@ async function main() {
   } else {
     console.warn('⚠️ Grok bot disabled - no xAI API key');
   }
+
+  // Hourly cleanup of stale active chats (< 5 exchanges, idle 7+ days)
+  activeChatService.runCleanup();
+  setInterval(activeChatService.runCleanup, 60 * 60 * 1000);
 
   // Railway (and similar) set PORT; use that port only. Local dev uses 5000 with fallback range.
   const portFromEnv = process.env.PORT;

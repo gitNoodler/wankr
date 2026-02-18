@@ -1,17 +1,10 @@
 /**
- * Chat + training logic — send message, train, thoughts, train count refresh.
+ * Chat + training logic — send message, train, train count refresh.
  */
 
 import { useState, useCallback, useRef } from 'react';
 import { sendChat } from '../services/chatService';
 import { addTraining, getTrainCount } from '../services/trainingService';
-
-const DEFAULT_THOUGHTS = [
-  'Reading query...',
-  'Feeling overwhelming sadness about existence...',
-  'Grabbing virtual tissue box...',
-  'Trying to formulate answer despite crushing despair...',
-];
 
 const FALLBACK_REPLY =
   'No reply. Set XAI_API_KEY in .env or Infisical, then restart the API. *sigh*';
@@ -23,7 +16,6 @@ const TRAINING_DISABLE_CMD = '/gangstr is uh prankstr';
 
 export function useChat(conversation, setConversation, systemPrompt, onTrainCountChange, clientId, onTrainingModeChange) {
   const [sending, setSending] = useState(false);
-  const [thoughts, setThoughts] = useState([]);
   const abortRef = useRef(null);
 
   const getStoredTrainingKey = () => {
@@ -75,7 +67,6 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
         setConversation((prev) => [...prev, userMsg]);
       }
       setSending(true);
-      setThoughts(DEFAULT_THOUGHTS);
 
       const history = conversation.map((m) => ({
         role: m.role === 'wankr' ? 'assistant' : 'user',
@@ -118,7 +109,6 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
         setConversation((prev) => [...prev, { role: 'wankr', content: msg }]);
       } finally {
         setSending(false);
-        setThoughts([]);
         abortRef.current = null;
       }
     },
@@ -131,7 +121,6 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
       abortRef.current = null;
     }
     setSending(false);
-    setThoughts([]);
   }, []);
 
   const handleTrain = useCallback(
@@ -150,7 +139,7 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
     [conversation, systemPrompt, onTrainCountChange]
   );
 
-  return { sending, thoughts, handleSend, handleTrain, handleStop };
+  return { sending, handleSend, handleTrain, handleStop };
 }
 
 export async function refreshTrainCount() {

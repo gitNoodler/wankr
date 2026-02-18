@@ -1,5 +1,5 @@
 /**
- * Login scene — Wankr stationary (like original). Occasional subtle "waiting" expression only.
+ * Login screen — panel-only layout (aspect-fit scene + floating form panel).
  * iOS: safe-area and viewport handled in JSX/index.css; tap highlight and touch below.
  */
 
@@ -14,40 +14,11 @@
   touch-action: manipulation;
 }
 
-/* No movement: background, hands, panel are static */
-
-/* Occasional waiting expression: subtle glow pulse on body (every ~6s, brief) */
-@keyframes wankrWaiting {
-  0%, 92%, 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
-  94%          { filter: brightness(1.08) drop-shadow(0 0 12px rgba(0, 255, 65, 0.25)); }
-  96%          { filter: brightness(1) drop-shadow(0 0 0 transparent); }
-}
-
-.login-scene-bg {
-  /* static */
-}
-
-.login-scene-body {
-  animation: wankrWaiting 6s ease-in-out infinite;
-}
-
-.login-scene-hands {
-  /* static */
-}
-
 .login-scene-panel-float {
-  /* static */
+  /* panel positioned inside .login-scene */
 }
 
-/* No overlay - center matches left/right for uniform dark appearance */
-
-/* Reflection of glow point on robot legs - syncs with glow point pulse */
-@keyframes glowReflectPulse {
-  0%, 100% { opacity: 0.6; }
-  50%      { opacity: 1; }
-}
-
-/* Spinner animation for username availability check */
+/* Spinner for username availability check (LoginForm) */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

@@ -33,8 +33,10 @@ export async function checkUsername(username) {
 }
 
 // --- Register new user ---
-export async function register(username, password) {
-  const res = await api.post('/api/auth/register', { username, password });
+export async function register(username, password, email) {
+  const body = { username, password };
+  if (email !== undefined && email !== null && String(email).trim() !== '') body.email = String(email).trim();
+  const res = await api.post('/api/auth/register', body);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Registration failed');
   if (data.token) storeSession(data.token, data.username);

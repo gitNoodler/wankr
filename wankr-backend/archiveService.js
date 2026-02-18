@@ -1,6 +1,7 @@
 /**
  * Archive Service - Silent local storage with Grok annotation.
- * Plan: guaranteed raw write, async annotated write, error log on failure.
+ * When archive/delete: if >= 5 exchanges, save to userChats/ and run Grok annotation → training/conversations/.
+ * If < 5 exchanges, discard (no copies).
  */
 
 const fs = require('fs');
@@ -8,20 +9,32 @@ const path = require('path');
 const zlib = require('zlib');
 
 const STORAGE_DIR = path.join(__dirname, 'storage');
+const MIN_EXCHANGES = 5;
+
+const TRAINING_DIR = path.join(STORAGE_DIR, 'training');
 const FOLDERS = {
   archived: path.join(STORAGE_DIR, 'archivedChatsLogs'),
-  deleted: path.join(STORAGE_DIR, 'deletedChatLogs'),
+  deleted: path.join(STORAGE_DIR, 'deletedChatsLogs'),
   annotated: path.join(STORAGE_DIR, 'wankrChatLogs_annotated'),
   errors: path.join(STORAGE_DIR, 'wankrChatLog_Errors'),
+  userChats: path.join(STORAGE_DIR, 'userChats'),
+  trainingConversations: path.join(TRAINING_DIR, 'conversations'),
+  trainingOverrides: path.join(TRAINING_DIR, 'overrides'),
+  trainingExternal: path.join(TRAINING_DIR, 'external'),
 };
 
-const MAX_PER_FOLDER = 10;
+const MAX_PER_FOLDER = 10; // only for archived, deleted, annotated, errors
 
 function initStorage() {
+  if (!fs.existsSync(TRAINING_DIR)) fs.mkdirSync(TRAINING_DIR, { recursive: true });
   for (const folder of Object.values(FOLDERS)) {
     if (!fs.existsSync(folder)) {
       fs.mkdirSync(folder, { recursive: true });
     }
+  }
+  const manifestPath = path.join(TRAINING_DIR, 'manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    fs.writeFileSync(manifestPath, JSON.stringify({ conversations: [], overrides: [], external: [] }, null, 2), 'utf8');
   }
 }
 initStorage();
@@ -46,7 +59,7 @@ function enforceMaxFiles(folder) {
     while (files.length > MAX_PER_FOLDER) {
       const oldest = files.shift();
       fs.unlinkSync(oldest.path);
-      console.log(`🗑️ Deleted oldest: ${oldest.name}`);
+      console.log(`Deleted oldest: ${oldest.name}`);
     }
   } catch (err) {
     console.error('enforceMaxFiles error:', err.message);
@@ -54,8 +67,23 @@ function enforceMaxFiles(folder) {
 }
 
 /**
+ * Count user inputs that have a following assistant response (exchange pairs).
+ */
+function countExchanges(messages) {
+  if (!Array.isArray(messages) || messages.length < 2) return 0;
+  let count = 0;
+  for (let i = 0; i < messages.length - 1; i++) {
+    const role = (messages[i].role || '').toLowerCase();
+    const nextRole = (messages[i + 1].role || '').toLowerCase();
+    if ((role === 'user' || role === 'human') && (nextRole === 'assistant' || nextRole === 'wankr')) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
  * Log an error to wankrChatLog_Errors/
- * Format: { chatName, errorType, errorDescription, timestamp }
  */
 function logError(chatName, errorType, errorDescription) {
   try {
@@ -66,12 +94,28 @@ function logError(chatName, errorType, errorDescription) {
     const filePath = path.join(FOLDERS.errors, fileName + '.gz');
     saveCompressed(filePath, entry);
     enforceMaxFiles(FOLDERS.errors);
-    console.log(`❌ Error logged: ${errorType} for ${chatName}`);
+    console.error(`Error logged: ${errorType} for ${chatName}`);
   } catch (err) {
     console.error('Failed to log error:', err.message);
   }
 }
 
+/**
+ * Save permanent user chat copy: storage/userChats/{username}-{chatName}-{timestamp}.json.gz
+ */
+function saveUserChat(username, chatName, chat) {
+  const safeUser = (username || 'anonymous').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 60);
+  const safeName = (chatName || 'Unnamed').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 60);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const fileName = `${safeUser}-${safeName}-${timestamp}.json.gz`;
+  const filePath = path.join(FOLDERS.userChats, fileName);
+  saveCompressed(filePath, chat);
+  console.log(`User chat saved: ${fileName}`);
+}
+
+/**
+ * Grok annotation: topics, userStyle, improvements, and trainingPairs (clean user/assistant pairs).
+ */
 async function annotateWithGrok(chat, xaiApiKey) {
   if (!xaiApiKey) throw new Error('No xAI API key for annotation');
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -85,7 +129,7 @@ async function annotateWithGrok(chat, xaiApiKey) {
       messages: [
         {
           role: 'system',
-          content: 'Analyze this chat. Return ONLY valid JSON with: topics (array), userStyle (string), improvements (array). Be concise.',
+          content: 'Analyze this chat. Return ONLY valid JSON with: topics (array of strings), userStyle (string), improvements (array of strings), trainingPairs (array of objects with "user" and "assistant" strings - meaningful exchanges only, strip noise and trivial messages). Be concise. trainingPairs must be clean dialogue suitable for training.',
         },
         { role: 'user', content: JSON.stringify(chat.messages) },
       ],
@@ -103,36 +147,66 @@ async function annotateWithGrok(chat, xaiApiKey) {
 }
 
 /**
- * Main entry: 1) save raw to archived/deleted, 2) async Grok → annotated, 3) on error log.
- * @param {Object} chat - { id, messages, createdAt } (name optional)
- * @param {boolean} isDelete - true for delete, false for archive
- * @param {string} [xaiApiKey] - optional, for annotation
+ * Save cleaned training pairs to storage/training/conversations/
  */
-async function processChat(chat, isDelete, xaiApiKey) {
+function saveTrainingConversation(username, timestamp, trainingPairs) {
+  if (!Array.isArray(trainingPairs) || trainingPairs.length === 0) return;
+  const safeUser = (username || 'anonymous').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 60);
+  const safeTs = (timestamp || '').replace(/[:.]/g, '-');
+  const fileName = `${safeTs}_${safeUser}.json.gz`;
+  const filePath = path.join(FOLDERS.trainingConversations, fileName);
+  saveCompressed(filePath, { username: username || 'anonymous', trainingPairs, timestamp: new Date().toISOString() });
+  console.log(`Training conversation saved: ${fileName} (${trainingPairs.length} pairs)`);
+}
+
+/**
+ * Main entry: if >= MIN_EXCHANGES: 1) save to userChats/, 2) optional raw to archived/deleted (temp), 3) async Grok → annotated + training/conversations/.
+ * If < MIN_EXCHANGES: return success but save nothing (trash).
+ * @param {Object} chat - { id, name, messages, createdAt }
+ * @param {boolean} isDelete - true for delete, false for archive
+ * @param {string} [username] - for labeling files
+ * @param {string} [xaiApiKey] - for annotation
+ */
+async function processChat(chat, isDelete, username, xaiApiKey) {
   const id = chat.id || `c-${Date.now()}`;
   const messages = Array.isArray(chat.messages) ? chat.messages : [];
   const createdAt = chat.createdAt || new Date().toISOString();
+  const chatName = (chat.name || 'Unnamed').trim() || 'Unnamed';
 
-  const rawPayload = { id, messages, createdAt };
+  const exchangeCount = countExchanges(messages);
+  if (exchangeCount < MIN_EXCHANGES) {
+    console.log(`Chat ${id} has ${exchangeCount} exchanges (min ${MIN_EXCHANGES}); discarding`);
+    return { success: true, discarded: true };
+  }
+
+  const rawPayload = { id, messages, createdAt, name: chatName, username: username || null };
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 80);
-  const fileName = `${timestamp}_${safeId}.json.gz`;
-  const rawFolder = isDelete ? FOLDERS.deleted : FOLDERS.archived;
-  const rawPath = path.join(rawFolder, fileName);
 
+  // Copy A: permanent user chat (username-chatName-timestamp)
   try {
-    saveCompressed(rawPath, rawPayload);
-    enforceMaxFiles(rawFolder);
-    console.log(`✅ Raw ${isDelete ? 'deleted' : 'archived'}: ${fileName}`);
+    saveUserChat(username || 'anonymous', chatName, rawPayload);
   } catch (err) {
-    logError(id, 'WRITE_ERROR', err.message);
+    logError(id, 'USER_CHAT_WRITE_ERROR', err.message);
     throw err;
   }
 
+  // Optional: keep temp buffer for archived/deleted (capped)
+  const rawFolder = isDelete ? FOLDERS.deleted : FOLDERS.archived;
+  const rawFileName = `${timestamp}_${safeId}.json.gz`;
+  const rawPath = path.join(rawFolder, rawFileName);
+  try {
+    saveCompressed(rawPath, rawPayload);
+    enforceMaxFiles(rawFolder);
+  } catch (err) {
+    logError(id, 'RAW_BUFFER_WRITE_ERROR', err.message);
+  }
+
+  // Copy B: async Grok annotation → annotated + training/conversations/
   setImmediate(async () => {
     try {
       if (!xaiApiKey) {
-        console.log('⏭️ No xAI key, skipping annotation');
+        console.log('No xAI key, skipping annotation');
         return;
       }
       const grokAnnotation = await annotateWithGrok(chat, xaiApiKey);
@@ -140,6 +214,7 @@ async function processChat(chat, isDelete, xaiApiKey) {
         id,
         messages,
         createdAt,
+        username: username || null,
         grokAnnotation: {
           topics: grokAnnotation.topics || [],
           userStyle: grokAnnotation.userStyle || '',
@@ -150,7 +225,11 @@ async function processChat(chat, isDelete, xaiApiKey) {
       const annotatedPath = path.join(FOLDERS.annotated, annotatedName);
       saveCompressed(annotatedPath, annotatedPayload);
       enforceMaxFiles(FOLDERS.annotated);
-      console.log(`✅ Annotated: ${annotatedName}`);
+
+      const pairs = grokAnnotation.trainingPairs || [];
+      if (pairs.length > 0) {
+        saveTrainingConversation(username, timestamp, pairs);
+      }
     } catch (err) {
       logError(id, 'GROK_API_ERROR', err.message);
     }
@@ -162,6 +241,8 @@ async function processChat(chat, isDelete, xaiApiKey) {
 module.exports = {
   processChat,
   logError,
+  countExchanges,
+  MIN_EXCHANGES,
   FOLDERS,
   initStorage,
 };

@@ -65,6 +65,13 @@ export default function RobotScene({
       })()
     : 'center center';
 
+  /* Panel center (scene %): character body, shoulders, and hands anchor here so he stays centered behind the panel. */
+  const panelW = PANEL_BBOX_PCT.width * (loginBoxWidth / 100);
+  const panelH = PANEL_BBOX_PCT.height * (loginBoxHeight / 100);
+  const panelCenterX = PANEL_BBOX_PCT.left + leftCushion + panelW / 2;
+  const panelCenterY = PANEL_BBOX_PCT.top + topCushion + panelH / 2;
+  const panelAnchor = `${panelCenterX}% ${panelCenterY}%`;
+
   const panelFloatRef = useRef(null);
   const [panelSize, setPanelSize] = useState(null);
 
@@ -116,7 +123,7 @@ export default function RobotScene({
       >
 {showLayerWankrBody && (
           <>
-            {/* Body only: Body scale/offset sliders control this */}
+            {/* Body: anchored to panel center so he sits centered behind the panel */}
             <div
               style={{
                 position: 'absolute',
@@ -124,7 +131,7 @@ export default function RobotScene({
                 zIndex: 10,
                 pointerEvents: 'none',
                 transform: `translate(${backOffsetX}%, ${backOffsetY}%) scaleX(${backScaleX / 100}) scaleY(${backScaleY / 100})`,
-                transformOrigin: tapeOrigin,
+                transformOrigin: panelAnchor,
               }}
             >
               <div
@@ -139,7 +146,7 @@ export default function RobotScene({
                 }}
               />
             </div>
-            {/* Robot (arms + hands): Robot scale/offset sliders control this wrapper — shoulder + hands */}
+            {/* Robot (shoulders + arms): anchored to panel center */}
             <div
               style={{
                 position: 'absolute',
@@ -147,7 +154,7 @@ export default function RobotScene({
                 zIndex: 11,
                 pointerEvents: 'none',
                 transform: `translate(${robotOffsetX}%, ${robotOffsetY}%) scaleX(${robotScaleX / 100}) scaleY(${robotScaleY / 100})`,
-                transformOrigin: tapeOrigin,
+                transformOrigin: panelAnchor,
               }}
             >
               <div
@@ -159,7 +166,7 @@ export default function RobotScene({
                   backgroundPosition: 'center',
                   backgroundRepeat: 'no-repeat',
                   transform: `translate(${shoulderOffsetX}%, ${shoulderOffsetY}%) scaleX(${shoulderScaleX / 100}) scaleY(${shoulderScaleY / 100})`,
-                  transformOrigin: 'center center',
+                  transformOrigin: panelAnchor,
                   filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 3px rgba(0,255,65,0.08)) drop-shadow(0 0 8px rgba(0,255,65,0.06))`,
                 }}
               />
@@ -230,7 +237,7 @@ export default function RobotScene({
               zIndex: 30,
               pointerEvents: 'none',
               transform: `translate(${robotOffsetX}%, ${robotOffsetY}%) scaleX(${robotScaleX / 100}) scaleY(${robotScaleY / 100})`,
-              transformOrigin: tapeOrigin,
+              transformOrigin: panelAnchor,
             }}
           >
             <div

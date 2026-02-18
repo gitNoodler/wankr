@@ -5,6 +5,7 @@
 
 import { useCallback, useRef, useEffect } from 'react';
 import { api } from '../utils/api';
+import { getStoredUsername, getStoredToken } from '../services/authService';
 
 const PRE_GENERATE_MESSAGE_COUNT = 4;
 
@@ -57,7 +58,7 @@ export function useArchive(
             messages: [...conversation],
             updatedAt: new Date().toISOString(),
           };
-          api.post('/api/chat/archive', { chat: updatedChat }).catch(err => console.error('Archive update backend failed:', err));
+          api.post('/api/chat/archive', { chat: updatedChat, username: getStoredUsername(), token: getStoredToken() }).catch(err => console.error('Archive update backend failed:', err));
           return updatedChat;
         }
         return c;
@@ -79,7 +80,7 @@ export function useArchive(
     persistArchived(prev => [...prev, archivedChat]);
     startNewChat();
 
-    api.post('/api/chat/archive', { chat: archivedChat }).catch(err => console.error('Archive backend failed:', err));
+    api.post('/api/chat/archive', { chat: archivedChat, username: getStoredUsername(), token: getStoredToken() }).catch(err => console.error('Archive backend failed:', err));
 
     if (initialName !== 'Unnamed') {
       onChatNamed?.(currentId, initialName);
@@ -92,20 +93,22 @@ export function useArchive(
       .then((data) => {
         const name = (data.name || '').trim() || 'Unnamed Degen Session';
         persistArchived(prev => prev.map(c => c.id === currentId ? { ...c, name } : c));
-        api.post('/api/chat/archive', { chat: { ...archivedChat, name } }).catch(() => {});
+        api.post('/api/chat/archive', { chat: { ...archivedChat, name }, username: getStoredUsername(), token: getStoredToken() }).catch(() => {});
         onChatNamed?.(currentId, name);
       })
       .catch(() => {});
   }, [conversation, currentId, archived, isRecalledChat, persistArchived, startNewChat, onChatNamed]);
 
   /**
-   * Delete an archived chat: remove from sidebar, fire POST as delete.
+   * Delete an archived chat: remove from sidebar, DELETE from active store (backend routes overflow to global archive).
    */
   const deleteArchivedChat = useCallback((chatToDelete) => {
     if (!chatToDelete) return;
     const updated = archived.filter(c => c.id !== chatToDelete.id);
     persistArchived(updated);
-    api.post('/api/chat/delete', { chat: chatToDelete }).catch(err => console.error('Delete backend failed:', err));
+    const token = getStoredToken();
+    const q = token ? `?token=${encodeURIComponent(token)}` : '';
+    api.delete(`/api/chats/active/${encodeURIComponent(chatToDelete.id)}${q}`).catch(err => console.error('Delete active chat failed:', err));
   }, [archived, persistArchived]);
 
   /**
@@ -116,7 +119,9 @@ export function useArchive(
       const chatToDelete = archived.find(c => c.id === currentId);
       if (chatToDelete) {
         persistArchived(archived.filter(c => c.id !== currentId));
-        api.post('/api/chat/delete', { chat: chatToDelete }).catch(err => console.error('Clear/delete backend failed:', err));
+        const token = getStoredToken();
+        const q = token ? `?token=${encodeURIComponent(token)}` : '';
+        api.delete(`/api/chats/active/${encodeURIComponent(chatToDelete.id)}${q}`).catch(err => console.error('Clear/delete active failed:', err));
       }
     }
     startNewChat();
@@ -145,7 +150,7 @@ export function useArchive(
         autoNamed: true,
       };
 
-      api.post('/api/chat/archive', { chat: archivedChat }).catch(err => console.error('Auto-archive backend failed:', err));
+      api.post('/api/chat/archive', { chat: archivedChat, username: getStoredUsername(), token: getStoredToken() }).catch(err => console.error('Auto-archive backend failed:', err));
 
       return archivedChat;
     } catch (err) {

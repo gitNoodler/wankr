@@ -18,14 +18,8 @@ export default function LoginDevPanel({
   canUndo,
   onBeforeSliderChange,
   onClose,
-  onOpenSparkZones,
+  onOpenMeasure,
   onOpenGlowPoint,
-  ductTapeStrips = [],
-  onAddDuctTape,
-  onRemoveDuctTape,
-  onClearAllDuctTape,
-  respectDuctTape = true,
-  onRespectDuctTapeChange,
   appBackgroundBrightness,
   onAppBackgroundBrightnessChange,
   sceneScaleX,
@@ -76,12 +70,6 @@ export default function LoginDevPanel({
   setLoginShadeOfGray,
   loginLightToBlack,
   setLoginLightToBlack,
-  sparkBoundsTop,
-  sparkBoundsBottom,
-  setSparkBoundsTop,
-  setSparkBoundsBottom,
-  sparkBoltThickness,
-  setSparkBoltThickness,
   titleOffsetX,
   titleOffsetY,
   titleScale,
@@ -606,85 +594,9 @@ export default function LoginDevPanel({
       <SliderRow label="Panel brightness (%)" min={0} max={100} value={loginBrightness} onChange={w(setLoginBrightness)} />
       <SliderRow label="App background brightness (%)" min={0} max={100} value={appBackgroundBrightness} onChange={(v) => { onBeforeSliderChange?.(); onAppBackgroundBrightnessChange?.(v); }} />
 
-      <div style={{ borderTop: '1px solid rgba(0,255,65,0.2)', paddingTop: 6, marginTop: 4 }}>
-        <span style={{ fontSize: 10, color: 'var(--accent)', opacity: 0.7 }}>Sparks</span>
-      </div>
-      <SliderRow
-        label="Sparks bounds top (%)"
-        min={0}
-        max={sparkBoundsBottom}
-        value={sparkBoundsTop}
-        onChange={(v) => { onBeforeSliderChange?.(); setSparkBoundsTop(Math.min(v, sparkBoundsBottom)); }}
-        step={1}
-      />
-      <SliderRow
-        label="Sparks bounds bottom (%)"
-        min={sparkBoundsTop}
-        max={100}
-        value={sparkBoundsBottom}
-        onChange={(v) => { onBeforeSliderChange?.(); setSparkBoundsBottom(Math.max(v, sparkBoundsTop)); }}
-        step={1}
-      />
-      <SliderRow label="Spark bolt thickness (%)" min={20} max={200} value={sparkBoltThickness} onChange={w(setSparkBoltThickness)} step={5} />
-      <div style={{ borderTop: '1px solid rgba(0,255,65,0.2)', paddingTop: 6, marginTop: 6 }}>
-        <span style={{ fontSize: 10, color: 'var(--accent)', opacity: 0.7 }}>Duct tape</span>
-      </div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>
-        Draw a line; every visible layer it touches is positionally and proportionally bound. With &quot;Respect&quot; on, scene and layers pivot around the tape.
-      </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, cursor: 'pointer', fontSize: 11 }}>
-        <input
-          type="checkbox"
-          checked={respectDuctTape}
-          onChange={(e) => onRespectDuctTapeChange?.(e.target.checked)}
-        />
-        <span style={{ color: 'var(--accent)' }}>Respect duct tape</span>
-      </label>
       <button
         type="button"
-        onClick={() => onAddDuctTape?.()}
-        style={{
-          marginTop: 0,
-          padding: '8px 12px',
-          fontSize: 11,
-          background: 'rgba(255,180,0,0.15)',
-          border: '1px solid rgba(255,180,0,0.7)',
-          borderRadius: 6,
-          color: '#ffb400',
-          cursor: 'pointer',
-          width: '100%',
-        }}
-      >
-        Place duct tape
-      </button>
-      {ductTapeStrips.length > 0 && (
-        <>
-          <ul style={{ margin: '8px 0 0', paddingLeft: 16, fontSize: 10, color: 'rgba(255,255,255,0.8)', maxHeight: 80, overflowY: 'auto' }}>
-            {ductTapeStrips.map((s) => (
-              <li key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <span>Line → ({(s.x2 * 100).toFixed(0)}%, {(s.y2 * 100).toFixed(0)}%)</span>
-                <button
-                  type="button"
-                  onClick={() => onRemoveDuctTape?.(s.id)}
-                  style={{ padding: '2px 6px', fontSize: 9, background: 'rgba(255,80,80,0.3)', border: '1px solid rgba(255,80,80,0.6)', borderRadius: 4, color: '#ff6666', cursor: 'pointer' }}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={() => onClearAllDuctTape?.()}
-            style={{ marginTop: 6, padding: '4px 8px', fontSize: 10, background: 'rgba(255,80,80,0.2)', border: '1px solid rgba(255,80,80,0.5)', borderRadius: 4, color: '#ff8888', cursor: 'pointer', width: '100%' }}
-          >
-            Clear all duct tape
-          </button>
-        </>
-      )}
-      <button
-        type="button"
-        onClick={onOpenSparkZones}
+        onClick={onOpenMeasure}
         style={{
           marginTop: 4,
           padding: '8px 12px',
@@ -697,13 +609,13 @@ export default function LoginDevPanel({
           width: '100%',
         }}
       >
-        Spark Zones
+        Measure
       </button>
       <button
         type="button"
         onClick={onOpenGlowPoint}
         style={{
-          marginTop: 8,
+          marginTop: 4,
           padding: '8px 12px',
           fontSize: 11,
           background: 'rgba(0,255,65,0.15)',

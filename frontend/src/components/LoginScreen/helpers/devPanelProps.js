@@ -2,7 +2,7 @@
  * Builds the props object for LoginDevPanel from login screen state and handlers.
  * Single place that connects state to the dev panel (no monolithic prop list in LoginScreen.jsx).
  * @param {object} state - Return value of useLoginScreenState
- * @param {object} opts - { layersLocked, onUnlockLayers, onLockLayers, onSave, onResetToSaved, onResetToPrimaryDefaults, onUndo, canUndo, onBeforeSliderChange, onClose, onOpenSparkZones, onOpenGlowPoint, ductTapeStrips, onAddDuctTape, onRemoveDuctTape, onClearAllDuctTape, respectDuctTape, onRespectDuctTapeChange, appBackgroundBrightness, onAppBackgroundBrightnessChange, appBackgroundSharpness, onAppBackgroundSharpnessChange, setScaleXLocked, setScaleYLocked }
+ * @param {object} opts - { layersLocked, onUnlockLayers, onLockLayers, onSave, onResetToSaved, onResetToPrimaryDefaults, onUndo, canUndo, onBeforeSliderChange, onClose, onOpenGlowPoint, appBackgroundBrightness, ... }
  */
 export function buildDevPanelProps(state, opts) {
   return {
@@ -16,14 +16,8 @@ export function buildDevPanelProps(state, opts) {
     canUndo: opts.canUndo,
     onBeforeSliderChange: opts.onBeforeSliderChange,
     onClose: opts.onClose,
-    onOpenSparkZones: opts.onOpenSparkZones,
+    onOpenMeasure: opts.onOpenMeasure,
     onOpenGlowPoint: opts.onOpenGlowPoint,
-    ductTapeStrips: opts.ductTapeStrips ?? [],
-    onAddDuctTape: opts.onAddDuctTape,
-    onRemoveDuctTape: opts.onRemoveDuctTape,
-    onClearAllDuctTape: opts.onClearAllDuctTape,
-    respectDuctTape: opts.respectDuctTape ?? true,
-    onRespectDuctTapeChange: opts.onRespectDuctTapeChange,
     appBackgroundBrightness: opts.appBackgroundBrightness,
     onAppBackgroundBrightnessChange: opts.onAppBackgroundBrightnessChange,
     appBackgroundSharpness: opts.appBackgroundSharpness,
@@ -74,12 +68,6 @@ export function buildDevPanelProps(state, opts) {
     setLoginShadeOfGray: state.setLoginShadeOfGray,
     loginLightToBlack: state.loginLightToBlack,
     setLoginLightToBlack: state.setLoginLightToBlack,
-    sparkBoundsTop: state.sparkBoundsTop,
-    sparkBoundsBottom: state.sparkBoundsBottom,
-    setSparkBoundsTop: state.setSparkBoundsTop,
-    setSparkBoundsBottom: state.setSparkBoundsBottom,
-    sparkBoltThickness: state.sparkBoltThickness,
-    setSparkBoltThickness: state.setSparkBoltThickness,
     titleOffsetX: state.titleOffsetX,
     titleOffsetY: state.titleOffsetY,
     titleScale: state.titleScale,

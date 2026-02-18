@@ -1,5 +1,30 @@
 export const CANVAS = { width: 1365, height: 2048 };
 export const PANEL_BBOX_PCT = { left: 26.3736, top: 31.4453, width: 45.4212, height: 25.3906 };
+/** Foot heels anchor on background (scene %). Character scales from here so heels stay fixed on the grid. */
+export const FEET_ANCHOR_PCT = { x: 50, y: 92 };
+
+/** Reference dimensions at CANVAS 1365×2048. Used to anchor layout; overrides other defaults when applied. */
+export const ANCHOR_REFERENCE_PX = {
+  fingerTipToFingerTip: 410,
+  heelCornerToHeelCorner: 136,
+  orbCenterToPanelBottomCenter: 194,
+};
+/** Scene % from reference px (1365 wide, 2048 tall). */
+export const ANCHOR_REFERENCE_PCT = {
+  fingerSpan: (ANCHOR_REFERENCE_PX.fingerTipToFingerTip / CANVAS.width) * 100,
+  heelSpan: (ANCHOR_REFERENCE_PX.heelCornerToHeelCorner / CANVAS.width) * 100,
+  orbToPanelBottom: (ANCHOR_REFERENCE_PX.orbCenterToPanelBottomCenter / CANVAS.height) * 100,
+};
+/** Neck point on body image (%). Placed at panel top when anchor overrides apply. */
+export const NECK_ON_BODY_PCT = { x: 50, y: 22 };
+/** Body point for left neck line (align with N stem). Used as transform origin when anchoring to N. */
+export const NECK_LEFT_ON_BODY_PCT = { x: 48, y: 22 };
+/** Left stem of "N" in title: offset from panel left as % of panel width (approx). Keeps left neck line inline with N. */
+export const TITLE_N_LEFT_OFFSET_PANEL_PCT = 28;
+/** When true, anchor overrides (neck, N, ring fingers, shoulders, 410/136/194px) override all other defaults. */
+export const USE_ANCHOR_OVERRIDES = true;
+/** Ring-finger line: offset above panel bottom as % of scene height (align with bottom buttons). */
+export const RING_FINGER_ABOVE_PANEL_BOTTOM_PCT = 2.5;
 
 export const GLOW_POINT_KEY = 'wankr_glow_point';
 
@@ -34,80 +59,75 @@ export function isPortrait() {
 export const DEV_DEFAULTS_KEY = 'wankr_login_dev_defaults';
 export const DEV_DEFAULTS_KEY_IOS = 'wankr_login_dev_defaults_ios';
 /** Bump this when code defaults change; stored data with an older version is ignored so new defaults apply automatically. */
-export const DEFAULTS_VERSION = 7;
+export const DEFAULTS_VERSION = 14;
 export const LAYERS_LOCKED_KEY = 'wankr_layers_locked';
-export const DUCT_TAPE_STRIPS_KEY = 'wankr_duct_tape_strips';
-export const RESPECT_DUCT_TAPE_KEY = 'wankr_respect_duct_tape';
 export const PANE_LAYOUT_LOCKED_KEY = 'wankr_pane_layout_locked';
 export const SHOULDERS_HANDS_LOCKED_KEY = 'wankr_shoulders_hands_locked';
 export const BODY_PANEL_LOCKED_KEY = 'wankr_body_panel_locked';
 /** Desktop defaults: locked-in layout from dev panel (scene, robot, body, hands, login pane, layout, effects). */
 export const DEV_DEFAULTS = {
   meanBrightness: 50,
-  appBackgroundBrightness: 62,
-  panelBorderBrightness: 5,
+  appBackgroundBrightness: 68,
+  panelBorderBrightness: 46,
   loginBrightness: 14,
-  loginShadeOfGray: 100,
-  loginLightToBlack: 95,
-  backlayerSharpness: 162,
-  characterSharpness: 88,
-  leftCushion: -1,
-  topCushion: 5.75,
-  scaleX: 94,
-  scaleY: 116,
+  loginShadeOfGray: 0,
+  loginLightToBlack: 100,
+  backlayerSharpness: 191,
+  characterSharpness: 97,
+  leftCushion: -3.5,
+  topCushion: 12.25,
+  scaleX: 106,
+  scaleY: 133,
   aspectLock: true,
   backScaleX: 90,
   backScaleY: 90,
   backOffsetX: 0,
   backOffsetY: 0,
-  sceneScaleX: 95,
-  sceneScaleY: 95,
+  sceneScaleX: 130,
+  sceneScaleY: 130,
   sceneOffsetX: 0,
-  sceneOffsetY: 6,
+  sceneOffsetY: 0,
   robotScaleX: 86,
   robotScaleY: 125,
-  robotOffsetX: -0.5,
-  robotOffsetY: -41.5,
+  robotOffsetX: 0,
+  robotOffsetY: 0,
   shoulderScaleX: 103,
   shoulderScaleY: 105,
-  shoulderOffsetX: 0.5,
+  shoulderOffsetX: 1.5,
   shoulderOffsetY: 32.5,
   handLeftScaleX: 13,
   handLeftScaleY: 14,
   handLeftOffsetX: 68.5,
   handLeftOffsetY: 34.5,
-  handRightScaleX: 11,
+  handRightScaleX: 10,
   handRightScaleY: 11,
   handRightOffsetX: -71.5,
   handRightOffsetY: 36,
-  loginBoxWidth: 98,
-  loginBoxHeight: 85,
-  panelContentOffsetX: 0,
-  panelRightMargin: 100,
+  loginBoxWidth: 109.5,
+  loginBoxHeight: 96,
+  panelContentOffsetX: -1,
+  panelRightMargin: 140,
   titleOffsetX: 0,
-  titleOffsetY: 9,
-  titleScale: 100,
+  titleOffsetY: 18,
+  titleScale: 129,
   subtitleOffsetX: 0,
-  subtitleOffsetY: -30.5,
+  subtitleOffsetY: -8,
   subtitleScale: 100,
   formMarginTop: 0,
   inputHeightScale: 100,
-  inputWidthScale: 85,
+  inputWidthScale: 94,
   formGap: 100,
   submitMinHeightScale: 100,
   bottomButtonsHeightScale: 100,
   buttonsVerticalGap: 100,
-  buttonsBottomGap: 37,
+  buttonsBottomGap: 9,
   titleTopGap: -5.5,
-  titleToSubtitleGap: 0.5,
-  subtitleToUsernameGap: 0,
-  usernamePasswordGap: 3.2,
-  passwordToSubmitGap: 2.7,
-  submitToButtonsGap: 3.1,
-  controlHeightScale: 115,
-  sparkBoundsTop: 10,
-  sparkBoundsBottom: 44,
-  sparkBoltThickness: 20,
+  titleToSubtitleGap: 0,
+  subtitleToUsernameGap: 0.7,
+  usernamePasswordGap: 3,
+  passwordToSubmitGap: 2.9,
+  submitToButtonsGap: 3,
+  controlHeightScale: 108,
   showLayerBackground: true,
   showLayerWankrBody: true,
   showLayerLogin: true,
@@ -119,6 +139,19 @@ export const DEV_DEFAULTS_IOS = {
   ...DEV_DEFAULTS,
   loginBoxHeight: 120,
   controlHeightScale: 120,
+};
+
+/**
+ * Anchor-override defaults: force robot centered on screen. Merged on top of loaded defaults when USE_ANCHOR_OVERRIDES.
+ * All position offsets 0 so scene and character stay centered (scene unit and body/robot/hands use their anchors with no shift).
+ */
+export const ANCHOR_OVERRIDE_DEFAULTS = {
+  sceneOffsetX: 0,
+  sceneOffsetY: 0,
+  backOffsetX: 0,
+  backOffsetY: 0,
+  robotOffsetX: 0,
+  robotOffsetY: 0,
 };
 
 /** Allowed keys for dev defaults. Unknown keys from storage or API are dropped so layout cannot be broken by tampering. */
@@ -138,7 +171,6 @@ export const ALLOWED_DEV_DEFAULT_KEYS = Object.freeze([
   'titleTopGap', 'titleToSubtitleGap', 'subtitleToUsernameGap', 'usernamePasswordGap',
   'passwordToSubmitGap', 'submitToButtonsGap', 'controlHeightScale',
   'panelContentOffsetX', 'panelRightMargin',
-  'sparkBoundsTop', 'sparkBoundsBottom', 'sparkBoltThickness',
   'showLayerBackground', 'showLayerWankrBody', 'showLayerLogin', 'showLayerHands',
   'characterSharpness',
 ]);
@@ -155,16 +187,15 @@ const DEV_DEFAULT_CLAMPS = {
   shoulderScaleX: [50, 200], shoulderScaleY: [50, 200], shoulderOffsetX: [-200, 200], shoulderOffsetY: [-200, 200],
   handLeftScaleX: [1, 50], handLeftScaleY: [1, 50], handLeftOffsetX: [-200, 200], handLeftOffsetY: [-50, 50],
   handRightScaleX: [1, 50], handRightScaleY: [1, 50], handRightOffsetX: [-200, 200], handRightOffsetY: [-50, 50],
-  loginBoxWidth: [50, 100], loginBoxHeight: [60, 150],
+  loginBoxWidth: [50, 150], loginBoxHeight: [60, 150],
   titleOffsetX: [-100, 100], titleOffsetY: [-100, 100], titleScale: [50, 200],
   subtitleOffsetX: [-100, 100], subtitleOffsetY: [-100, 100], subtitleScale: [50, 200],
   formMarginTop: [-50, 50], inputHeightScale: [50, 200], inputWidthScale: [50, 200],
   formGap: [50, 200], submitMinHeightScale: [50, 200], bottomButtonsHeightScale: [50, 200],
-  buttonsVerticalGap: [50, 200], buttonsBottomGap: [20, 300],
+  buttonsVerticalGap: [50, 200], buttonsBottomGap: [0, 300],
   titleTopGap: [-10, 15], titleToSubtitleGap: [0, 5], subtitleToUsernameGap: [0, 5],
   usernamePasswordGap: [0, 5], passwordToSubmitGap: [0, 5], submitToButtonsGap: [0, 5],
   controlHeightScale: [80, 200], panelContentOffsetX: [-50, 50], panelRightMargin: [50, 150],
-  sparkBoundsTop: [0, 100], sparkBoundsBottom: [0, 100],   sparkBoltThickness: [10, 200],
   characterSharpness: [50, 200],
 };
 
@@ -225,7 +256,7 @@ export function loadDevDefaults() {
       if (isTrustedStoredDefaults(parsed)) {
         const d = sanitizeDevDefaults(parsed, base);
         if (!isIos && d.loginBoxHeight === 92) d.loginBoxHeight = 85;
-        return d;
+        return USE_ANCHOR_OVERRIDES ? { ...d, ...ANCHOR_OVERRIDE_DEFAULTS } : d;
       }
     }
   } catch { /* ignore */ }
@@ -235,12 +266,13 @@ export function loadDevDefaults() {
     localStorage.setItem(DEV_DEFAULTS_KEY, JSON.stringify(desktopSafe));
     localStorage.setItem(DEV_DEFAULTS_KEY_IOS, JSON.stringify(iosSafe));
   } catch { /* ignore */ }
-  return base;
+  return USE_ANCHOR_OVERRIDES ? { ...base, ...ANCHOR_OVERRIDE_DEFAULTS } : base;
 }
 
 /** Code defaults (no storage). Use to revert layout to your primary defaults. */
 export function getPrimaryDevDefaults() {
-  return isIOS() ? { ...DEV_DEFAULTS_IOS } : { ...DEV_DEFAULTS };
+  const base = isIOS() ? { ...DEV_DEFAULTS_IOS } : { ...DEV_DEFAULTS };
+  return USE_ANCHOR_OVERRIDES ? { ...base, ...ANCHOR_OVERRIDE_DEFAULTS } : base;
 }
 
 export function saveDevDefaults(values) {
@@ -254,37 +286,22 @@ export function saveDevDefaults(values) {
   } catch { /* ignore */ }
 }
 
-/** Load duct tape strips from storage. Each strip: { id, x1, y1, x2, y2 } in 0–1 (scene-normalized). */
-export function loadDuctTapeStrips() {
+/** Remove all wankr-related keys from localStorage and sessionStorage. Call then refresh to get fresh code defaults and reset app state. */
+export function clearAllWankrCache() {
   try {
-    const raw = localStorage.getItem(DUCT_TAPE_STRIPS_KEY);
-    if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr) && arr.every((s) => s && typeof s.x1 === 'number' && typeof s.y1 === 'number' && typeof s.x2 === 'number' && typeof s.y2 === 'number')) {
-        return arr.map((s, i) => ({ id: s.id ?? `tape-${i}`, x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 }));
-      }
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('wankr_')) keys.push(k);
     }
+    keys.forEach((k) => localStorage.removeItem(k));
   } catch { /* ignore */ }
-  return [];
-}
-
-/** Persist duct tape strips. */
-export function saveDuctTapeStrips(strips) {
   try {
-    localStorage.setItem(DUCT_TAPE_STRIPS_KEY, JSON.stringify(strips));
-  } catch { /* ignore */ }
-}
-
-export function loadRespectDuctTape() {
-  try {
-    const v = localStorage.getItem(RESPECT_DUCT_TAPE_KEY);
-    return v !== 'false';
-  } catch { /* ignore */ }
-  return true;
-}
-
-export function saveRespectDuctTape(value) {
-  try {
-    localStorage.setItem(RESPECT_DUCT_TAPE_KEY, value ? 'true' : 'false');
+    const keys = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith('wankr_')) keys.push(k);
+    }
+    keys.forEach((k) => sessionStorage.removeItem(k));
   } catch { /* ignore */ }
 }

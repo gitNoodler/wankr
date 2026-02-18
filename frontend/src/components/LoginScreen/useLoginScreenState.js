@@ -66,9 +66,6 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
   const [controlHeightScale, setControlHeightScale] = useState(d.controlHeightScale ?? 100);
   const [panelContentOffsetX, setPanelContentOffsetX] = useState(d.panelContentOffsetX ?? 0);
   const [panelRightMargin, setPanelRightMargin] = useState(d.panelRightMargin ?? 100);
-  const [sparkBoundsTop, setSparkBoundsTop] = useState(d.sparkBoundsTop ?? 10);
-  const [sparkBoundsBottom, setSparkBoundsBottom] = useState(d.sparkBoundsBottom ?? 90);
-  const [sparkBoltThickness, setSparkBoltThickness] = useState(d.sparkBoltThickness ?? 100);
   const [showLayerBackground, setShowLayerBackground] = useState(d.showLayerBackground ?? true);
   const [showLayerWankrBody, setShowLayerWankrBody] = useState(d.showLayerWankrBody ?? true);
   const [showLayerLogin, setShowLayerLogin] = useState(d.showLayerLogin ?? true);
@@ -91,7 +88,6 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
       loginBoxWidth, loginBoxHeight, titleOffsetX, titleOffsetY, titleScale,
       subtitleOffsetX, subtitleOffsetY, subtitleScale, formMarginTop, inputHeightScale, inputWidthScale, formGap,
       submitMinHeightScale, bottomButtonsHeightScale, buttonsVerticalGap, buttonsBottomGap, panelContentOffsetX, panelRightMargin,
-      sparkBoundsTop, sparkBoundsBottom, sparkBoltThickness,
       showLayerBackground, showLayerWankrBody, showLayerLogin, showLayerHands,
       characterSharpness,
     };
@@ -117,7 +113,6 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
     titleTopGap: setTitleTopGap, titleToSubtitleGap: setTitleToSubtitleGap, subtitleToUsernameGap: setSubtitleToUsernameGap,
     usernamePasswordGap: setUsernamePasswordGap, passwordToSubmitGap: setPasswordToSubmitGap, submitToButtonsGap: setSubmitToButtonsGap,
     controlHeightScale: setControlHeightScale, panelContentOffsetX: setPanelContentOffsetX, panelRightMargin: setPanelRightMargin,
-    sparkBoundsTop: setSparkBoundsTop, sparkBoundsBottom: setSparkBoundsBottom, sparkBoltThickness: setSparkBoltThickness,
     showLayerBackground: setShowLayerBackground, showLayerWankrBody: setShowLayerWankrBody, showLayerLogin: setShowLayerLogin, showLayerHands: setShowLayerHands,
     characterSharpness: setCharacterSharpness,
     };
@@ -187,8 +182,6 @@ export function useLoginScreenState({ appBackgroundBrightness, appBackgroundShar
     controlHeightScale, setControlHeightScale,
     panelContentOffsetX, setPanelContentOffsetX,
     panelRightMargin, setPanelRightMargin,
-    sparkBoundsTop, setSparkBoundsTop, sparkBoundsBottom, setSparkBoundsBottom,
-    sparkBoltThickness, setSparkBoltThickness,
     showLayerBackground, setShowLayerBackground,
     showLayerWankrBody, setShowLayerWankrBody,
     showLayerLogin, setShowLayerLogin,

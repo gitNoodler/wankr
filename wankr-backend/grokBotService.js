@@ -83,15 +83,62 @@ function configure(apiKey, model, defaultSystemPrompt) {
   console.log('🤖 Grok bot configured with API access');
 }
 
-// Generate a starter question
+// System prompt for Grok's persona: read Wankr's responses and reply with thematic continuity
+const GROK_PERSONA_PROMPT = `You are Grok, a conversational partner in a training dialogue with Wankr (a crypto/trading analyst bot). Your job is to read Wankr's responses carefully and reply with natural, thematically consistent follow-ups. Carry the conversation forward like a real discussion: reference what they said, ask clarifying questions, challenge assumptions, drill into specifics, or pivot to related angles. Stay on topic. Vary your style—sometimes curious, sometimes skeptical, sometimes asking for examples. Do NOT give generic one-liners. Keep responses concise (1-2 sentences).`;
+
+// Generate a starter question (fallback when API unavailable)
 function generateStarterQuestion() {
   return GROK_STARTER_QUESTIONS[Math.floor(Math.random() * GROK_STARTER_QUESTIONS.length)];
 }
 
-// Generate a follow-up based on conversation context
-function generateGrokResponse(wankrMessage) {
-  // Pick a random follow-up template
+// Generate a follow-up from templates (fallback when API unavailable)
+function generateGrokResponseFromTemplate(wankrMessage) {
   return GROK_FOLLOWUP_TEMPLATES[Math.floor(Math.random() * GROK_FOLLOWUP_TEMPLATES.length)];
+}
+
+// Get Grok's reply from the API: read the conversation and respond with thematic continuity
+async function getGrokReply(conv) {
+  if (!xaiApiKey) return null;
+  if (!conv?.messages?.length) return null;
+
+  const history = conv.messages.slice(-14).map((m) => ({
+    role: m.from === 'grok' ? 'user' : 'assistant',
+    content: m.content,
+  }));
+
+  const messages = [
+    { role: 'system', content: GROK_PERSONA_PROMPT },
+    ...history,
+  ];
+
+  try {
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${xaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: apiModel,
+        messages,
+        temperature: 0.7,
+        max_tokens: 150,
+      }),
+    });
+
+    const data = await response.json();
+    if (data.error) {
+      const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error));
+      console.error(`❌ Grok reply API error (${response.status}):`, errMsg);
+      return null;
+    }
+
+    const content = (data.choices?.[0]?.message?.content || '').trim();
+    return content || null;
+  } catch (err) {
+    console.error('❌ Failed to get Grok reply:', err.message);
+    return null;
+  }
 }
 
 // Call Wankr API to get a response
@@ -246,17 +293,18 @@ function queueNextExchange() {
 // Execute a full exchange: grok asks, wankr responds
 async function executeExchange() {
   const conv = loadConversation();
-  
-  // Generate grok's message based on conversation state
+
+  // Generate grok's message: use API to read conversation and reply thematically, fallback to templates
   let grokMessage;
   if (conv.messages.length === 0) {
-    // First message - use a starter question
     grokMessage = generateStarterQuestion();
   } else {
-    // Follow-up based on previous conversation
-    grokMessage = generateGrokResponse(conv.messages[conv.messages.length - 1]?.content || '');
+    grokMessage = await getGrokReply(conv);
+    if (!grokMessage) {
+      grokMessage = generateGrokResponseFromTemplate(conv.messages[conv.messages.length - 1]?.content || '');
+    }
   }
-  
+
   // Add grok's message
   addGrokMessage(grokMessage);
   
@@ -391,6 +439,14 @@ function stopProcessor() {
   }
 }
 
+// Emergency kill: stop processor and clear queue (stops all scheduled exchanges; conversation history preserved)
+function emergencyKill() {
+  stopProcessor();
+  saveQueue({ pendingResponses: [] });
+  console.log('🛑 Grok conversation emergency kill executed');
+  return true;
+}
+
 // Start the bot with initial exchange
 async function initialize() {
   if (!xaiApiKey) {
@@ -476,7 +532,8 @@ module.exports = {
   startProcessor,
   stopProcessor,
   startConversation,
-  generateGrokResponse,
+  generateGrokResponse: generateGrokResponseFromTemplate,
   seedConversation,
   clearConversation,
+  emergencyKill,
 };

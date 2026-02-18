@@ -148,27 +148,40 @@ function ConversationView({ user, onClose }) {
 
   // Restore scroll position after poll updates messages so the user isn't forced back to bottom
   useLayoutEffect(() => {
+    if (useVirtual && listRef.current) {
+      listRef.current.resetAfterIndex(0);
+    }
     const saved = savedScrollTopRef.current;
     if (saved != null && messagesContainerRef.current) {
       savedScrollTopRef.current = null;
       const el = messagesContainerRef.current;
-      el.scrollTop = getRestoreScrollTop(saved, el.scrollHeight, el.clientHeight);
+      requestAnimationFrame(() => {
+        if (el) {
+          el.scrollTop = getRestoreScrollTop(saved, el.scrollHeight, el.clientHeight);
+        }
+      });
     }
     if (messages.length > 0) checkAtBottom();
-  }, [messages, checkAtBottom]);
+  }, [messages, checkAtBottom, useVirtual]);
 
   const getItemSize = useCallback((index) => {
-    const contentLen = (messages[index]?.content || '').length;
-    return 56 + Math.min(120, Math.ceil(contentLen / 2)) + 14;
+    const content = messages[index]?.content || '';
+    const contentLen = content.length;
+    const lines = Math.max(1, Math.ceil(contentLen / 45));
+    const contentHeight = lines * 22;
+    return 56 + contentHeight + 14 + 16; /* +16 gap between bubbles */
   }, [messages]);
 
+  const otherAuthorLabel = user?.id === 'grok' ? 'GROK' : (user?.username || 'User').toUpperCase();
   const MessageRow = useCallback(({ index, style, data }) => {
-    const msg = data[index];
+    const list = data?.messages ?? data;
+    const msg = Array.isArray(list) ? list[index] : null;
     if (!msg) return null;
+    const author = (msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : (data?.user ? (data.user.id === 'grok' ? 'GROK' : (data.user.username || 'User').toUpperCase()) : otherAuthorLabel);
     return (
       <div style={style} className={`message ${msg.from || msg.role}`}>
         <span className="message-author">
-          {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : 'GROK'}
+          {author}
         </span>
         <p className="message-content">{msg.content}</p>
         {msg.timestamp && (
@@ -178,7 +191,7 @@ function ConversationView({ user, onClose }) {
         )}
       </div>
     );
-  }, []);
+  }, [otherAuthorLabel]);
 
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -228,7 +241,7 @@ function ConversationView({ user, onClose }) {
             </div>
             {messages.length > 0 ? (
               <div className="live-messages-wrapper">
-                {useVirtual ? (
+                    {useVirtual ? (
                   <div ref={measureRef} className="live-messages live-messages-virtual" style={{ height: '60vh', minHeight: 200 }}>
                     {containerHeight > 0 && (
                       <VariableSizeList
@@ -238,8 +251,9 @@ function ConversationView({ user, onClose }) {
                         width="100%"
                         itemCount={messages.length}
                         itemSize={getItemSize}
-                        itemData={messages}
+                        itemData={{ messages, user }}
                         onScroll={checkAtBottom}
+                        overscanCount={5}
                         style={{ overflowX: 'hidden' }}
                       >
                         {MessageRow}
@@ -255,7 +269,7 @@ function ConversationView({ user, onClose }) {
                     {messages.map((msg, idx) => (
                       <div key={msg.id ?? idx} className={`message ${msg.from || msg.role}`}>
                         <span className="message-author">
-                          {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : 'GROK'}
+                          {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : otherAuthorLabel}
                         </span>
                         <p className="message-content">{msg.content}</p>
                         {msg.timestamp && (

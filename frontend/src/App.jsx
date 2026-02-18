@@ -5,7 +5,7 @@ import { useArchive } from './hooks/useArchive';
 import { useRestartBackup } from './hooks/useRestartBackup';
 import { useViewportScale } from './hooks/useViewportScale';
 import { getTrainCount } from './services/trainingService';
-import { validateSession, logout as authLogout, getStoredToken } from './services/authService';
+import { validateSession, logout as authLogout, getStoredToken, getStoredUsername } from './services/authService';
 import { api } from './utils/api';
 import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
@@ -43,6 +43,27 @@ export default function App() {
   const namedToastTimeoutRef = useRef(null);
   const transitionRef = useRef(null);
   const storage = useConversationStorage();
+
+  // Universal dev panel: Ctrl+Alt+D or Ctrl+Shift+D (override browser "Bookmark all tabs").
+  // Capture phase + immediate preventDefault so our shortcut wins over the browser.
+  const [universalDevPanelOpen, setUniversalDevPanelOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e) => {
+      const isD = e.key === 'D' || e.key === 'd' || e.code === 'KeyD';
+      const isCtrlAltD = e.ctrlKey && e.altKey && !e.shiftKey && isD;
+      const isCtrlShiftD = e.ctrlKey && e.shiftKey && !e.altKey && isD;
+      if (!isCtrlAltD && !isCtrlShiftD) return;
+      const onLoginScreen = !loggedIn && !spectatorMode && !sessionValidating;
+      const willHandle = onLoginScreen || getStoredUsername()?.toLowerCase() === 'gitnoodler';
+      if (!willHandle) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setUniversalDevPanelOpen((o) => !o);
+    };
+    const opts = { capture: true };
+    document.addEventListener('keydown', handler, opts);
+    return () => document.removeEventListener('keydown', handler, opts);
+  }, [loggedIn, spectatorMode, sessionValidating]);
 
   // Reorient layout when iOS (or any device) rotates, resizes, or app is opened from background
   useEffect(() => {
@@ -142,6 +163,37 @@ export default function App() {
       .catch(() => { /* ignore */ })
       .finally(() => setSessionValidating(false));
   }, []);
+
+  // After login: fetch active chats from backend and merge with localStorage (prefer newer updatedAt)
+  useEffect(() => {
+    if (!loggedIn) return;
+    const token = getStoredToken();
+    if (!token) return;
+    api.get(`/api/chats/active?token=${encodeURIComponent(token)}`)
+      .then((r) => (r.ok ? r.json() : { chats: [] }))
+      .then((data) => {
+        const serverChats = Array.isArray(data.chats) ? data.chats : [];
+        if (serverChats.length === 0) return;
+        persistArchived((prev) => {
+          const byId = new Map();
+          for (const c of prev) {
+            byId.set(c.id, { ...c, updatedAt: c.updatedAt || c.createdAt || '' });
+          }
+          for (const c of serverChats) {
+            const existing = byId.get(c.id);
+            const updatedAt = c.updatedAt || c.createdAt || '';
+            if (!existing || (updatedAt && updatedAt > (existing.updatedAt || ''))) {
+              byId.set(c.id, { ...c, updatedAt });
+            }
+          }
+          const merged = Array.from(byId.values()).sort(
+            (a, b) => (a.createdAt || '').localeCompare(b.createdAt || '')
+          );
+          return merged.slice(-20);
+        });
+      })
+      .catch(() => {});
+  }, [loggedIn, persistArchived]);
 
   const handleLoginSuccess = useCallback(() => {
     if (transitionRef.current) return;
@@ -363,13 +415,18 @@ export default function App() {
             onAppBackgroundBrightnessChange={setAppBackgroundBrightness}
             appBackgroundSharpness={appBackgroundSharpness}
             onAppBackgroundSharpnessChange={setAppBackgroundSharpness}
+            onOpenMeasure={() => setMeasureOpen(true)}
             onOpenGlowPoint={() => setGlowPointOpen(true)}
+            onOpenEffectsBounds={() => setEffectsBoundsOpen(true)}
             onSparkActive={setSparkActive}
             glowPointVersion={glowPointVersion}
+            devPanelOpen={universalDevPanelOpen}
+            onDevPanelClose={() => setUniversalDevPanelOpen(false)}
+            onRequestDevPanel={() => setUniversalDevPanelOpen(true)}
           />
         ) : (
           <>
-            <Header onLogout={handleLogout} onOpenMeasure={() => setMeasureOpen(true)} onOpenGlowPoint={() => setGlowPointOpen(true)} onOpenEffectsBounds={() => setEffectsBoundsOpen(true)} />
+            <Header onLogout={handleLogout} />
             <div
               className={`dashboard-body ${dashboardSweepIn ? 'sweep-in' : ''} ${trainingMode ? 'with-training' : 'with-placeholder'}`}
               style={{
@@ -389,7 +446,6 @@ export default function App() {
                   onClearChat={clearChat}
                   onArchive={openArchive}
                   onDeleteArchived={deleteArchivedChat}
-                  thoughts={chat.thoughts}
                 />
               </div>
               <div className="dashboard-main">
@@ -414,7 +470,11 @@ export default function App() {
                     trainCount={trainCount}
                   />
                 ) : (
-                  <PlaceholderPanel />
+                  <PlaceholderPanel
+                    onOpenMeasure={() => setMeasureOpen(true)}
+                    devPanelOpen={universalDevPanelOpen}
+                    onDevPanelClose={() => setUniversalDevPanelOpen(false)}
+                  />
                 )}
               </div>
             </div>

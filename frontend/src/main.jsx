@@ -1,8 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ErrorBoundary } from './ErrorBoundary'
+import { clearAllWankrCache } from './components/LoginScreen/loginScreenConfig'
 import './index.css'
 import App from './App.jsx'
+
+if (import.meta.env.DEV) {
+  window.clearAllWankrCache = clearAllWankrCache
+}
 
 const rootEl = document.getElementById('root')
 if (!rootEl) {

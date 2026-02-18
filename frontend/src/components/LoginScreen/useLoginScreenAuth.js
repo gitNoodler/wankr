@@ -6,6 +6,7 @@ export function useLoginScreenAuth({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState({ checking: false, available: null, error: null });
   const [error, setError] = useState('');
@@ -13,11 +14,6 @@ export function useLoginScreenAuth({ onLogin }) {
   const usernameCheckTimeout = useRef(null);
 
   const handleUsernameChange = useCallback((value) => {
-    const secret = 'wankr in da clankr';
-    if (typeof value === 'string' && value.toLowerCase().trim() === secret) {
-      setUsername('');
-      return true; // Signal to open dev panel
-    }
     setUsername(value);
     return false;
   }, []);
@@ -25,8 +21,8 @@ export function useLoginScreenAuth({ onLogin }) {
   const checkUsernameAvailability = useCallback((name) => {
     if (usernameCheckTimeout.current) clearTimeout(usernameCheckTimeout.current);
     const trimmed = (name || '').trim();
-    if (trimmed.length < 2) {
-      setUsernameStatus({ checking: false, available: null, error: trimmed.length > 0 ? 'Min 2 characters' : null });
+    if (trimmed.length < 5) {
+      setUsernameStatus({ checking: false, available: null, error: trimmed.length > 0 ? 'Min 5 characters' : null });
       return;
     }
     setUsernameStatus({ checking: true, available: null, error: null });
@@ -65,20 +61,21 @@ export function useLoginScreenAuth({ onLogin }) {
     setError('');
     setLoading(true);
     try {
-      const data = isRegister ? await authRegister(u, p) : await authLogin(u, p);
+      const data = isRegister ? await authRegister(u, p, email.trim() || undefined) : await authLogin(u, p);
       setLoading(false);
       onLogin?.({ username: data?.username ?? u, token: data?.token });
     } catch (err) {
       setLoading(false);
       setError(err.message || 'Authentication failed');
     }
-  }, [username, password, confirmPassword, usernameStatus.available, onLogin]);
+  }, [username, password, confirmPassword, email, usernameStatus.available, onLogin]);
 
   const handleNewUser = useCallback((e) => {
     e?.preventDefault();
     setError('');
     setPassword('');
     setConfirmPassword('');
+    setEmail('');
     setIsRegistering(true);
   }, []);
 
@@ -95,6 +92,7 @@ export function useLoginScreenAuth({ onLogin }) {
     username, setUsername,
     password, setPassword,
     confirmPassword, setConfirmPassword,
+    email, setEmail,
     isRegistering, setIsRegistering,
     usernameStatus, setUsernameStatus,
     error, setError,

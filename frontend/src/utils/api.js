@@ -25,4 +25,5 @@ export const api = {
       method: 'POST',
       body: body != null ? JSON.stringify(body) : undefined,
     }),
+  delete: (endpoint, options = {}) => request(endpoint, { ...options, method: 'DELETE' }),
 };

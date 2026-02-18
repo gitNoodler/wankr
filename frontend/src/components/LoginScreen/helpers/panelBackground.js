@@ -6,14 +6,20 @@
  * @param {number} loginLightToBlack - 0..100 (darkness)
  * @returns {string} css rgb(r, g, b)
  */
+/** Minimum panel luminance so the panel never goes fully black and stays usable. */
+const MIN_PANEL_LUMINANCE = 18;
+
 export function computePanelBackground(loginBrightness, loginShadeOfGray, loginLightToBlack) {
   const lightToBlack = loginLightToBlack / 100;
   let base = 220 - lightToBlack * 200;
   base *= 0.5 + (loginBrightness / 100) * 0.5;
   base = Math.round(base);
   const t = loginShadeOfGray / 100;
-  const r = Math.max(0, Math.min(255, Math.round(base - t * 8)));
-  const g = Math.max(0, Math.min(255, Math.round(base + t * 8)));
-  const b = Math.max(0, Math.min(255, Math.round(base - t * 4)));
+  let r = Math.round(base - t * 8);
+  let g = Math.round(base + t * 8);
+  let b = Math.round(base - t * 4);
+  r = Math.max(MIN_PANEL_LUMINANCE, Math.min(255, r));
+  g = Math.max(MIN_PANEL_LUMINANCE, Math.min(255, g));
+  b = Math.max(MIN_PANEL_LUMINANCE, Math.min(255, b));
   return `rgb(${r}, ${g}, ${b})`;
 }

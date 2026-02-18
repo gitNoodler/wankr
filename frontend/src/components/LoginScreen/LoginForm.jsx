@@ -5,6 +5,7 @@ export default function LoginForm({
   username,
   password,
   confirmPassword,
+  email = '',
   isRegistering,
   usernameStatus,
   loading,
@@ -12,8 +13,9 @@ export default function LoginForm({
   onUsernameChange,
   onPasswordChange,
   onConfirmPasswordChange,
+  onEmailChange,
   onSubmit,
-  onNewUser: _onNewUser, // eslint-disable-line no-unused-vars -- accepted for API, not used
+  onNewUser,
   onSpectate,
   onBackToLogin,
   titleOffsetX = 0,
@@ -37,6 +39,8 @@ export default function LoginForm({
   const chs = controlHeightScale / 100;
   const h = 8 * chs;
   const hCqi = `${h}cqi`;
+  const inputFontCqi = 3.5 * chs;
+  const buttonFontCqi = 3.2 * chs;
 
   return (
     <>
@@ -143,15 +147,15 @@ export default function LoginForm({
                 minHeight: hCqi,
                 background: 'linear-gradient(180deg, #404040 0%, #353535 40%, #2d2d2d 100%)',
                 border: `2px solid ${isRegistering && usernameStatus.available === false ? 'rgba(255, 107, 107, 0.6)' : isRegistering && usernameStatus.available ? 'rgba(0, 255, 65, 0.6)' : 'rgba(140, 140, 140, 0.55)'}`,
-                borderRadius: `${2.5 * chs}cqi`,
+                borderRadius: `${3 * chs}cqi`,
                 color: 'var(--accent)',
-                fontSize: `${2.5 * chs}cqi`,
+                fontSize: `${inputFontCqi}cqi`,
                 outline: 'none',
                 boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)',
                 transition: 'border-color 0.2s',
               }}
             />
-            {isRegistering && username.trim().length >= 2 && (
+            {isRegistering && username.trim().length >= 5 && (
               <div style={{
                 position: 'absolute',
                 right: '1.5cqi',
@@ -179,7 +183,36 @@ export default function LoginForm({
         )}
         {isRegistering && usernameStatus.available && !usernameStatus.checking && (
           <div style={{ color: 'var(--accent)', fontSize: '1.2cqi', marginLeft: '2cqi', marginTop: '-0.3cqi' }}>
-            Username available
+            Username available (min 5 characters)
+          </div>
+        )}
+
+        {/* Optional email - registration only */}
+        {isRegistering && onEmailChange && (
+          <div style={{ marginTop: `${usernamePasswordGap}cqi`, display: 'flex', alignItems: 'center', gap: '1.5cqi' }}>
+            <div style={{ color: 'var(--accent)', flexShrink: 0 }}><UserIcon /></div>
+            <div style={{ flex: 1, minWidth: 0, maxWidth: iws < 1 ? `${iws * 100}%` : undefined }}>
+              <input
+                type="email"
+                placeholder="Email (optional)"
+                autoComplete="email"
+                value={email ?? ''}
+                onChange={(e) => onEmailChange(e.target.value)}
+                style={{
+                  width: '100%',
+                  minWidth: 0,
+                  minHeight: hCqi,
+                  padding: `${2.5 * chs}cqi 3cqi`,
+                  background: 'linear-gradient(180deg, #3a3a3a 0%, #323232 40%, #2a2a2a 100%)',
+                  border: '2px solid rgba(140, 140, 140, 0.55)',
+                  borderRadius: `${2.5 * chs}cqi`,
+                  color: 'var(--accent)',
+                  fontSize: `${inputFontCqi}cqi`,
+                  outline: 'none',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)',
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -193,7 +226,7 @@ export default function LoginForm({
             autoComplete="new-password"
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
-            style={{ width: '100%', minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi 3cqi`, background: 'linear-gradient(180deg, #3a3a3a 0%, #323232 40%, #2a2a2a 100%)', border: '2px solid rgba(140, 140, 140, 0.55)', borderRadius: `${2.5 * chs}cqi`, color: 'var(--accent)', fontSize: `${2.5 * chs}cqi`, outline: 'none', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)' }}
+            style={{ width: '100%', minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi 3cqi`, background: 'linear-gradient(180deg, #3a3a3a 0%, #323232 40%, #2a2a2a 100%)', border: '2px solid rgba(140, 140, 140, 0.55)', borderRadius: `${3 * chs}cqi`, color: 'var(--accent)', fontSize: `${inputFontCqi}cqi`, outline: 'none', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)' }}
           />
           </div>
         </div>
@@ -215,9 +248,9 @@ export default function LoginForm({
                 padding: `${2.5 * chs}cqi 3cqi`,
                 background: 'linear-gradient(180deg, #404040 0%, #353535 40%, #2d2d2d 100%)',
                 border: `2px solid ${confirmPassword && password !== confirmPassword ? 'rgba(255, 107, 107, 0.6)' : 'rgba(100, 100, 100, 0.5)'}`,
-                borderRadius: `${2.5 * chs}cqi`,
+                borderRadius: `${3 * chs}cqi`,
                 color: 'var(--accent)',
-                fontSize: `${2.5 * chs}cqi`,
+                fontSize: `${inputFontCqi}cqi`,
                 outline: 'none',
                 boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)',
                 transition: 'border-color 0.2s',
@@ -238,11 +271,11 @@ export default function LoginForm({
             minHeight: hCqi,
             marginTop: `${passwordToSubmitGap}cqi`,
             padding: `${3 * chs}cqi`,
-            borderRadius: `${2.5 * chs}cqi`,
+            borderRadius: `${3 * chs}cqi`,
             fontWeight: 'bold',
-            fontSize: `${2.5 * chs}cqi`,
+            fontSize: `${buttonFontCqi}cqi`,
             textTransform: 'uppercase',
-            color: '#ffffff',
+            color: '#000',
             border: '2px solid var(--accent)',
             boxShadow: '0 1px 0 rgba(255,255,255,0.25), 0 3px 0 rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.35), 0 0 14px rgba(0, 255, 65, 0.35)',
             background: 'linear-gradient(180deg, #00ff50 0%, #00e040 50%, #00c835 100%)',
@@ -258,10 +291,10 @@ export default function LoginForm({
       {!isRegistering && (
         <>
           <div style={{ display: 'flex', gap: '1.5cqi', minWidth: 0, marginTop: `${submitToButtonsGap}cqi` }}>
-            <button type="button" className="btn-primary" disabled style={{ flex: 1, minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi`, borderRadius: `${2.5 * chs}cqi`, fontWeight: 'bold', fontSize: `${2.5 * chs}cqi`, border: '2px solid rgba(120,120,120,0.6)', background: 'linear-gradient(180deg, #4a4a4a 0%, #3a3a3a 50%, #2e2e2e 100%)', color: 'rgba(160,160,160,0.9)', cursor: 'not-allowed', opacity: 0.85, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), inset 0 2px 6px rgba(0,0,0,0.35)' }}>
-              Coming soon
+            <button type="button" className="btn-primary" onClick={onNewUser} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi`, borderRadius: `${3 * chs}cqi`, fontWeight: 'bold', fontSize: `${buttonFontCqi}cqi`, border: '2px solid var(--accent)', color: '#000', background: 'linear-gradient(180deg, rgba(0,255,65,0.9) 0%, rgba(0,200,80,0.85) 50%, rgba(0,180,70,0.8) 100%)', boxShadow: '0 0 10px rgba(0,255,65,0.25), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+              New User
             </button>
-            <button type="button" className="btn" onClick={onSpectate} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi`, borderRadius: `${2.5 * chs}cqi`, fontSize: `${2.5 * chs}cqi`, fontWeight: 600, border: '2px solid var(--accent)', color: 'var(--accent)', background: 'rgba(18, 24, 20, 0.98)', boxShadow: '0 0 10px rgba(0,255,65,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
+            <button type="button" className="btn" onClick={onSpectate} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi`, borderRadius: `${3 * chs}cqi`, fontSize: `${buttonFontCqi}cqi`, fontWeight: 600, border: '2px solid var(--accent)', color: 'var(--accent)', background: 'rgba(18, 24, 20, 0.98)', boxShadow: '0 0 10px rgba(0,255,65,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
               Spectate
             </button>
           </div>
@@ -269,7 +302,7 @@ export default function LoginForm({
             style={{
               marginTop: '2cqi',
               marginBottom: '2cqi',
-              fontSize: `${2.5 * chs}cqi`,
+              fontSize: `${buttonFontCqi}cqi`,
               fontWeight: 600,
               fontStyle: 'italic',
               color: 'rgba(120, 120, 120, 0.98)',

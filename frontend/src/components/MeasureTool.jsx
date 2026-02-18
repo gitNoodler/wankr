@@ -3,8 +3,17 @@ import React, { useState, useCallback } from 'react';
 export default function MeasureTool({ onClose }) {
   const [pointA, setPointA] = useState(null);
   const [pointB, setPointB] = useState(null);
+  const [cursor, setCursor] = useState(null);
+
+  const handleMouseMove = useCallback((e) => {
+    if (pointA && !pointB) setCursor({ x: e.clientX, y: e.clientY });
+    else setCursor(null);
+  }, [pointA, pointB]);
+
+  const handleMouseLeave = useCallback(() => setCursor(null), []);
 
   const handleClick = useCallback((e) => {
+    if (e.button !== 0) return;
     const x = e.clientX;
     const y = e.clientY;
     if (!pointA) {
@@ -18,9 +27,17 @@ export default function MeasureTool({ onClose }) {
     }
   }, [pointA, pointB]);
 
+  const handleContextMenu = useCallback((e) => {
+    e.preventDefault();
+    if (pointA && pointB) {
+      setPointB(null);
+    }
+  }, [pointA, pointB]);
+
   const reset = useCallback(() => {
     setPointA(null);
     setPointB(null);
+    setCursor(null);
   }, []);
 
   const dx = pointA && pointB ? pointB.x - pointA.x : 0;
@@ -34,6 +51,9 @@ export default function MeasureTool({ onClose }) {
       role="button"
       tabIndex={0}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       onKeyDown={(e) => e.key === 'Escape' && onClose?.()}
       style={{
         position: 'fixed',
@@ -63,8 +83,9 @@ export default function MeasureTool({ onClose }) {
         }}
       >
         <div style={{ marginBottom: 8, fontWeight: 700 }}>Measure distance (px)</div>
-        <div style={{ marginBottom: 4 }}>Click to set first point, then second point.</div>
+        <div style={{ marginBottom: 4 }}>Click to set first point, then second point. Right-click to redo second point.</div>
         {pointA && !pointB && <div style={{ marginTop: 8, opacity: 0.9 }}>First point set. Click for second point.</div>}
+        {pointA && pointB && <div style={{ marginTop: 4, opacity: 0.8, fontSize: 12 }}>Right-click to place second point again.</div>}
         {pointA && pointB && (
           <div style={{ marginTop: 12, fontSize: 18 }}>
             <div><strong>Distance:</strong> {distance} px</div>
@@ -96,6 +117,49 @@ export default function MeasureTool({ onClose }) {
           />
           <circle cx={pointA.x} cy={pointA.y} r={6} fill="var(--accent)" opacity={0.9} />
           <circle cx={pointB.x} cy={pointB.y} r={6} fill="var(--accent)" opacity={0.9} />
+        </svg>
+      )}
+
+      {/* Alignment lines + diagonal from pointA to cursor (before second point) */}
+      {pointA && !pointB && cursor && (
+        <svg
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+          width="100%"
+          height="100%"
+        >
+          <line
+            x1={pointA.x}
+            y1={pointA.y}
+            x2={cursor.x}
+            y2={cursor.y}
+            stroke="var(--accent)"
+            strokeWidth={2}
+            strokeDasharray="6 4"
+            opacity={0.9}
+          />
+          <line
+            x1={pointA.x}
+            y1={pointA.y}
+            x2={cursor.x}
+            y2={pointA.y}
+            stroke="rgba(0,255,65,0.5)"
+            strokeWidth={1}
+            strokeDasharray="4 4"
+          />
+          <line
+            x1={cursor.x}
+            y1={pointA.y}
+            x2={cursor.x}
+            y2={cursor.y}
+            stroke="rgba(0,255,65,0.5)"
+            strokeWidth={1}
+            strokeDasharray="4 4"
+          />
         </svg>
       )}
 

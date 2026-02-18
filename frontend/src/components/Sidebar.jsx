@@ -12,7 +12,6 @@ function Sidebar({
   onClearChat,
   onArchive,
   onDeleteArchived,
-  thoughts,
 }) {
   const archivedListRef = useRef(null);
   const [archivedListHeight, setArchivedListHeight] = useState(0);
@@ -143,7 +142,7 @@ function Sidebar({
               '0 0 22px rgba(0, 255, 0, 0.95), 0 0 40px rgba(0, 255, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.7)',
           }}
         >
-          Tools
+          Social Dumpster
         </h2>
       </div>
 
@@ -305,49 +304,6 @@ function Sidebar({
             )}
           </div>
         </div>
-
-        {/* Thought Process */}
-        <div>
-          <div className="sidebar-title">Thought Process</div>
-          <div
-            className="scroll-area"
-            style={{
-              padding: 'var(--dashboard-input-padding)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              background: 'linear-gradient(180deg, #141414 0%, #161616 100%)',
-              border: '1px solid rgba(100, 100, 100, 0.5)',
-              borderRadius: 'var(--dashboard-panel-radius)',
-              color: 'var(--text-content)',
-              minHeight: 'calc(86px * var(--scale))',
-              maxHeight: 'calc(162px * var(--scale))',
-              overflowY: 'auto',
-              boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 12px rgba(0, 255, 0, 0.08)',
-              fontSize: 'calc(13px * var(--scale))',
-            }}
-          >
-            {thoughts.length === 0 && (
-              <div style={{ color: 'var(--text-muted-content)', fontStyle: 'italic', opacity: 0.7 }}>
-                No thoughts yet...
-              </div>
-            )}
-            {thoughts.map((t, i) => (
-              <div
-                key={i}
-                style={{
-                  padding: 'calc(8px * var(--scale)) calc(10px * var(--scale))',
-                  background: 'linear-gradient(180deg, #1c1c1c 0%, #161616 100%)',
-                  borderLeft: 'calc(3px * var(--scale)) solid rgba(100, 100, 100, 0.5)',
-                  borderRadius: 'calc(4px * var(--scale))',
-                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-                }}
-              >
-                <span style={{ color: 'var(--accent)' }}>→</span> {t}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Footer with depth */}
@@ -363,10 +319,10 @@ function Sidebar({
             0 -4px 12px rgba(0, 0, 0, 0.4),
             inset 0 1px 0 rgba(255, 255, 255, 0.05)
           `,
-          fontSize: 'calc(11px * var(--scale))',
+          fontSize: 'calc(9px * var(--scale))',
         }}
       >
-        Wankr v0.1 • built for Payton
+        Wankr v0.1 • built by gitNoodler
       </div>
     </div>
   );
