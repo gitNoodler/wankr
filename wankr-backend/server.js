@@ -917,7 +917,7 @@ async function main() {
     : await tryListenPort(5000);
 
   console.log(`🚀 Wankr API on http://127.0.0.1:${actualPort}`);
-  if (actualPort !== 5000) {
+  if (actualPort !== 5000 && !portFromEnv) {
     console.warn(`⚠️ Frontend proxy expects port 5000. This process is on ${actualPort}. Stop the other backend or use PORT=5000.`);
   }
   server.on('error', (err) => {
