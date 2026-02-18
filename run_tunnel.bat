@@ -25,7 +25,7 @@ REM Default HTTP/2 to avoid "control stream encountered a failure" (QUIC often f
 set "TUNNEL_EXTRA=--protocol http2"
 if "%TUNNEL_PROTOCOL%"=="quic" set "TUNNEL_EXTRA="
 
-echo [Tunnel] Running cloudflared (backend should be on localhost:5000)...
+echo [Tunnel] Running cloudflared. Backend: localhost:5000 (local) or set Public Hostname to Railway URL in Cloudflare.
 echo.
 if exist "C:\Program Files (x86)\cloudflared\cloudflared.exe" (
   "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel run --token %CLOUDFLARE_TUNNEL_TOKEN% %TUNNEL_EXTRA%

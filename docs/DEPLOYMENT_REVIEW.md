@@ -30,7 +30,7 @@ For production, run **cloudflared** as a **second service** in the same Railway 
    ```
    Put it in a subfolder (e.g. `tunnel/Dockerfile`), set the tunnel service **root directory** to `tunnel`, and add **Variable** `CLOUDFLARE_TUNNEL_TOKEN` in Railway for that service.
 4. **No need to expose a port** for this service; it’s outbound-only.
-5. **Public hostname** in Cloudflare must point to your **backend** URL (e.g. `https://brave-sparkle-production.up.railway.app`), not the tunnel service.
+5. **Public hostname** in Cloudflare must point to your **backend** URL (e.g. `https://wankr-road-production.up.railway.app`), not the tunnel service.
 
 If you use a Dockerfile for the tunnel, put it in a subfolder (e.g. `tunnel/Dockerfile`) and set the tunnel service root to that folder so it doesn’t build the main app.
 
@@ -46,7 +46,7 @@ If you use a Dockerfile for the tunnel, put it in a subfolder (e.g. `tunnel/Dock
 
 ## IPv6 / networking
 
-Railway’s internal networking may use IPv6. If the tunnel (running on Railway) fails to reach the backend URL, try using the backend’s **public HTTPS URL** in the tunnel’s Public Hostname (e.g. `https://brave-sparkle-production.up.railway.app`). That avoids internal hostname resolution issues.
+Railway’s internal networking may use IPv6. If the tunnel (running on Railway) fails to reach the backend URL, try using the backend’s **public HTTPS URL** in the tunnel’s Public Hostname (e.g. `https://wankr-road-production.up.railway.app`). That avoids internal hostname resolution issues.
 
 ---
 

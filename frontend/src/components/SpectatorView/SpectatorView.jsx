@@ -253,7 +253,7 @@ function ConversationView({ user, onClose }) {
                     onScroll={checkAtBottom}
                   >
                     {messages.map((msg, idx) => (
-                      <div key={idx} className={`message ${msg.from || msg.role}`}>
+                      <div key={msg.id ?? idx} className={`message ${msg.from || msg.role}`}>
                         <span className="message-author">
                           {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : 'GROK'}
                         </span>

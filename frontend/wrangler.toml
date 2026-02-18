@@ -5,12 +5,7 @@ compatibility_date = "2024-01-01"
 directory = "./dist"
 not_found_handling = "single-page-application"
 
-# Custom domain: wankrbot.com must be added to Cloudflare first (Dashboard → Add site).
-# Then deploy; Cloudflare will attach this Worker and handle DNS/SSL.
-[[routes]]
-pattern = "wankrbot.com"
-custom_domain = true
-
-[[routes]]
-pattern = "www.wankrbot.com"
-custom_domain = true
+# Production wankrbot.com uses Cloudflare Tunnel to your Node backend (full-stack), not this Worker.
+# Do NOT add wankrbot.com here — keep it on the tunnel or you get 405 on /api.
+# See BRING_ONLINE.md and docs/CLOUDFLARE_TUNNEL_SETUP.md.
+# Deploying this Worker only publishes to *.workers.dev (e.g. wankr.<account>.workers.dev) for testing.

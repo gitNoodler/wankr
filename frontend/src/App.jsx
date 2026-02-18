@@ -191,7 +191,7 @@ export default function App() {
   // Sync training mode to backend whenever it changes or on page load
   useEffect(() => {
     if (currentId) {
-      console.log(`🔄 Syncing training mode: ${trainingMode} for client: ${currentId}`);
+      if (import.meta.env.DEV) console.log(`🔄 Syncing training mode: ${trainingMode} for client: ${currentId}`);
       api.post('/api/chat/sync-training', { clientId: currentId, trainingMode })
         .then(async (r) => {
           if (!r.ok) {
@@ -206,7 +206,7 @@ export default function App() {
             return null;
           }
         })
-        .then((data) => { if (data != null) console.log('Sync response:', data); })
+        .then((data) => { if (import.meta.env.DEV && data != null) console.log('Sync response:', data); })
         .catch((err) => console.warn('Sync-training failed:', err.message || err));
     }
   }, [trainingMode, currentId]);

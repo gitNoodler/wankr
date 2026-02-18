@@ -1,6 +1,6 @@
 # Next steps to get wankrbot.com online
 
-Use this after **Railway is running** (e.g. brave-sparkle). Order matters.
+Use this after **Railway is running** (e.g. wankr-road-production). Order matters.
 
 ---
 
@@ -9,7 +9,7 @@ Use this after **Railway is running** (e.g. brave-sparkle). Order matters.
 - The **Dockerfile** (multi-stage) builds the frontend, then runs the backend serving `frontend/dist` at `/`.
 - In Railway: set the service **root directory** to the **repo root** and use the **Dockerfile**. Redeploy.
 - **Health check:** In Railway → service → **Settings** → **Health check**, set path to **`/health`** (backend returns 200 OK). Helps avoid "crashed" status from liveness failures.
-- Your app URL: **`https://brave-sparkle-production.up.railway.app`** (or your Railway URL).
+- Your app URL: **`https://wankr-road-production.up.railway.app`** (or your Railway URL).
 
 ---
 
@@ -28,7 +28,7 @@ Use this after **Railway is running** (e.g. brave-sparkle). Order matters.
   - **Subdomain:** *(leave blank for apex)*
   - **Domain:** `wankrbot.com`
   - **Service type:** **HTTP**
-  - **URL:** your Railway app URL, e.g. `https://brave-sparkle-production.up.railway.app`
+  - **URL:** your Railway app URL, e.g. `https://wankr-road-production.up.railway.app`
 - Save. Optionally add **www** (Subdomain `www`, same URL).
 - Copy the tunnel **Run** command and take the value after `--token` (starts with `eyJ...`). **Do not commit this token** (see step 4).
 

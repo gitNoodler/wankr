@@ -8,6 +8,7 @@ COPY images_logo_banner_mascot/ images_logo_banner_mascot/
 RUN cd frontend && npm ci && npm run build
 
 # Stage 2: Backend + serve frontend dist (smaller image, no dev deps from frontend)
+# Requires static/ and images_logo_banner_mascot/ in build context (repo root).
 FROM node:20-slim
 WORKDIR /workspace
 COPY wankr-backend/package*.json wankr-backend/

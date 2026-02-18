@@ -32,6 +32,25 @@ This project uses the React 19 tooling to keep the app fast and correct.
 
 **Test after every update:** From repo root run `npm test` (runs frontend lint + build). From `frontend/` run `npm run test`. Fix any lint errors and ensure the build succeeds.
 
+## Vite dev server: known issues & workarounds
+
+The config already applies some mitigations (pre-bundled deps, `host: 'localhost'` on Windows). If you hit the following, try these:
+
+- **Slow reloads / dev tools freezing** (large app, many requests)  
+  Run `npm run clear-cache` then `npm run dev`. If it persists, add more entries to `optimizeDeps.include` in `vite.config.js` for heavy dependencies.
+
+- **Indefinite hang on load** (no error)  
+  Restart the dev server and browser; known in some Vite setups with many components/imports.
+
+- **Windows: `ERR_ADDRESS_INVALID` or resource load failure**  
+  Default dev uses `host: 'localhost'`. If you use `dev:mobile` (`--host 0.0.0.0`) and see this, use `npm run dev` and test on the same machine, or try accessing via `http://127.0.0.1:5173` instead of `http://0.0.0.0:5173`.
+
+- **Build fails but dev works** (e.g. React hooks “not exported”)  
+  Keep React (and related) versions consistent; check `vite.config.js` for aliases that might differ between dev and build.
+
+- **Stale or weird HMR**  
+  `npm run dev:force` or `npm run clear-cache` then `npm run dev`.
+
 ## Production
 
 Before deploying, run `npm run build`; then serve the `dist/` output (e.g. `npm run preview` to test). In production, React runs in production mode (minified, no dev warnings). Use [React DevTools](https://react.dev/learn/react-developer-tools) to confirm the React icon shows the production (dark) variant. For optimization patterns and profiling, see [react.dev – Optimizing performance](https://react.dev/learn#optimizing-performance).

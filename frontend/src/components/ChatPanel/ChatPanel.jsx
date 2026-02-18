@@ -209,7 +209,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
           <>
             {!useVirtual && messages.map((m, i) => (
               <div
-                key={i}
+                key={m.id ?? i}
                 className={`wankr-message ${m.role === 'user' ? 'user' : 'ai'}`}
               >
                 {m.role !== 'user' && (

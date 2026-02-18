@@ -4,8 +4,9 @@
   "description": "Wankr API — Node.js backend (chat, train, backup). Replaces Flask.",
   "main": "server.js",
   "scripts": {
-    "start": "infisical run -- node server.js",
-    "dev": "infisical run -- nodemon server.js"
+    "start": "node server.js",
+    "dev": "infisical run -- nodemon server.js",
+    "dev:local": "nodemon server.js"
   },
   "dependencies": {
     "@infisical/sdk": "^1.0.0",
