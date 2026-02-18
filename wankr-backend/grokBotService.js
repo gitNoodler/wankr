@@ -129,7 +129,8 @@ async function getWankrResponse(grokMessage) {
     
     const data = await response.json();
     if (data.error) {
-      console.error('❌ Wankr API error:', data.error?.message);
+      const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error));
+      console.error(`❌ Wankr API error (${response.status}):`, errMsg);
       return null;
     }
     

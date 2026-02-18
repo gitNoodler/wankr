@@ -593,9 +593,12 @@ app.post('/api/chat', async (req, res) => {
 
     const data = await response.json();
     if (data.error) {
+      const errCode = typeof data.error === 'string' ? data.error : (data.error?.code || 'unknown');
+      const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error));
       logChat({ type: 'error', error: data.error });
-      const code = data.error?.code === 'invalid_api_key' ? 401 : 500;
-      return res.status(code).json({ error: data.error?.message || 'xAI error' });
+      console.error(`xAI API error (${response.status}):`, errMsg);
+      const code = errCode === 'invalid_api_key' ? 401 : 500;
+      return res.status(code).json({ error: errMsg });
     }
     const rawReply = data.choices?.[0]?.message?.content || '';
     
