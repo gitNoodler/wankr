@@ -184,17 +184,21 @@ async function initInfisical() {
   const clientId = process.env.INFISICAL_CLIENT_ID;
   const clientSecret = process.env.INFISICAL_CLIENT_SECRET;
   const projectId = process.env.INFISICAL_PROJECT_ID;
+  console.log(`🔑 Infisical check: clientId=${clientId ? 'set' : 'MISSING'}, secret=${clientSecret ? 'set' : 'MISSING'}, project=${projectId ? 'set' : 'MISSING'}`);
   if (!clientId || !clientSecret || !projectId) {
+    console.warn('⚠️ Infisical skipped: missing credentials');
     return;
   }
 
   try {
+    console.log('🔑 Connecting to Infisical...');
     const client = new InfisicalClient({
       siteUrl: 'https://app.infisical.com',
       clientId,
       clientSecret,
     });
     const env = process.env.INFISICAL_ENVIRONMENT || 'dev';
+    console.log(`🔑 Fetching secrets from env="${env}", project="${projectId}"...`);
 
     for (const secretName of ['XAI_API_KEY', 'grokWankr']) {
       try {
@@ -206,15 +210,18 @@ async function initInfisical() {
         const val = secret?.secretValue || secret?.secret_value || '';
         if (val && val.trim()) {
           xaiApiKey = val.trim();
-          console.log(`✅ xAI key loaded from Infisical (${secretName})`);
+          console.log(`✅ xAI key loaded from Infisical (${secretName}), length=${xaiApiKey.length}`);
           return;
         }
-      } catch {
+        console.log(`🔑 Secret "${secretName}" found but empty`);
+      } catch (secretErr) {
+        console.log(`🔑 Secret "${secretName}" not found: ${secretErr.message || secretErr}`);
         continue;
       }
     }
+    console.warn('⚠️ Infisical connected but no valid xAI key found');
   } catch (err) {
-    console.warn('Infisical init:', err.message);
+    console.warn('❌ Infisical init failed:', err.message);
   }
 }
 
