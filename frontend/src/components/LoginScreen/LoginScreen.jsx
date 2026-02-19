@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../utils/api';
 import RobotScene from './RobotScene';
-import LoginForm from './LoginForm';
-import LoginDevPanel from './LoginDevPanel';
-import { loadDevDefaults, saveDevDefaults, LAYERS_LOCKED_KEY, isIOS, isPortrait } from './loginScreenConfig';
-import { computePanelBackground, buildDevPanelProps } from './helpers';
+import RobotDevPanel from './RobotDevPanel';
+import { saveDevDefaults, fetchDevDefaultsFromBackend, getPrimaryDevDefaults, LAYERS_LOCKED_KEY, isIOS, isPortrait } from './loginScreenConfig';
+import { isDevToolsAllowed } from '../../utils/devToolsAllowed';
+import { computePanelBackground } from './helpers';
 import { useLoginScreenState } from './useLoginScreenState';
 import { useLoginScreenUndo } from './useLoginScreenUndo';
 import { useLoginScreenAuth } from './useLoginScreenAuth';
@@ -17,7 +17,7 @@ const DEV_PANEL_BOX_STYLE = {
   position: 'fixed',
   top: 20,
   right: 20,
-  zIndex: 200,
+  zIndex: 210,
   background: 'rgba(0,0,0,0.95)',
   padding: '16px',
   borderRadius: '12px',
@@ -35,22 +35,16 @@ export default function LoginScreen({
   onLogin,
   onSpectate,
   collapsing,
-  appBackgroundBrightness = 50,
-  onAppBackgroundBrightnessChange,
-  appBackgroundSharpness = 100,
-  onAppBackgroundSharpnessChange,
   onOpenMeasure,
-  onOpenGlowPoint,
-  onSparkActive,
-  glowPointVersion = 0,
   devPanelOpen = false,
   onDevPanelClose,
   onRequestDevPanel,
+  showOriginCrosshair = false,
+  onToggleOriginCrosshair,
 }) {
   const [devPanelUnlockedThisSession, setDevPanelUnlockedThisSession] = useState(false);
   const [dev2Open, setDev2Open] = useState(false);
   const dev1 = useWankingLiveDevState();
-  const [sparkActive, setSparkActive] = useState(false);
   const [layersLocked, setLayersLocked] = useState(() => {
     try {
       return localStorage.getItem(LAYERS_LOCKED_KEY) !== 'false';
@@ -69,20 +63,12 @@ export default function LoginScreen({
     };
   }, []);
 
-  const handleSparkActive = useCallback((active) => {
-    setSparkActive(active);
-    onSparkActive?.(active);
-  }, [onSparkActive]);
-
-  const state = useLoginScreenState({
-    appBackgroundBrightness,
-    appBackgroundSharpness,
-    onAppBackgroundBrightnessChange,
-    onAppBackgroundSharpnessChange,
-  });
+  const state = useLoginScreenState({});
   const undo = useLoginScreenUndo({
     buildSnapshot: state.buildSnapshot,
     applySnapshotRef: state.applySnapshotRef,
+    getSavedDefaults: () => fetchDevDefaultsFromBackend(api),
+    onResetToPrimaryApplied: (primary) => api.post('/api/settings/dev-defaults', primary).catch(() => {}),
   });
   const auth = useLoginScreenAuth({ onLogin });
 
@@ -116,17 +102,75 @@ export default function LoginScreen({
   const handleSaveDevDefaults = useCallback(() => {
     const valuesToSave = state.buildSnapshot();
     if (!valuesToSave) return;
-    saveDevDefaults(valuesToSave);
-    api.post('/api/settings/dev-defaults', valuesToSave).catch(() => {});
-    handleLockLayers();
+    saveDevDefaults();
+    api
+      .post('/api/settings/dev-defaults', valuesToSave)
+      .then((res) => {
+        if (res.ok) {
+          handleLockLayers();
+        } else if (res.status === 403) {
+          window.alert('Could not save defaults. Use the dev server (port 5173) to save.');
+        } else {
+          window.alert('Save failed.');
+        }
+      })
+      .catch(() => window.alert('Save failed.'));
   }, [state, handleLockLayers]);
 
   const panelBg = computePanelBackground(state.loginBrightness, state.loginShadeOfGray, state.loginLightToBlack);
 
   const handleRestoreSavedLayout = useCallback(() => {
-    const saved = loadDevDefaults();
-    state.applySnapshotRef.current?.(saved);
+    fetchDevDefaultsFromBackend(api).then((data) => {
+      state.applySnapshotRef.current?.(data || getPrimaryDevDefaults());
+    });
   }, [state]);
+
+  const applyPartChange = useCallback((id, { offsetX, offsetY, scaleX, scaleY }) => {
+    if (id === 'back') {
+      state.setBackOffsetX(offsetX);
+      state.setBackOffsetY(offsetY);
+      state.setBackScaleX(scaleX);
+      state.setBackScaleY(scaleY);
+    } else if (id === 'robot') {
+      state.setRobotOffsetX(offsetX);
+      state.setRobotOffsetY(offsetY);
+      state.setRobotScaleX(scaleX);
+      state.setRobotScaleY(scaleY);
+    } else if (id === 'shoulder') {
+      state.setShoulderOffsetX(offsetX);
+      state.setShoulderOffsetY(offsetY);
+      state.setShoulderScaleX(scaleX);
+      state.setShoulderScaleY(scaleY);
+    } else if (id === 'handLeft') {
+      state.setHandLeftOffsetX(offsetX);
+      state.setHandLeftOffsetY(offsetY);
+      state.setHandLeftScaleX(scaleX);
+      state.setHandLeftScaleY(scaleY);
+    } else if (id === 'handRight') {
+      state.setHandRightOffsetX(offsetX);
+      state.setHandRightOffsetY(offsetY);
+      state.setHandRightScaleX(scaleX);
+      state.setHandRightScaleY(scaleY);
+    }
+  }, [state]);
+
+  const handleSaveGlobalDefaults = useCallback(() => {
+    const valuesToSave = state.buildSnapshot();
+    if (!valuesToSave) return;
+    saveDevDefaults();
+    api
+      .post('/api/settings/dev-defaults', valuesToSave)
+      .then((res) => {
+        if (res.ok) {
+          handleLockLayers();
+        } else if (res.status === 403) {
+          window.alert('Could not save defaults. Use the dev server (port 5173) to save.');
+        } else {
+          window.alert('Save failed.');
+        }
+      })
+      .catch(() => window.alert('Save failed.'));
+  }, [state, handleLockLayers]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -139,6 +183,13 @@ export default function LoginScreen({
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [handleRestoreSavedLayout]);
 
+  // Single source of truth: load saved layout from backend on mount (so 5000 and 5173 match)
+  useEffect(() => {
+    fetchDevDefaultsFromBackend(api).then((data) => {
+      if (data) state.applySnapshotRef.current?.(data);
+    });
+  }, []);
+
   const handleSubmit = (e) => { e?.preventDefault(); auth.doAuth(auth.isRegistering); };
   const handleSpectate = (e) => { e?.preventDefault(); onSpectate?.(); };
 
@@ -150,22 +201,20 @@ export default function LoginScreen({
         inset: 0,
         zIndex: 50,
         overflow: 'hidden',
-        background: 'transparent',
+        background: '#000',
         pointerEvents: collapsing ? 'none' : 'auto',
-        /* iOS: keep scene/content clear of notch, Dynamic Island, home indicator */
-        padding: 'env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)',
         boxSizing: 'border-box',
+        padding: 'env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0)',
       }}
     >
       {isIOS() && !portrait && (
         <div
           style={{
-            position: 'fixed',
+            position: 'absolute',
             inset: 0,
             zIndex: 100,
-            background: 'rgba(5, 5, 5, 0.97)',
+            background: '#000',
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             padding: 24,
@@ -180,144 +229,110 @@ export default function LoginScreen({
           <p style={{ margin: 0, textShadow: '0 0 12px var(--accent)' }}>Please rotate your device to portrait</p>
         </div>
       )}
-      <div style={{ position: 'absolute', inset: 0, overflow: 'visible', boxSizing: 'border-box', containerType: 'size', containerName: 'login-viewport' }}>
-        {state.defaultsReady ? (
-          <RobotScene
-            sceneRef={sceneRef}
-            sceneUnitRef={sceneUnitRef}
-            sceneOffsetX={state.sceneOffsetX}
-            sceneOffsetY={state.sceneOffsetY}
-            sceneScaleX={state.sceneScaleX}
-            sceneScaleY={state.sceneScaleY}
-            backOffsetX={state.backOffsetX}
-            backOffsetY={state.backOffsetY}
-            backScaleX={state.backScaleX}
-            backScaleY={state.backScaleY}
-            robotOffsetX={state.robotOffsetX}
-            robotOffsetY={state.robotOffsetY}
-            robotScaleX={state.robotScaleX}
-            robotScaleY={state.robotScaleY}
-            shoulderOffsetX={state.shoulderOffsetX}
-            shoulderOffsetY={state.shoulderOffsetY}
-            shoulderScaleX={state.shoulderScaleX}
-            shoulderScaleY={state.shoulderScaleY}
-            handLeftOffsetX={state.handLeftOffsetX}
-            handLeftOffsetY={state.handLeftOffsetY}
-            handLeftScaleX={state.handLeftScaleX}
-            handLeftScaleY={state.handLeftScaleY}
-            handRightOffsetX={state.handRightOffsetX}
-            handRightOffsetY={state.handRightOffsetY}
-            handRightScaleX={state.handRightScaleX}
-            handRightScaleY={state.handRightScaleY}
-            showLayerBackground={state.showLayerBackground}
-            showLayerWankrBody={state.showLayerWankrBody}
-            showLayerLogin={state.showLayerLogin}
-            showLayerHands={state.showLayerHands}
-            characterSharpness={state.characterSharpness}
-            leftCushion={state.leftCushion}
-            topCushion={state.topCushion}
-            loginBoxWidth={state.loginBoxWidth}
-            loginBoxHeight={state.loginBoxHeight}
-            scaleX={state.scaleX}
-            scaleY={state.scaleY}
-            panelBg={panelBg}
-            panelBorderBrightness={state.panelBorderBrightness}
-            sparkActive={sparkActive}
-            panelContentOffsetX={state.panelContentOffsetX}
-            panelRightMargin={state.panelRightMargin}
-            buttonsBottomGap={state.buttonsBottomGap}
-            panelContent={
-              <LoginForm
-                username={auth.username}
-                password={auth.password}
-                confirmPassword={auth.confirmPassword}
-                email={auth.email}
-                isRegistering={auth.isRegistering}
-                usernameStatus={auth.usernameStatus}
-                loading={auth.loading}
-                error={auth.error}
-                onUsernameChange={handleUsernameChange}
-                onPasswordChange={auth.setPassword}
-                onConfirmPasswordChange={auth.setConfirmPassword}
-                onEmailChange={auth.setEmail}
-                onSubmit={handleSubmit}
-                onNewUser={auth.handleNewUser}
-                onSpectate={handleSpectate}
-                onBackToLogin={auth.handleBackToLogin}
-                titleOffsetX={state.titleOffsetX}
-                titleOffsetY={state.titleOffsetY}
-                titleScale={state.titleScale}
-                subtitleOffsetX={state.subtitleOffsetX}
-                subtitleOffsetY={state.subtitleOffsetY}
-                subtitleScale={state.subtitleScale}
-                inputWidthScale={state.inputWidthScale}
-                titleTopGap={state.titleTopGap}
-                titleToSubtitleGap={state.titleToSubtitleGap}
-                subtitleToUsernameGap={state.subtitleToUsernameGap}
-                usernamePasswordGap={state.usernamePasswordGap}
-                passwordToSubmitGap={state.passwordToSubmitGap}
-                submitToButtonsGap={state.submitToButtonsGap}
-                controlHeightScale={state.controlHeightScale}
-              />
-            }
-            electricitySparks={null}
-            ductTapeStrips={[]}
-            respectDuctTape={true}
-          />
-        ) : (
-          <div style={{ position: 'absolute', inset: 0, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden="true" />
-        )}
-      </div>
+      {state.defaultsReady ? (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
+        <RobotScene
+          sceneRef={sceneRef}
+          sceneUnitRef={sceneUnitRef}
+          sceneOffsetX={state.sceneOffsetX}
+          sceneOffsetY={state.sceneOffsetY}
+          sceneScaleX={state.sceneScaleX}
+          sceneScaleY={state.sceneScaleY}
+          backOffsetX={state.backOffsetX}
+          backOffsetY={state.backOffsetY}
+          backScaleX={state.backScaleX}
+          backScaleY={state.backScaleY}
+          robotOffsetX={state.robotOffsetX}
+          robotOffsetY={state.robotOffsetY}
+          robotScaleX={state.robotScaleX}
+          robotScaleY={state.robotScaleY}
+          shoulderOffsetX={state.shoulderOffsetX}
+          shoulderOffsetY={state.shoulderOffsetY}
+          shoulderScaleX={state.shoulderScaleX}
+          shoulderScaleY={state.shoulderScaleY}
+          handLeftOffsetX={state.handLeftOffsetX}
+          handLeftOffsetY={state.handLeftOffsetY}
+          handLeftScaleX={state.handLeftScaleX}
+          handLeftScaleY={state.handLeftScaleY}
+          handRightOffsetX={state.handRightOffsetX}
+          handRightOffsetY={state.handRightOffsetY}
+          handRightScaleX={state.handRightScaleX}
+          handRightScaleY={state.handRightScaleY}
+          showLayerBackground={state.showLayerBackground}
+          showLayerWankrBody={state.showLayerWankrBody}
+          showLayerLogin={state.showLayerLogin}
+          showLayerHands={state.showLayerHands}
+          characterSharpness={state.characterSharpness}
+          leftCushion={state.leftCushion}
+          topCushion={state.topCushion}
+          loginBoxWidth={state.loginBoxWidth}
+          loginBoxHeight={state.loginBoxHeight}
+          scaleX={state.scaleX}
+          scaleY={state.scaleY}
+          panelBg={panelBg}
+          panelBorderBrightness={state.panelBorderBrightness}
+          panelContentOffsetX={state.panelContentOffsetX}
+          panelRightMargin={state.panelRightMargin}
+          buttonsBottomGap={state.buttonsBottomGap}
+          ductTapeStrips={[]}
+          respectDuctTape={true}
+        />
+        </div>
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: '#000' }} aria-hidden="true" />
+      )}
 
-      <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 60, display: 'flex', gap: 6 }}>
-        <button
-          type="button"
-          onClick={() => onRequestDevPanel?.()}
-          title="Dev1 – Wanking Live dev (Ctrl+Alt+D or Ctrl+Shift+D)"
-          style={{
-            padding: '6px 10px',
-            fontSize: 11,
-            fontWeight: 600,
-            color: 'var(--accent)',
-            background: 'rgba(0,0,0,0.6)',
-            border: '1px solid rgba(0,255,65,0.5)',
-            borderRadius: 6,
-            cursor: 'pointer',
-            letterSpacing: '0.5px',
-          }}
-        >
-          Dev1
-        </button>
-        <button
-          type="button"
-          onClick={() => setDev2Open((o) => !o)}
-          title="Dev2 – Login/layout dev panel"
-          style={{
-            padding: '6px 10px',
-            fontSize: 11,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.8)',
-            background: 'rgba(0,0,0,0.6)',
-            border: '1px solid rgba(255,255,255,0.4)',
-            borderRadius: 6,
-            cursor: 'pointer',
-            letterSpacing: '0.5px',
-          }}
-        >
-          Dev2
-        </button>
-      </div>
+      {isDevToolsAllowed && (
+        <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 60, display: 'flex', gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => onRequestDevPanel?.()}
+            title="Dev1 – Wanking Live dev (Ctrl+Alt+D or Ctrl+Shift+D)"
+            style={{
+              padding: '6px 10px',
+              fontSize: 11,
+              fontWeight: 600,
+              color: 'var(--accent)',
+              background: 'rgba(0,0,0,0.6)',
+              border: '1px solid rgba(0,255,65,0.5)',
+              borderRadius: 6,
+              cursor: 'pointer',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Dev1
+          </button>
+          <button
+            type="button"
+            onClick={() => setDev2Open((o) => !o)}
+            title="Dev2 – Robot position & scale (px, relative to screen origin)"
+            style={{
+              padding: '6px 10px',
+              fontSize: 11,
+              fontWeight: 600,
+              color: 'rgba(255,255,255,0.8)',
+              background: 'rgba(0,0,0,0.6)',
+              border: '1px solid rgba(255,255,255,0.4)',
+              borderRadius: 6,
+              cursor: 'pointer',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Dev2
+          </button>
+        </div>
+      )}
 
-      {devPanelOpen && !isDevPanelUnlocked() && !devPanelUnlockedThisSession && (
+      {isDevToolsAllowed && devPanelOpen && !isDevPanelUnlocked() && !devPanelUnlockedThisSession && (
         <div style={DEV_PANEL_BOX_STYLE}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 'bold', color: 'var(--accent)', letterSpacing: '1px' }}>DEV</span>
+            <span style={{ fontSize: 14, fontWeight: 'bold', color: 'var(--accent)', letterSpacing: '1px' }}>DEV1</span>
             <button type="button" onClick={onDevPanelClose} style={{ background: 'transparent', border: '1px solid rgba(255,100,100,0.5)', borderRadius: 4, color: '#ff6b6b', padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>CLOSE</button>
           </div>
           <DevPasswordGate onUnlock={() => setDevPanelUnlockedThisSession(true)} onClose={onDevPanelClose} />
         </div>
       )}
-      {devPanelOpen && (isDevPanelUnlocked() || devPanelUnlockedThisSession) && (
+      {isDevToolsAllowed && devPanelOpen && (isDevPanelUnlocked() || devPanelUnlockedThisSession) && (
         <WankingLiveDevPanel
           elements={dev1.elements}
           boundaries={dev1.boundaries}
@@ -344,30 +359,17 @@ export default function LoginScreen({
             setDevPanelUnlockedThisSession(false);
             onDevPanelClose();
           }}
+          onClearCache={dev1.handleClearCache}
+          showOriginCrosshair={showOriginCrosshair}
+          onToggleOriginCrosshair={onToggleOriginCrosshair}
         />
       )}
-      {dev2Open && (
-        <LoginDevPanel
-          {...buildDevPanelProps(state, {
-            layersLocked,
-            onUnlockLayers: handleUnlockLayers,
-            onLockLayers: handleLockLayers,
-            onSave: handleSaveDevDefaults,
-            onResetToSaved: undo.handleResetToSaved,
-            onResetToPrimaryDefaults: undo.handleResetToPrimaryDefaults,
-            onUndo: undo.handleUndo,
-            canUndo: undo.undoStackLength > 0,
-            onBeforeSliderChange: undo.pushUndoHistory,
-            onClose: () => setDev2Open(false),
-            onOpenMeasure,
-            onOpenGlowPoint,
-            appBackgroundBrightness,
-            onAppBackgroundBrightnessChange,
-            appBackgroundSharpness,
-            onAppBackgroundSharpnessChange,
-            setScaleXLocked,
-            setScaleYLocked,
-          })}
+      {isDevToolsAllowed && dev2Open && (
+        <RobotDevPanel
+          onClose={() => setDev2Open(false)}
+          robotSnapshot={state}
+          applyPartChange={applyPartChange}
+          onSaveGlobalDefaults={handleSaveGlobalDefaults}
         />
       )}
     </div>

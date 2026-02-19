@@ -43,7 +43,7 @@ export default function DevPasswordGate({ onUnlock, onClose }) {
   return (
     <div style={{ padding: '8px 0', minWidth: 220 }}>
       <div style={{ fontSize: 11, color: 'var(--accent)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '1px' }}>
-        Dev panel (first use)
+        Dev1 – enter password to open
       </div>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <input
@@ -51,6 +51,7 @@ export default function DevPasswordGate({ onUnlock, onClose }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
+          autoComplete="new-password"
           autoFocus
           style={{
             padding: '8px 10px',

@@ -3,15 +3,16 @@ import { useWankingLiveDevState } from './WankingLive/useWankingLiveDevState';
 import WankingLiveDevPanel from './WankingLive/WankingLiveDevPanel';
 import WankingLiveCustomLayer from './WankingLive/WankingLiveCustomLayer';
 import WankingLivePlacementOverlay from './WankingLive/WankingLivePlacementOverlay';
+import { isDevToolsAllowed } from '../utils/devToolsAllowed';
 
-function PlaceholderPanel({ onOpenMeasure, devPanelOpen: devPanelOpenProp, onDevPanelClose }) {
+function PlaceholderPanel({ onOpenMeasure, devPanelOpen: devPanelOpenProp, onDevPanelClose, showOriginCrosshair, onToggleOriginCrosshair }) {
   const [xCalls, setXCalls] = useState([]);
   const feedRef = useRef(null);
   const contentRef = useRef(null);
 
-  // dev1 (WankingLiveDevPanel): shared state via hook; controlled by App keybind when props passed
+  // dev1 (WankingLiveDevPanel): only on dev port; controlled by App keybind when props passed
   const [devPanelOpenLocal, setDevPanelOpenLocal] = useState(false);
-  const isDevPanelOpen = devPanelOpenProp !== undefined ? devPanelOpenProp : devPanelOpenLocal;
+  const isDevPanelOpen = isDevToolsAllowed && (devPanelOpenProp !== undefined ? devPanelOpenProp : devPanelOpenLocal);
   const handleDevPanelClose = onDevPanelClose ?? (() => setDevPanelOpenLocal(false));
   const dev1 = useWankingLiveDevState();
 
@@ -146,7 +147,7 @@ function PlaceholderPanel({ onOpenMeasure, devPanelOpen: devPanelOpenProp, onDev
         Wankr v0.1 • built by gitNoodler
       </div>
 
-      {isDevPanelOpen && (
+      {isDevToolsAllowed && isDevPanelOpen && (
         <WankingLiveDevPanel
           elements={dev1.elements}
           boundaries={dev1.boundaries}
@@ -168,9 +169,12 @@ function PlaceholderPanel({ onOpenMeasure, devPanelOpen: devPanelOpenProp, onDev
           onPlacementModeChange={dev1.setPlacementMode}
           onOpenMeasure={onOpenMeasure}
           onClose={handleDevPanelClose}
+          onClearCache={dev1.handleClearCache}
+          showOriginCrosshair={showOriginCrosshair}
+          onToggleOriginCrosshair={onToggleOriginCrosshair}
         />
       )}
-      {dev1.placementMode && (
+      {isDevToolsAllowed && dev1.placementMode && (
         <WankingLivePlacementOverlay
           contentRef={contentRef}
           mode={dev1.placementMode}

@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { CANVAS, PANEL_BBOX_PCT } from './loginScreenConfig';
-import OrbReflection from './OrbReflection';
 import layer5Img from '@mascot/dashLayers/2ndFromBack.png';
 import layer3Img from '@mascot/dashLayers/1BehindLoginPanel_shoulderLayer.png';
 import handLeftImg from '@mascot/dashLayers/toplayer_hand_layer_Left.png';
@@ -46,12 +45,10 @@ export default function RobotScene({
   scaleY,
   panelBg,
   panelBorderBrightness,
-  sparkActive,
   panelContent,
   panelContentOffsetX = 0,
   panelRightMargin = 100,
   buttonsBottomGap = 100,
-  electricitySparks,
   ductTapeStrips = [],
   respectDuctTape = true,
   onRemoveDuctTape,
@@ -173,62 +170,54 @@ export default function RobotScene({
             </div>
           </>
         )}
-        
-        {/* Orb light reflection onto legs */}
-        {showLayerWankrBody && <OrbReflection sparkActive={sparkActive} />}
-        
-        <div
-          ref={panelFloatRef}
-          className="login-scene-panel-float"
-          style={{
-            position: 'absolute',
-            zIndex: 21,
-            pointerEvents: 'auto',
-            left: `${PANEL_BBOX_PCT.left + leftCushion}%`,
-            top: `${PANEL_BBOX_PCT.top + topCushion}%`,
-            width: `${PANEL_BBOX_PCT.width * (loginBoxWidth / 100)}%`,
-            height: `${PANEL_BBOX_PCT.height * (loginBoxHeight / 100)}%`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'visible',
-            transform: `scale(${scaleX / 100}, ${scaleY / 100})`,
-            transformOrigin: 'center center',
-            filter: sparkActive
-              ? 'drop-shadow(0 0 12px rgba(0,255,65,0.35)) drop-shadow(0 0 28px rgba(0,255,65,0.2)) drop-shadow(0 0 40px rgba(200,255,120,0.25))'
-              : 'drop-shadow(0 0 8px rgba(0,255,65,0.15)) drop-shadow(0 0 24px rgba(0,255,65,0.08))',
-            transition: 'filter 0.1s ease-out',
-          }}
-        >
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            <div
-              style={{
-                width: panelSize ? `${panelSize.width}px` : '100%',
-                height: panelSize ? `${panelSize.height}px` : '100%',
-                maxWidth: '100%',
-                minWidth: 0,
-                minHeight: 0,
-                containerType: 'size',
-                padding: `${2 * (buttonsBottomGap / 100)}cqi ${1.25 * (panelRightMargin / 100)}cqi max(12px, ${2 * (buttonsBottomGap / 100)}cqi)`,
-                marginLeft: panelContentOffsetX !== 0 ? `${panelContentOffsetX}%` : undefined,
-                background: panelBg,
-                borderRadius: '2.5cqi',
-                border: `2px solid rgba(0, 255, 65, ${panelBorderBrightness / 100})`,
-                boxShadow: sparkActive
-                  ? `inset 0 1px 0 rgba(255,255,255,0.15), inset 0 4px 16px rgba(0,0,0,0.25), inset 0 -2px 8px rgba(0,0,0,0.35), inset 2px 0 8px rgba(0,0,0,0.15), inset -2px 0 8px rgba(0,0,0,0.15), 0 0 24px rgba(0,255,65,${panelBorderBrightness / 100 * 0.6}), 0 0 48px rgba(0,255,65,${panelBorderBrightness / 100 * 0.35}), 0 0 80px rgba(200,255,120,0.2), 0 0 120px rgba(200,255,100,0.1), 0 4px 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.5)`
-                  : `inset 0 1px 0 rgba(255,255,255,0.12), inset 0 4px 14px rgba(0,0,0,0.22), inset 0 -2px 8px rgba(0,0,0,0.4), inset 2px 0 8px rgba(0,0,0,0.2), inset -2px 0 8px rgba(0,0,0,0.2), 0 0 20px rgba(0,255,65,${panelBorderBrightness / 100 * 0.4}), 0 0 40px rgba(0,255,65,${panelBorderBrightness / 100 * 0.2}), 0 0 80px rgba(0,255,65,0.1), 0 4px 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.5)`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0,
-                position: 'relative',
-                overflow: 'hidden',
-                transition: 'box-shadow 0.1s ease-out',
-              }}
-            >
-              {panelContent}
+        {panelContent != null && (
+          <div
+            ref={panelFloatRef}
+            className="login-scene-panel-float"
+            style={{
+              position: 'absolute',
+              zIndex: 21,
+              pointerEvents: 'auto',
+              left: `${PANEL_BBOX_PCT.left + leftCushion}%`,
+              top: `${PANEL_BBOX_PCT.top + topCushion}%`,
+              width: `${PANEL_BBOX_PCT.width * (loginBoxWidth / 100)}%`,
+              height: `${PANEL_BBOX_PCT.height * (loginBoxHeight / 100)}%`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'visible',
+              transform: `scale(${scaleX / 100}, ${scaleY / 100})`,
+              transformOrigin: 'center center',
+              filter: 'drop-shadow(0 0 8px rgba(0,255,65,0.15)) drop-shadow(0 0 24px rgba(0,255,65,0.08))',
+            }}
+          >
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: panelSize ? `${panelSize.width}px` : '100%',
+                  height: panelSize ? `${panelSize.height}px` : '100%',
+                  maxWidth: '100%',
+                  minWidth: 0,
+                  minHeight: 0,
+                  containerType: 'size',
+                  padding: `${2 * (buttonsBottomGap / 100)}cqi ${1.25 * (panelRightMargin / 100)}cqi max(12px, ${2 * (buttonsBottomGap / 100)}cqi)`,
+                  marginLeft: panelContentOffsetX !== 0 ? `${panelContentOffsetX}%` : undefined,
+                  background: panelBg,
+                  borderRadius: '2.5cqi',
+                  border: `2px solid rgba(0, 255, 65, ${panelBorderBrightness / 100})`,
+                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), inset 0 4px 14px rgba(0,0,0,0.22), inset 0 -2px 8px rgba(0,0,0,0.4), inset 2px 0 8px rgba(0,0,0,0.2), inset -2px 0 8px rgba(0,0,0,0.2), 0 0 20px rgba(0,255,65,${panelBorderBrightness / 100 * 0.4}), 0 0 40px rgba(0,255,65,${panelBorderBrightness / 100 * 0.2}), 0 0 80px rgba(0,255,65,0.1), 0 4px 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.5)`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                {panelContent}
+              </div>
             </div>
           </div>
-        </div>
+        )}
         {showLayerHands && (
           <div
             style={{
@@ -268,7 +257,6 @@ export default function RobotScene({
             />
           </div>
         )}
-        {electricitySparks}
         {ductTapeStrips.length > 0 && (
           <div
             style={{

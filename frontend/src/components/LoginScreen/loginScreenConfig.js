@@ -64,7 +64,7 @@ export const LAYERS_LOCKED_KEY = 'wankr_layers_locked';
 export const PANE_LAYOUT_LOCKED_KEY = 'wankr_pane_layout_locked';
 export const SHOULDERS_HANDS_LOCKED_KEY = 'wankr_shoulders_hands_locked';
 export const BODY_PANEL_LOCKED_KEY = 'wankr_body_panel_locked';
-/** Desktop defaults: locked-in layout from dev panel (scene, robot, body, hands, login pane, layout, effects). */
+/** Desktop defaults: locked-in layout from dev panel. Perma-saved values for instant revert via RESET TO PRIMARY DEFAULTS. */
 export const DEV_DEFAULTS = {
   meanBrightness: 50,
   appBackgroundBrightness: 68,
@@ -87,22 +87,22 @@ export const DEV_DEFAULTS = {
   sceneScaleY: 130,
   sceneOffsetX: 0,
   sceneOffsetY: 0,
-  robotScaleX: 86,
-  robotScaleY: 125,
-  robotOffsetX: 0,
+  robotScaleX: 84,
+  robotScaleY: 108,
+  robotOffsetX: 2,
   robotOffsetY: 0,
-  shoulderScaleX: 103,
-  shoulderScaleY: 105,
-  shoulderOffsetX: 1.5,
-  shoulderOffsetY: 32.5,
-  handLeftScaleX: 13,
-  handLeftScaleY: 14,
-  handLeftOffsetX: 68.5,
-  handLeftOffsetY: 34.5,
-  handRightScaleX: 10,
-  handRightScaleY: 11,
-  handRightOffsetX: -71.5,
-  handRightOffsetY: 36,
+  shoulderScaleX: 97,
+  shoulderScaleY: 114,
+  shoulderOffsetX: 0,
+  shoulderOffsetY: 0,
+  handLeftScaleX: 14,
+  handLeftScaleY: 15,
+  handLeftOffsetX: 65,
+  handLeftOffsetY: 1.5,
+  handRightScaleX: 13,
+  handRightScaleY: 13,
+  handRightOffsetX: -68,
+  handRightOffsetY: 2.5,
   loginBoxWidth: 109.5,
   loginBoxHeight: 96,
   panelContentOffsetX: -1,
@@ -240,33 +240,11 @@ function isTrustedStoredDefaults(parsed) {
 }
 
 /**
- * Load dev defaults. Always defaults to code DEV_DEFAULTS (your defaults).
- * Only accepts storage that was saved by us with the current DEFAULTS_VERSION
- * and no extra keys. Rejects any other payload (scripts, tampering, old format):
- * returns code defaults and overwrites storage so the bad data is removed.
+ * Load dev defaults. Returns code defaults only (no localStorage).
+ * Saved layout lives on the backend; all locations get it from GET /api/settings/dev-defaults.
  */
 export function loadDevDefaults() {
-  const isIos = isIOS();
-  const key = isIos ? DEV_DEFAULTS_KEY_IOS : DEV_DEFAULTS_KEY;
-  const base = isIos ? { ...DEV_DEFAULTS_IOS } : { ...DEV_DEFAULTS };
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (isTrustedStoredDefaults(parsed)) {
-        const d = sanitizeDevDefaults(parsed, base);
-        if (!isIos && d.loginBoxHeight === 92) d.loginBoxHeight = 85;
-        return USE_ANCHOR_OVERRIDES ? { ...d, ...ANCHOR_OVERRIDE_DEFAULTS } : d;
-      }
-    }
-  } catch { /* ignore */ }
-  try {
-    const desktopSafe = { ...DEV_DEFAULTS, defaultsVersion: DEFAULTS_VERSION };
-    const iosSafe = { ...DEV_DEFAULTS_IOS, defaultsVersion: DEFAULTS_VERSION };
-    localStorage.setItem(DEV_DEFAULTS_KEY, JSON.stringify(desktopSafe));
-    localStorage.setItem(DEV_DEFAULTS_KEY_IOS, JSON.stringify(iosSafe));
-  } catch { /* ignore */ }
-  return USE_ANCHOR_OVERRIDES ? { ...base, ...ANCHOR_OVERRIDE_DEFAULTS } : base;
+  return getPrimaryDevDefaults();
 }
 
 /** Code defaults (no storage). Use to revert layout to your primary defaults. */
@@ -275,15 +253,27 @@ export function getPrimaryDevDefaults() {
   return USE_ANCHOR_OVERRIDES ? { ...base, ...ANCHOR_OVERRIDE_DEFAULTS } : base;
 }
 
-export function saveDevDefaults(values) {
-  try {
-    const base = isIOS() ? { ...DEV_DEFAULTS_IOS } : { ...DEV_DEFAULTS };
-    const sanitized = sanitizeDevDefaults(values ?? {}, base);
-    sanitized.defaultsVersion = DEFAULTS_VERSION;
-    const json = JSON.stringify(sanitized);
-    localStorage.setItem(DEV_DEFAULTS_KEY, json);
-    localStorage.setItem(DEV_DEFAULTS_KEY_IOS, json);
-  } catch { /* ignore */ }
+/**
+ * Fetch saved dev defaults from backend (single source of truth for all ports).
+ * Returns sanitized object or null if 404/error.
+ */
+export function fetchDevDefaultsFromBackend(api) {
+  if (!api || typeof api.get !== 'function') return Promise.resolve(null);
+  return api
+    .get('/api/settings/dev-defaults')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (!data || typeof data !== 'object') return null;
+      const base = isIOS() ? { ...DEV_DEFAULTS_IOS } : { ...DEV_DEFAULTS };
+      const sanitized = sanitizeDevDefaults(data, base);
+      return USE_ANCHOR_OVERRIDES ? { ...sanitized, ...ANCHOR_OVERRIDE_DEFAULTS } : sanitized;
+    })
+    .catch(() => null);
+}
+
+/** No-op: saved layout is only on backend. Callers POST to /api/settings/dev-defaults. */
+export function saveDevDefaults() {
+  // Single source of truth is backend; no per-port localStorage.
 }
 
 /** Remove all wankr-related keys from localStorage and sessionStorage. Call then refresh to get fresh code defaults and reset app state. */

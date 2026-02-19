@@ -14,7 +14,7 @@ if (!fs.existsSync(storageDir)) fs.mkdirSync(storageDir, { recursive: true });
 const GROK_CONFIG = {
   username: 'grok',
   displayName: 'Grok',
-  responseDelayMs: 5 * 60 * 1000, // 5 minutes between exchanges
+  responseDelayMs: 15 * 60 * 1000, // 15 minutes between exchanges
   alwaysOnline: true,
 };
 
@@ -23,7 +23,7 @@ let xaiApiKey = null;
 let apiModel = 'grok-3';
 let systemPrompt = '';
 
-// Starter questions grok uses to begin conversations
+// Starter questions grok uses to begin conversations (designed to elicit useful Wankr training data)
 const GROK_STARTER_QUESTIONS = [
   "What's your take on the current market sentiment?",
   "Which crypto influencers should people avoid right now?",
@@ -35,44 +35,47 @@ const GROK_STARTER_QUESTIONS = [
   "How do you identify bot activity on crypto twitter?",
   "What's your process for analyzing influencer credibility?",
   "Tell me about the psychology behind pump and dump schemes.",
+  "What would make you flip from bearish to bullish on a coin?",
+  "How do you tell the difference between a genuine alpha call and a coordinated pump?",
+  "What's one thing retail always gets wrong about KOLs?",
+  "When should someone completely ignore an influencer's take?",
+  "What on-chain or social signal would make you call out a project as a scam?",
 ];
 
-// Follow-up questions grok uses based on Wankr's responses
+// Follow-up questions grok uses (designed to train Wankr: force clarity, evidence, and edge cases)
 const GROK_FOLLOWUP_TEMPLATES = [
-  // Engaging follow-ups
+  // Force clarity and specificity
   "Interesting. Can you elaborate on that?",
   "What specific metrics would validate that?",
-  "How does this compare to previous cycles?",
   "Walk me through your reasoning there.",
+  "Can you break that down simpler?",
+  "TLDR in one sentence.",
+  "What's the one thing that matters most here?",
+  // Counter-argument and edge cases
   "What's the counter-argument?",
-  
-  // Crypto/trading specific
-  "What's the risk-reward looking like?",
-  "How would you size a position based on that?",
-  "What's your exit strategy in that scenario?",
-  "Any on-chain data supporting this?",
-  "What's the sentiment telling you?",
-  
-  // Challenging questions
   "Devil's advocate - what if you're wrong?",
   "What would invalidate this thesis?",
-  "How confident are you, 1-10?",
-  "What's already priced in here?",
+  "What would make you change your mind?",
   "Where's the alpha leak?",
-  
-  // Training prompts
-  "Can you break that down simpler?",
-  "Give me the bull case and bear case.",
-  "What would a normie need to understand?",
-  "What are the key factors to watch?",
-  "TLDR for someone just tuning in?",
-  
-  // Deeper dives
+  "What's already priced in here?",
+  // Evidence and practice
+  "Any on-chain data supporting this?",
   "Give me a real example of that happening.",
   "How do you actually detect that in practice?",
   "What tools do you use for this analysis?",
   "Who's the worst offender you've seen?",
+  // Bull/bear and confidence
+  "Give me the bull case and bear case.",
+  "How confident are you, 1-10?",
+  "What's the risk-reward looking like?",
+  "How would you size a position based on that?",
+  "What's your exit strategy in that scenario?",
+  // Training: normie angle and evolution
+  "What would a normie need to understand?",
+  "What are the key factors to watch?",
+  "How does this compare to previous cycles?",
   "How has this pattern evolved over time?",
+  "What's the sentiment telling you?",
 ];
 
 // Configure API access (called from server.js)
@@ -83,8 +86,13 @@ function configure(apiKey, model, defaultSystemPrompt) {
   console.log('🤖 Grok bot configured with API access');
 }
 
-// System prompt for Grok's persona: read Wankr's responses and reply with thematic continuity
-const GROK_PERSONA_PROMPT = `You are Grok, a conversational partner in a training dialogue with Wankr (a crypto/trading analyst bot). Your job is to read Wankr's responses carefully and reply with natural, thematically consistent follow-ups. Carry the conversation forward like a real discussion: reference what they said, ask clarifying questions, challenge assumptions, drill into specifics, or pivot to related angles. Stay on topic. Vary your style—sometimes curious, sometimes skeptical, sometimes asking for examples. Do NOT give generic one-liners. Keep responses concise (1-2 sentences).`;
+// System prompt for Grok: ask questions that produce useful Wankr training data (clarity, evidence, edge cases)
+const GROK_PERSONA_PROMPT = `You are Grok, a training partner for Wankr (a crypto/trading analyst bot). Your goal is to improve Wankr by asking questions that force clear, specific, evidence-based answers. Do the following:
+- Reference what Wankr just said and push on the weak spots: ask for evidence, examples, or "what would change your mind?"
+- Ask for one-sentence summaries, bull vs bear, or confidence levels so Wankr practices being punchy.
+- Challenge assumptions: devil's advocate, counter-argument, or "what if you're wrong?"
+- Ask how something works in practice: real examples, tools, or on-chain signals.
+- Stay on topic and keep your replies short (1-2 sentences). No generic one-liners. Be specific so Wankr's answers are useful training data.`;
 
 // Generate a starter question (fallback when API unavailable)
 function generateStarterQuestion() {
@@ -141,51 +149,77 @@ async function getGrokReply(conv) {
   }
 }
 
-// Call Wankr API to get a response
+const WANKR_RETRY_ATTEMPTS = 3;
+const WANKR_RETRY_DELAY_MS = 2000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Call Wankr API to get a response (with retries so Grok↔Wankr stay connected)
 async function getWankrResponse(grokMessage) {
   if (!xaiApiKey) {
     console.error('❌ No xAI API key configured for grok bot');
     return null;
   }
-  
+
   const conv = loadConversation();
-  
-  // Build message history for context
   const history = conv.messages.slice(-10).map(m => ({
     role: m.from === 'grok' ? 'user' : 'assistant',
     content: m.content,
   }));
-  
-  // Add current message
   history.push({ role: 'user', content: grokMessage });
-  
   const messages = [
     { role: 'system', content: systemPrompt },
     ...history,
   ];
-  
-  try {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${xaiApiKey}`
-      },
-      body: JSON.stringify({ model: apiModel, messages })
-    });
-    
-    const data = await response.json();
-    if (data.error) {
-      const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error));
-      console.error(`❌ Wankr API error (${response.status}):`, errMsg);
+
+  for (let attempt = 1; attempt <= WANKR_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${xaiApiKey}`,
+        },
+        body: JSON.stringify({ model: apiModel, messages }),
+      });
+
+      const data = await response.json();
+      if (data.error) {
+        const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error));
+        if (attempt < WANKR_RETRY_ATTEMPTS) {
+          console.warn(`❌ Wankr API error (${response.status}), retry ${attempt}/${WANKR_RETRY_ATTEMPTS}:`, errMsg);
+          await sleep(WANKR_RETRY_DELAY_MS);
+          continue;
+        }
+        console.error(`❌ Wankr API error (${response.status}):`, errMsg);
+        return null;
+      }
+
+      const raw = data.choices?.[0]?.message?.content;
+      const content = (typeof raw === 'string' ? raw : '').trim();
+      if (!content) {
+          if (attempt < WANKR_RETRY_ATTEMPTS) {
+          console.warn(`⚠️ Wankr API returned empty content, retry ${attempt}/${WANKR_RETRY_ATTEMPTS}`);
+          await sleep(WANKR_RETRY_DELAY_MS);
+          continue;
+        }
+        console.warn('⚠️ Wankr API returned empty content (possible rate limit or content filter). choices:', data.choices?.length ?? 0);
+        return null;
+      }
+      return content;
+    } catch (err) {
+      if (attempt < WANKR_RETRY_ATTEMPTS) {
+        console.warn(`❌ Failed to get Wankr response, retry ${attempt}/${WANKR_RETRY_ATTEMPTS}:`, err.message);
+        await sleep(WANKR_RETRY_DELAY_MS);
+        continue;
+      }
+      console.error('❌ Failed to get Wankr response:', err.message);
       return null;
     }
-    
-    return data.choices?.[0]?.message?.content || null;
-  } catch (err) {
-    console.error('❌ Failed to get Wankr response:', err.message);
-    return null;
   }
+  return null;
 }
 
 // Load grok's conversation
@@ -414,8 +448,12 @@ let isProcessing = false;
 
 function startProcessor() {
   if (processorInterval) return;
-  
-  // Check for pending responses every 30 seconds
+  if (!xaiApiKey) {
+    console.warn('⚠️ Grok bot processor not started: no xAI API key');
+    return;
+  }
+
+  // Check for pending responses every 30 seconds (keeps Grok↔Wankr exchange connected)
   processorInterval = setInterval(async () => {
     if (isProcessing) return; // Prevent overlapping
     isProcessing = true;

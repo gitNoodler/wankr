@@ -60,8 +60,13 @@ function ConversationView({ user, onClose }) {
   const measureRef = useRef(null);
   const [containerHeight, setContainerHeight] = useState(0);
   const savedScrollTopRef = useRef(null);
+  const shouldScrollToBottomRef = useRef(true); // open = start at bottom (newest); scroll up for history
   const [atBottom, setAtBottom] = useState(true);
   const useVirtual = messages.length > VIRTUAL_LIST_THRESHOLD;
+
+  useEffect(() => {
+    shouldScrollToBottomRef.current = true;
+  }, [user?.id]);
 
   // Fetch full conversation for this user
   const fetchConversation = useCallback(async () => {
@@ -146,22 +151,39 @@ function ConversationView({ user, onClose }) {
     return () => ro.disconnect();
   }, [useVirtual]);
 
-  // Restore scroll position after poll updates messages so the user isn't forced back to bottom
+  // On enter: scroll to bottom (newest). On poll: preserve scroll so user can read history.
   useLayoutEffect(() => {
     if (useVirtual && listRef.current) {
       listRef.current.resetAfterIndex(0);
     }
+    const el = messagesContainerRef.current;
+    if (!el || messages.length === 0) {
+      if (messages.length > 0) checkAtBottom();
+      return;
+    }
+    if (shouldScrollToBottomRef.current) {
+      shouldScrollToBottomRef.current = false;
+      requestAnimationFrame(() => {
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+          setAtBottom(true);
+        }
+        checkAtBottom();
+      });
+      return;
+    }
     const saved = savedScrollTopRef.current;
-    if (saved != null && messagesContainerRef.current) {
+    if (saved != null) {
       savedScrollTopRef.current = null;
-      const el = messagesContainerRef.current;
       requestAnimationFrame(() => {
         if (el) {
           el.scrollTop = getRestoreScrollTop(saved, el.scrollHeight, el.clientHeight);
         }
+        checkAtBottom();
       });
+    } else {
+      checkAtBottom();
     }
-    if (messages.length > 0) checkAtBottom();
   }, [messages, checkAtBottom, useVirtual]);
 
   const getItemSize = useCallback((index) => {
@@ -177,13 +199,13 @@ function ConversationView({ user, onClose }) {
     const list = data?.messages ?? data;
     const msg = Array.isArray(list) ? list[index] : null;
     if (!msg) return null;
-    const author = (msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : (data?.user ? (data.user.id === 'grok' ? 'GROK' : (data.user.username || 'User').toUpperCase()) : otherAuthorLabel);
+    const author = (msg.from === 'wankr' || msg.role === 'wankr' || msg.role === 'assistant') ? 'WANKR' : (data?.user ? (data.user.id === 'grok' ? 'GROK' : (data.user.username || 'User').toUpperCase()) : otherAuthorLabel);
     return (
       <div style={style} className={`message ${msg.from || msg.role}`}>
         <span className="message-author">
           {author}
         </span>
-        <p className="message-content">{msg.content}</p>
+        <p className="message-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
         {msg.timestamp && (
           <span className="message-time">
             {new Date(msg.timestamp).toLocaleTimeString()}
@@ -269,9 +291,9 @@ function ConversationView({ user, onClose }) {
                     {messages.map((msg, idx) => (
                       <div key={msg.id ?? idx} className={`message ${msg.from || msg.role}`}>
                         <span className="message-author">
-                          {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : otherAuthorLabel}
+                          {(msg.from === 'wankr' || msg.role === 'wankr' || msg.role === 'assistant') ? 'WANKR' : otherAuthorLabel}
                         </span>
-                        <p className="message-content">{msg.content}</p>
+                        <p className="message-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
                         {msg.timestamp && (
                           <span className="message-time">
                             {new Date(msg.timestamp).toLocaleTimeString()}
@@ -295,7 +317,7 @@ function ConversationView({ user, onClose }) {
             ) : (
               <div className="no-messages">
                 <p>Starting automated training conversation...</p>
-                <p className="hint">Grok and Wankr will exchange messages every 5 minutes</p>
+                <p className="hint">Grok and Wankr will exchange messages every 15 minutes</p>
               </div>
             )}
             
@@ -323,9 +345,9 @@ function ConversationView({ user, onClose }) {
                 {messages.slice(-4).map((msg, idx) => (
                   <div key={idx} className={`message ${msg.from || msg.role}`}>
                     <span className="message-author">
-                      {(msg.from === 'wankr' || msg.role === 'wankr') ? 'WANKR' : user.username.toUpperCase()}
+                      {(msg.from === 'wankr' || msg.role === 'wankr' || msg.role === 'assistant') ? 'WANKR' : user.username.toUpperCase()}
                     </span>
-                    <p className="message-content">{msg.content}</p>
+                    <p className="message-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
                   </div>
                 ))}
                 <div className="limit-notice">

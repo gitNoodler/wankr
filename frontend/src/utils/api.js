@@ -1,19 +1,26 @@
 /**
  * Central API layer for Wankr dashboard.
  * All backend calls go through this (same-origin with Node API proxy).
+ * API key: from build-time VITE_API_KEY or runtime from GET /api/config (Infisical).
  */
 
-import { API_BASE } from '../config/apiConfig';
+import { API_BASE, API_KEY } from '../config/apiConfig';
+
+let runtimeApiKey = '';
+
+export function setRuntimeApiKey(key) {
+  runtimeApiKey = key ? String(key) : '';
+}
 
 function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
-  const config = {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
   };
+  const apiKey = API_KEY || runtimeApiKey;
+  if (apiKey) headers['X-API-Key'] = apiKey;
+  const config = { ...options, headers };
   return fetch(url, config);
 }
 

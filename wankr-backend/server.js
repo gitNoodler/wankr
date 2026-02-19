@@ -158,6 +158,7 @@ const TRAINING_ENABLE_CMD = '/wankr n da clankr';
 const TRAINING_DISABLE_CMD = '/gangstr is uh prankstr';
 
 let xaiApiKey = null;
+let viteApiKey = null;
 const MODEL = process.env.WANKR_MODEL || 'grok-4';
 const trainingModeByClient = new Map();
 
@@ -223,6 +224,20 @@ async function initInfisical() {
       }
     }
     console.warn('⚠️ Infisical connected but no valid xAI key found');
+    try {
+      const secret = await client.getSecret({
+        environment: env,
+        projectId,
+        secretName: 'VITE_API_KEY',
+      });
+      const val = secret?.secretValue || secret?.secret_value || '';
+      if (val && val.trim()) {
+        viteApiKey = val.trim();
+        console.log(`✅ VITE_API_KEY loaded from Infisical, length=${viteApiKey.length}`);
+      }
+    } catch (secretErr) {
+      console.log(`🔑 VITE_API_KEY not in Infisical: ${secretErr.message || secretErr}`);
+    }
   } catch (err) {
     console.warn('❌ Infisical init failed:', err.message);
   }
@@ -603,12 +618,28 @@ app.get('/api/training/stats', (req, res) => {
   }
 });
 
+// --- Dev-only: UI architecture and developer tools only on dev local port ---
+const DEV_UI_PORT = process.env.DEV_UI_PORT || '5173';
+function isRequestFromDevOrigin(req) {
+  const origin = req.get('origin') || req.get('referer') || '';
+  return origin.includes(`:${DEV_UI_PORT}`);
+}
+function rejectUnlessDevOrigin(req, res, next) {
+  if (isRequestFromDevOrigin(req)) return next();
+  res.status(403).json({ error: 'UI architecture and developer tools are only available on the dev local port' });
+}
+
 // --- API: Login screen / dev panel slider defaults (sync 5173 ↔ 5000) ---
 const DEV_DEFAULTS_FILE = path.join(__dirname, 'storage', 'dev_defaults.json');
 function ensureStorageDir() {
   const dir = path.dirname(DEV_DEFAULTS_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
+app.get('/api/config', (req, res) => {
+  const apiKey = viteApiKey || (process.env.VITE_API_KEY || '').trim();
+  res.json({ apiKey: apiKey || undefined });
+});
+
 app.get('/api/settings/dev-defaults', (req, res) => {
   try {
     ensureStorageDir();
@@ -622,7 +653,7 @@ app.get('/api/settings/dev-defaults', (req, res) => {
   }
   res.status(404).json({ error: 'No saved defaults' });
 });
-app.post('/api/settings/dev-defaults', (req, res) => {
+app.post('/api/settings/dev-defaults', rejectUnlessDevOrigin, (req, res) => {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     ensureStorageDir();
@@ -648,7 +679,7 @@ app.get('/api/settings/dashboard', (req, res) => {
   }
   res.status(404).json({ error: 'No saved settings' });
 });
-app.post('/api/settings/dashboard', (req, res) => {
+app.post('/api/settings/dashboard', rejectUnlessDevOrigin, (req, res) => {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     ensureStorageDir();
@@ -727,7 +758,7 @@ app.post('/api/chat', async (req, res) => {
 
   if (!xaiApiKey) {
     return res.status(503).json({
-      error: 'xAI not configured. Set XAI_API_KEY in .env or Infisical (XAI_API_KEY / grokWankr).'
+      error: 'xAI not configured. Set XAI_API_KEY or grokWankr in Infisical, or XAI_API_KEY in .env.'
     });
   }
 
@@ -1140,32 +1171,48 @@ app.get('/static/avatar.png', (req, res) => {
   res.status(404).send('Not found');
 });
 app.use('/static', express.static(staticDir));
-app.use(express.static(FRONTEND_DIST));
-// SPA: any other GET (client-side route) serves index.html
-app.get('*', (req, res) => {
-  const index = path.join(FRONTEND_DIST, 'index.html');
-  if (fs.existsSync(index)) return res.sendFile(index);
-  res.status(404).send('Frontend not built. Run: cd frontend && npm run build');
-});
+
+// Dev: proxy UI to Vite so opening 5000 shows live app (set PROXY_UI_TO_VITE=1). /api stays on this server.
+if (process.env.PROXY_UI_TO_VITE === '1') {
+  const { createProxyMiddleware } = require('http-proxy-middleware');
+  app.use(
+    createProxyMiddleware({
+      target: `http://127.0.0.1:${DEV_UI_PORT}`,
+      changeOrigin: true,
+      ws: true,
+    })
+  );
+  console.log(`🔄 UI proxying to Vite at http://127.0.0.1:${DEV_UI_PORT} (PROXY_UI_TO_VITE=1)`);
+} else {
+  app.use(express.static(FRONTEND_DIST));
+  // SPA: any other GET (client-side route) serves index.html
+  app.get('*', (req, res) => {
+    const index = path.join(FRONTEND_DIST, 'index.html');
+    if (fs.existsSync(index)) return res.sendFile(index);
+    res.status(404).send('Frontend not built. Run: cd frontend && npm run build');
+  });
+}
 
 // --- Start ---
 async function main() {
-  if (process.env.XAI_API_KEY && process.env.XAI_API_KEY.trim()) {
+  // Prefer Infisical for xAI API key (Grok bot and chat); fall back to .env
+  await initInfisical();
+  if (!xaiApiKey && process.env.XAI_API_KEY && process.env.XAI_API_KEY.trim()) {
     xaiApiKey = process.env.XAI_API_KEY.trim();
-    console.log('✅ xAI key from env');
-  } else {
-    await initInfisical();
+    console.log('✅ xAI key from .env (fallback)');
   }
-
   if (!xaiApiKey) {
-    console.warn('⚠️ No xAI key. Set XAI_API_KEY in .env or configure Infisical.');
+    console.warn('⚠️ No xAI key. Set XAI_API_KEY (or grokWankr) in Infisical, or XAI_API_KEY in .env.');
+  }
+  if (!viteApiKey && process.env.VITE_API_KEY && process.env.VITE_API_KEY.trim()) {
+    viteApiKey = process.env.VITE_API_KEY.trim();
   }
 
-  // Configure and start the grok bot with API access
+  // Configure and start the grok bot with API access (uses key from Infisical or .env)
   if (xaiApiKey) {
     grokBot.configure(xaiApiKey, MODEL, DEFAULT_SYSTEM);
     grokBot.initialize().then(() => {
-      console.log('🤖 Grok bot initialized and running');
+      console.log('🤖 Grok bot initialized and running (API key from Infisical or .env)');
     }).catch(err => {
       console.error('Grok bot init error:', err.message);
     });

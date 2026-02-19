@@ -29,6 +29,9 @@ export default function WankingLiveDevPanel({
   onOpenMeasure,
   onClose,
   onLock,
+  onClearCache,
+  showOriginCrosshair = false,
+  onToggleOriginCrosshair,
 }) {
   const selectedElement = elements.find((e) => e.id === selectedElementId);
   const panelRef = useRef(null);
@@ -109,7 +112,7 @@ export default function WankingLiveDevPanel({
     position: 'fixed',
     top: 110,
     right: 20,
-    zIndex: 200,
+    zIndex: 210,
     background: 'rgba(0,0,0,0.95)',
     padding: '16px',
     borderRadius: '12px',
@@ -158,6 +161,25 @@ export default function WankingLiveDevPanel({
         >
           {isIndentionPanel ? 'Extension' : 'Indention'}
         </button>
+        {onClearCache && (
+          <button
+            type="button"
+            onClick={onClearCache}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="Clear stored elements and boundaries (localStorage)"
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(150,150,255,0.5)',
+              borderRadius: 4,
+              color: '#99aaff',
+              padding: '4px 8px',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            Clear cache
+          </button>
+        )}
         {onLock && (
           <button
             type="button"
@@ -194,6 +216,26 @@ export default function WankingLiveDevPanel({
         </button>
       </div>
 
+      {onToggleOriginCrosshair && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            type="button"
+            onClick={onToggleOriginCrosshair}
+            style={{
+              padding: '6px 10px',
+              fontSize: 11,
+              background: showOriginCrosshair ? 'rgba(255,0,0,0.25)' : 'rgba(100,100,100,0.3)',
+              border: `1px solid ${showOriginCrosshair ? '#f00' : 'rgba(255,255,255,0.3)'}`,
+              borderRadius: 4,
+              color: showOriginCrosshair ? '#f66' : 'rgba(255,255,255,0.8)',
+              cursor: 'pointer',
+            }}
+            title="Toggle red crosshair at viewport origin (0,0)"
+          >
+            Origin {showOriginCrosshair ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      )}
       {/* Tool modes */}
       <div style={{ borderTop: '1px solid rgba(0,255,65,0.3)', paddingTop: 8 }}>
         <span style={{ fontSize: 11, color: 'var(--accent)', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>

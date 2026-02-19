@@ -1,12 +1,10 @@
 const ELEMENTS_KEY = 'wankr_wanking_live_elements';
 const BOUNDARIES_KEY = 'wankr_wanking_live_boundaries';
 
-/** Login screen layer names for boundaries (which layer the boundary applies to). */
+/** Wanking Live boundary layer names (login layers removed; Dev1 only). */
 export const BOUNDARY_LAYERS = [
   'Hand layer',
   'Arm layer',
-  'Login panel layer',
-  'Login button layer',
 ];
 
 function loadElements() {
@@ -134,4 +132,12 @@ function clampToBoundaries(rect, boundaries, prevRect) {
   return r;
 }
 
-export { loadElements, saveElements, loadBoundaries, saveBoundaries, clampToBoundaries };
+/** Remove stored elements and boundaries from localStorage (clear layout cache). */
+function clearLayoutCache() {
+  try {
+    localStorage.removeItem(ELEMENTS_KEY);
+    localStorage.removeItem(BOUNDARIES_KEY);
+  } catch { /* ignore */ }
+}
+
+export { loadElements, saveElements, loadBoundaries, saveBoundaries, clampToBoundaries, clearLayoutCache };

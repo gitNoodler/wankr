@@ -18,17 +18,9 @@ const DEFAULTS = {
   sidebarWidth: 350,
 };
 
+/** Initial state is code defaults only. Backend is the single source of truth (sync 5000 ↔ 5173); no per-port localStorage. */
 function getInitialSettings() {
-  try {
-    const saved = localStorage.getItem('wankr_dashboard_settings');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...DEFAULTS, ...parsed };
-    }
-  } catch {
-    // ignore
-  }
-  return DEFAULTS;
+  return { ...DEFAULTS };
 }
 
 export default function DashboardSettings() {
@@ -92,13 +84,8 @@ export default function DashboardSettings() {
       isInitialMount.current = false;
       return;
     }
-    try {
-      localStorage.setItem('wankr_dashboard_settings', JSON.stringify(settings));
-      applyCssVariables(settings);
-      api.post('/api/settings/dashboard', settings).catch(() => {});
-    } catch {
-      // ignore storage errors
-    }
+    applyCssVariables(settings);
+    api.post('/api/settings/dashboard', settings).catch(() => {});
   }, [settings, applyCssVariables]);
 
   const updateSetting = (key, value) => {
@@ -117,6 +104,8 @@ export default function DashboardSettings() {
 
   const resetSettings = () => {
     setSettings(DEFAULTS);
+    applyCssVariables(DEFAULTS);
+    api.post('/api/settings/dashboard', DEFAULTS).catch(() => {});
   };
 
   return (

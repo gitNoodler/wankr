@@ -4,11 +4,14 @@ import LOGO_URL from '../../assets/logo.js';
 
 const VIRTUAL_LIST_THRESHOLD = 50;
 
+const AT_BOTTOM_THRESHOLD = 80;
+
 function ChatPanel({ messages, onSend, onStop, disabled }) {
-  const chatRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const listRef = useRef(null);
   const measureRef = useRef(null);
   const inputRef = useRef(null);
+  const atBottomRef = useRef(true); // start at bottom; scroll up through history
   const [inputValue, setInputValue] = useState('');
   const [containerHeight, setContainerHeight] = useState(0);
 
@@ -53,13 +56,21 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
     return () => ro.disconnect();
   }, [useVirtual]);
 
-  // Auto-scroll to bottom when messages change
+  // Keep scroll at bottom only when user was already at bottom (newest at bottom; scroll up for history)
+  const checkAtBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    atBottomRef.current = scrollHeight - scrollTop - clientHeight <= AT_BOTTOM_THRESHOLD;
+  }, []);
+
   useLayoutEffect(() => {
     const id = setTimeout(() => {
-      if (useVirtual && listRef.current) {
+      if (!atBottomRef.current) return; // user scrolled up; don't jerk to bottom
+      if (useVirtual && listRef.current && messageCount > 0) {
         listRef.current.scrollToItem(messageCount - 1, 'end');
-      } else if (chatRef.current && !useVirtual) {
-        chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      } else if (scrollContainerRef.current && !useVirtual) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
       }
     }, 10);
     return () => clearTimeout(id);
@@ -69,6 +80,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
     e?.preventDefault();
     const msg = inputValue.trim();
     if (!msg || disabled) return;
+    atBottomRef.current = true; // scroll to bottom to show new message
     onSend(msg);
     setInputValue('');
   };
@@ -156,9 +168,9 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
         </div>
       </div>
 
-      {/* Messages Area with visible scrollbar */}
+      {/* Messages Area: newest at bottom; scroll starts at bottom, scroll up for history */}
       <div
-        ref={!useVirtual ? chatRef : undefined}
+        ref={!useVirtual ? scrollContainerRef : undefined}
         className="wankr-messages scroll-area"
         style={{
           flex: 1,
@@ -173,6 +185,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
           background: '#000000',
           boxShadow: 'inset 0 4px 16px rgba(0, 0, 0, 0.8)',
         }}
+        onScroll={!useVirtual ? checkAtBottom : undefined}
       >
         {isEmpty ? (
           <div className="wankr-empty-state">
@@ -184,6 +197,8 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
             <div ref={measureRef} style={{ flex: 1, minHeight: 0 }}>
               <VariableSizeList
                 ref={listRef}
+                outerRef={scrollContainerRef}
+                onScroll={checkAtBottom}
                 height={containerHeight}
                 width="100%"
                 itemCount={messageCount}

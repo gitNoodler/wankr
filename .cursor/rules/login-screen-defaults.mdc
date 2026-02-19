@@ -1,0 +1,10 @@
+---
+description: Login UI must follow LOGIN_SCREEN_DEFAULTS; do not edit that document
+alwaysApply: true
+---
+
+# Login screen defaults
+
+- **Source of truth**: [frontend/LOGIN_SCREEN_DEFAULTS.md](frontend/LOGIN_SCREEN_DEFAULTS.md) is the canonical reference for all login screen defaults (canvas, panel, brightness, scene, robot, hands, form, effects, layers, animations, iOS overrides).
+- **Implementation**: Defaults are implemented in [frontend/src/components/LoginScreen/loginScreenConfig.js](frontend/src/components/LoginScreen/loginScreenConfig.js). When adding or changing login UI defaults or “restore defaults” behavior, keep `loginScreenConfig.js` in sync with the values and structure defined in LOGIN_SCREEN_DEFAULTS.md.
+- **Do not edit** `frontend/LOGIN_SCREEN_DEFAULTS.md`. Treat it as read-only. If defaults need to change, update `loginScreenConfig.js` (and any callers) and leave the doc unchanged unless the user explicitly asks to change the document.

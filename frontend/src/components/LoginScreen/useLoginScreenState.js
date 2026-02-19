@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { loadDevDefaults, ALLOWED_DEV_DEFAULT_KEYS } from './loginScreenConfig';
+import { getPrimaryDevDefaults, ALLOWED_DEV_DEFAULT_KEYS } from './loginScreenConfig';
 import { buildSnapshotFrom, getSnapshotFallbacks, normalizeLoginBoxHeight } from './helpers';
 
-/** Centralized state for the login screen layout and dev panel. */
+/** Centralized state for the login screen layout and dev panel. Initial state = code defaults; backend sync applied in LoginScreen. */
 export function useLoginScreenState({ appBackgroundBrightness, appBackgroundSharpness, onAppBackgroundBrightnessChange, onAppBackgroundSharpnessChange }) {
-  const d = loadDevDefaults();
+  const d = getPrimaryDevDefaults();
   const [defaultsReady] = useState(true);
 
   const [meanBrightness, setMeanBrightness] = useState(d.meanBrightness);

@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
-import { loadDevDefaults, getPrimaryDevDefaults, saveDevDefaults } from './loginScreenConfig';
+import { getPrimaryDevDefaults } from './loginScreenConfig';
 
-/** Undo and reset logic for the login screen dev panel. Uses applySnapshotRef so we always call the latest apply (avoids stale closure so Reset to saved works). */
-export function useLoginScreenUndo({ buildSnapshot, applySnapshotRef }) {
+/** Undo and reset logic for the login screen dev panel. Saved = backend; primary = code defaults. */
+export function useLoginScreenUndo({ buildSnapshot, applySnapshotRef, getSavedDefaults, onResetToPrimaryApplied }) {
   const undoHistoryRef = useRef([]);
   const isRestoringRef = useRef(false);
   const [undoStackLength, setUndoStackLength] = useState(0);
@@ -28,17 +28,19 @@ export function useLoginScreenUndo({ buildSnapshot, applySnapshotRef }) {
   const handleResetToSaved = useCallback(() => {
     undoHistoryRef.current = [];
     setUndoStackLength(0);
-    const saved = loadDevDefaults();
-    applySnapshotRef.current?.(saved);
-  }, [applySnapshotRef]);
+    const getSaved = getSavedDefaults ?? (() => Promise.resolve(null));
+    getSaved().then((data) => {
+      applySnapshotRef.current?.(data || getPrimaryDevDefaults());
+    });
+  }, [applySnapshotRef, getSavedDefaults]);
 
   const handleResetToPrimaryDefaults = useCallback(() => {
     undoHistoryRef.current = [];
     setUndoStackLength(0);
     const primary = getPrimaryDevDefaults();
     applySnapshotRef.current?.(primary);
-    saveDevDefaults(primary);
-  }, [applySnapshotRef]);
+    onResetToPrimaryApplied?.(primary);
+  }, [applySnapshotRef, onResetToPrimaryApplied]);
 
   return { pushUndoHistory, handleUndo, handleResetToSaved, handleResetToPrimaryDefaults, undoStackLength };
 }

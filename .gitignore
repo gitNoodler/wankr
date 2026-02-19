@@ -10,7 +10,8 @@ __pycache__/
 venv/
 env/
 
-# Node (wankr-backend, frontend)
+# Node (root, wankr-backend, frontend)
+node_modules/
 wankr-backend/node_modules/
 frontend/node_modules/
 frontend/dist/

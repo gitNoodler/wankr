@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { loadElements, saveElements, loadBoundaries, saveBoundaries, clampToBoundaries, BOUNDARY_LAYERS } from './wankingLiveLayoutStorage';
+import { loadElements, saveElements, loadBoundaries, saveBoundaries, clampToBoundaries, clearLayoutCache, BOUNDARY_LAYERS } from './wankingLiveLayoutStorage';
 
 /**
  * Shared state for dev1 (WankingLiveDevPanel). Use from both login screen and PlaceholderPanel
@@ -75,6 +75,14 @@ export function useWankingLiveDevState() {
   );
   const handlePlacementCancel = useCallback(() => setPlacementMode(null), []);
 
+  const handleClearCache = useCallback(() => {
+    clearLayoutCache();
+    setElements([]);
+    setBoundaries([]);
+    setSelectedElementId(null);
+    setPlacementMode(null);
+  }, []);
+
   return {
     elements,
     boundaries,
@@ -97,5 +105,6 @@ export function useWankingLiveDevState() {
     handleUpdateBoundary,
     handleDeleteBoundary,
     handlePlacementCancel,
+    handleClearCache,
   };
 }

@@ -10,21 +10,14 @@ import { api } from './utils/api';
 import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
 import Sidebar from './components/Sidebar';
-import Particles from './components/Particles';
-import StarfieldReflections from './components/StarfieldReflections';
 import TrainingPanel from './components/TrainingPanel';
 import PlaceholderPanel from './components/PlaceholderPanel';
 import LoginScreen from './components/LoginScreen';
 import SpectatorView from './components/SpectatorView';
+import DashboardSettings from './components/DashboardSettings';
 import MeasureTool from './components/MeasureTool';
-import GlowPointTool from './components/GlowPointTool';
-import EffectsBoundsTool from './components/EffectsBoundsTool';
-import EffectsBoundsLayer from './components/EffectsBoundsLayer';
-import AmbientLightPropagation from './components/AmbientLightPropagation';
-import FloorPropagation from './components/FloorPropagation';
-import SparkReflectionOverlay from './components/SparkReflectionOverlay';
-import appBackgroundImg from '@mascot/bckground&Banner/uncroppedBackground.png';
-import { loadDevDefaults } from './components/LoginScreen/loginScreenConfig';
+import { isDevToolsAllowed } from './utils/devToolsAllowed';
+import OriginCrosshair from './components/OriginCrosshair';
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -33,21 +26,17 @@ export default function App() {
   const [loginCollapsing, setLoginCollapsing] = useState(false);
   const [dashboardSweepIn, setDashboardSweepIn] = useState(false);
   const [measureOpen, setMeasureOpen] = useState(false);
-  const [glowPointOpen, setGlowPointOpen] = useState(false);
-  const [effectsBoundsOpen, setEffectsBoundsOpen] = useState(false);
-  const [sparkActive, setSparkActive] = useState(false);
-  const [effectsBoundsVersion, setEffectsBoundsVersion] = useState(0);
-  const [glowPointVersion, setGlowPointVersion] = useState(0);
+  const [showOriginCrosshair, setShowOriginCrosshair] = useState(true);
   const [, setOrientationKey] = useState(0);
   const [namedToast, setNamedToast] = useState(null);
   const namedToastTimeoutRef = useRef(null);
   const transitionRef = useRef(null);
   const storage = useConversationStorage();
 
-  // Universal dev panel: Ctrl+Alt+D or Ctrl+Shift+D (override browser "Bookmark all tabs").
-  // Capture phase + immediate preventDefault so our shortcut wins over the browser.
+  // Universal dev panel: only on dev port (Vite). Ctrl+Alt+D or Ctrl+Shift+D. Rejected elsewhere.
   const [universalDevPanelOpen, setUniversalDevPanelOpen] = useState(false);
   useEffect(() => {
+    if (!isDevToolsAllowed) return;
     const handler = (e) => {
       const isD = e.key === 'D' || e.key === 'd' || e.code === 'KeyD';
       const isCtrlAltD = e.ctrlKey && e.altKey && !e.shiftKey && isD;
@@ -102,8 +91,6 @@ export default function App() {
   useViewportScale();
 
   const [trainCount, setTrainCount] = useState(0);
-  const [appBackgroundBrightness, setAppBackgroundBrightness] = useState(() => loadDevDefaults().appBackgroundBrightness ?? loadDevDefaults().meanBrightness ?? 50);
-  const [appBackgroundSharpness, setAppBackgroundSharpness] = useState(() => loadDevDefaults().backlayerSharpness ?? 100);
   const [systemPrompt, setSystemPrompt] = useState('');
   // Default off; only the secret command (backend + TRAINING_KEY) can enable it
   const [trainingMode, setTrainingMode] = useState(false);
@@ -150,18 +137,35 @@ export default function App() {
   // Auto-login: validate session token on page load
   useEffect(() => {
     const token = getStoredToken();
+    const port = typeof window !== 'undefined' ? window.location.port : '';
+    // #region agent log
+    if (!token) {
+      fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:sessionValidation',message:'no token, skip validate',data:{port,hasToken:false},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    }
+    // #endregion
     if (!token) {
       queueMicrotask(() => setSessionValidating(false));
       return;
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:validateSession.start',message:'calling validateSession',data:{port},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
     validateSession()
       .then((result) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:validateSession.then',message:'session validated',data:{port,valid:result?.valid},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
         if (result.valid) {
           setLoggedIn(true);
         }
       })
       .catch(() => { /* ignore */ })
-      .finally(() => setSessionValidating(false));
+      .finally(() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:validateSession.finally',message:'validation finished',data:{port},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
+        setSessionValidating(false);
+      });
   }, []);
 
   // After login: fetch active chats from backend and merge with localStorage (prefer newer updatedAt)
@@ -357,7 +361,13 @@ export default function App() {
     };
   }, [restoreFromBackup, setConversation]);
 
-  const showLogin = !loggedIn && !spectatorMode && !sessionValidating;
+  const showLogin = !loggedIn && !spectatorMode;
+
+  // #region agent log
+  if (typeof window !== 'undefined') {
+    fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:render',message:'app render branch',data:{port:window.location.port,isDevToolsAllowed,showLogin,loggedIn,sessionValidating,spectatorMode},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+  }
+  // #endregion
 
   // Spectator mode takes over the entire screen
   if (spectatorMode) {
@@ -376,57 +386,32 @@ export default function App() {
         position: 'relative',
       }}
     >
-      {/* Background layer: uncropped background for entire app (same layer as Background brightness) */}
+      {/* Solid black background; no image, no visual effects (login + robot + panel only). */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           zIndex: 0,
-          backgroundImage: `url(${appBackgroundImg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center center',
-          backgroundRepeat: 'no-repeat',
-          filter: appBackgroundSharpness !== 100 ? `contrast(${appBackgroundSharpness / 100})` : undefined,
-        }}
-      />
-      <EffectsBoundsLayer version={effectsBoundsVersion} zIndex={2}>
-        <StarfieldReflections />
-      </EffectsBoundsLayer>
-      <AmbientLightPropagation />
-      <FloorPropagation sparkActive={sparkActive} glowPointVersion={glowPointVersion} />
-      <SparkReflectionOverlay sparkActive={sparkActive} />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: `rgba(0, 0, 0, ${Math.min(0.94, 1 - appBackgroundBrightness / 100)})`,
-          pointerEvents: 'none',
-          zIndex: 3,
+          background: '#000',
         }}
       />
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Particles />
         {showLogin ? (
           <LoginScreen
             onLogin={handleLoginSuccess}
             onSpectate={handleSpectate}
             collapsing={loginCollapsing}
-            appBackgroundBrightness={appBackgroundBrightness}
-            onAppBackgroundBrightnessChange={setAppBackgroundBrightness}
-            appBackgroundSharpness={appBackgroundSharpness}
-            onAppBackgroundSharpnessChange={setAppBackgroundSharpness}
-            onOpenMeasure={() => setMeasureOpen(true)}
-            onOpenGlowPoint={() => setGlowPointOpen(true)}
-            onOpenEffectsBounds={() => setEffectsBoundsOpen(true)}
-            onSparkActive={setSparkActive}
-            glowPointVersion={glowPointVersion}
-            devPanelOpen={universalDevPanelOpen}
-            onDevPanelClose={() => setUniversalDevPanelOpen(false)}
-            onRequestDevPanel={() => setUniversalDevPanelOpen(true)}
+            onOpenMeasure={isDevToolsAllowed ? () => setMeasureOpen(true) : undefined}
+            devPanelOpen={isDevToolsAllowed && universalDevPanelOpen}
+            onDevPanelClose={isDevToolsAllowed ? () => setUniversalDevPanelOpen(false) : undefined}
+            onRequestDevPanel={isDevToolsAllowed ? () => setUniversalDevPanelOpen(true) : undefined}
+            showOriginCrosshair={showOriginCrosshair}
+            onToggleOriginCrosshair={isDevToolsAllowed ? () => setShowOriginCrosshair((v) => !v) : undefined}
           />
         ) : (
           <>
             <Header onLogout={handleLogout} />
+            {isDevToolsAllowed && <DashboardSettings />}
             <div
               className={`dashboard-body ${dashboardSweepIn ? 'sweep-in' : ''} ${trainingMode ? 'with-training' : 'with-placeholder'}`}
               style={{
@@ -471,9 +456,11 @@ export default function App() {
                   />
                 ) : (
                   <PlaceholderPanel
-                    onOpenMeasure={() => setMeasureOpen(true)}
-                    devPanelOpen={universalDevPanelOpen}
-                    onDevPanelClose={() => setUniversalDevPanelOpen(false)}
+                    onOpenMeasure={isDevToolsAllowed ? () => setMeasureOpen(true) : undefined}
+                    devPanelOpen={isDevToolsAllowed ? universalDevPanelOpen : false}
+                    onDevPanelClose={isDevToolsAllowed ? () => setUniversalDevPanelOpen(false) : undefined}
+                    showOriginCrosshair={showOriginCrosshair}
+                    onToggleOriginCrosshair={isDevToolsAllowed ? () => setShowOriginCrosshair((v) => !v) : undefined}
                   />
                 )}
               </div>
@@ -481,19 +468,8 @@ export default function App() {
           </>
         )}
       </div>
-      {measureOpen && <MeasureTool onClose={() => setMeasureOpen(false)} />}
-      {glowPointOpen && (
-        <GlowPointTool
-          onClose={() => setGlowPointOpen(false)}
-          onSave={() => setGlowPointVersion((v) => v + 1)}
-        />
-      )}
-      {effectsBoundsOpen && (
-        <EffectsBoundsTool
-          onClose={() => setEffectsBoundsOpen(false)}
-          onSave={() => setEffectsBoundsVersion((v) => v + 1)}
-        />
-      )}
+      {isDevToolsAllowed && <OriginCrosshair visible={showOriginCrosshair} />}
+      {isDevToolsAllowed && measureOpen && <MeasureTool onClose={() => setMeasureOpen(false)} />}
       {namedToast && (
         <div
           className="named-toast"

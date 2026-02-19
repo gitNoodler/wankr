@@ -1,0 +1,30 @@
+---
+description: UI architecture and developer tools are only available on the dev local port; enforce religiously
+alwaysApply: true
+---
+
+# Dev tools and UI architecture — dev port only
+
+**Rule (implement religiously):** UI architecture and developer tools are only available on the dev local port (Vite dev server). Requests to use them anywhere else must be rejected.
+
+## What is gated
+
+- **Dashboard Settings** (layout sliders: header, input, panel, sidebar) — only rendered and writable on dev.
+- **Login dev panels** (Dev1 WankingLive, Dev2 Login/layout) — only visible and openable on dev.
+- **Universal dev panel** (Ctrl+Alt+D / Ctrl+Shift+D) — only registered on dev.
+- **Measure / GlowPoint / EffectsBounds tools** — only available on dev.
+- **Backend writes** to `/api/settings/dashboard` and `/api/settings/dev-defaults` — only accepted when the request comes from the dev origin (port 5173).
+
+## Implementation
+
+- **Frontend:** [frontend/src/utils/devToolsAllowed.js](frontend/src/utils/devToolsAllowed.js) exports `isDevToolsAllowed` (`import.meta.env.DEV`). Use it to:
+  - Show or register Dashboard Settings, dev panel buttons, keybinds, and tool modals only when `isDevToolsAllowed` is true.
+  - Do not add new dev/architecture UI without gating it with `isDevToolsAllowed`.
+- **Backend:** [wankr-backend/server.js](wankr-backend/server.js) uses `rejectUnlessDevOrigin` middleware on **POST** `/api/settings/dashboard` and **POST** `/api/settings/dev-defaults`. GET remains allowed so non-dev (e.g. port 5000) can read the settings that were saved from dev.
+- **Dev port:** Default 5173 (Vite). Backend uses `DEV_UI_PORT` env (default `5173`) to allow writes when `Origin` or `Referer` includes that port.
+
+## When adding new dev or UI-architecture features
+
+1. Gate frontend visibility/registration with `isDevToolsAllowed`.
+2. If the feature writes settings or layout to the backend, protect the write route with `rejectUnlessDevOrigin` (or an equivalent dev-origin check).
+3. Do not expose dev or architecture controls on production build or non-dev port.
