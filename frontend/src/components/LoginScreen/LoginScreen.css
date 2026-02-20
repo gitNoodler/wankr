@@ -37,9 +37,11 @@
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
-  opacity: 0.5;
+  opacity: 0.6;
   pointer-events: none;
   z-index: 1;
+  /* Invert white bg → black, hue-rotate keeps green lines green */
+  filter: invert(1) hue-rotate(180deg);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
   mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
 }
