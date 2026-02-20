@@ -3,7 +3,8 @@ import LoginForm from './LoginForm';
 import { useLoginScreenAuth } from './useLoginScreenAuth';
 import { isDevToolsAllowed } from '../../utils/devToolsAllowed';
 import { isIOS, isPortrait } from './loginScreenConfig';
-import DevPasswordGate, { isDevPanelUnlocked, lockDevPanel } from './DevPasswordGate';
+import DevPasswordGate from './DevPasswordGate';
+import { isDevPanelUnlocked, lockDevPanel } from './devPanelStorage';
 import WankingLiveDevPanel from '../WankingLive/WankingLiveDevPanel';
 import { useWankingLiveDevState } from '../WankingLive/useWankingLiveDevState';
 
