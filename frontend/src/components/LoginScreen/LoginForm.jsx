@@ -110,7 +110,7 @@ export default function LoginForm({
         </div>
       </div>
       {error && (
-        <div style={{ color: '#ff6b6b', fontSize: '1.4cqi', textAlign: 'center', marginTop: '0.5cqi' }}>
+        <div style={{ color: '#ff6b6b', fontSize: '2.4cqi', fontWeight: 700, textAlign: 'center', marginTop: '0.8cqi', textShadow: '0 0 8px rgba(255,107,107,0.5)' }}>
           {error}
         </div>
       )}
@@ -177,7 +177,7 @@ export default function LoginForm({
         </div>
 
         {isRegistering && usernameStatus.error && !usernameStatus.checking && (
-          <div style={{ color: '#ff6b6b', fontSize: '1.2cqi', marginLeft: '2cqi', marginTop: '-0.3cqi' }}>
+          <div style={{ color: '#ff6b6b', fontSize: '2cqi', fontWeight: 600, marginLeft: '2cqi', marginTop: '0.2cqi', textShadow: '0 0 6px rgba(255,107,107,0.4)' }}>
             {usernameStatus.error}
           </div>
         )}
