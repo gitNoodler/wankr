@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DEV_PANEL_PASSWORD } from './devPanelStorage';
+import { DEV_PANEL_PASSWORD, setDevPanelUnlocked } from './devPanelStorage';
 
 export default function DevPasswordGate({ onUnlock, onClose }) {
   const [password, setPassword] = useState('');

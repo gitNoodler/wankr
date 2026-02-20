@@ -16,10 +16,12 @@ export default function WankingLiveDevPanel({
   onIndentionPanelChange,
   selectedElementId,
   onSelectElement,
-  onAddElement: _onAddElement,
+  // eslint-disable-next-line no-unused-vars -- accepted for API compat
+  onAddElement,
   onUpdateElement,
   onDeleteElement,
-  onAddBoundary: _onAddBoundary,
+  // eslint-disable-next-line no-unused-vars -- accepted for API compat
+  onAddBoundary,
   onUpdateBoundary,
   onDeleteBoundary,
   selectedBoundaryLayer,
