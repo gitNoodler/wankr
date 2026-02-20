@@ -25,10 +25,21 @@ function clearSession() {
   localStorage.removeItem(USER_KEY);
 }
 
+/** Safely parse JSON from a response; returns {} on empty/malformed body. */
+async function safeJson(res) {
+  try {
+    const text = await res.text();
+    if (!text || !text.trim()) return {};
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
 // --- Check username availability (real-time) ---
 export async function checkUsername(username) {
   const res = await api.get(`/api/auth/check-username?username=${encodeURIComponent(username)}`);
-  const data = await res.json();
+  const data = await safeJson(res);
   return data;
 }
 
@@ -37,7 +48,7 @@ export async function register(username, password, email) {
   const body = { username, password };
   if (email !== undefined && email !== null && String(email).trim() !== '') body.email = String(email).trim();
   const res = await api.post('/api/auth/register', body);
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.error || 'Registration failed');
   if (data.token) storeSession(data.token, data.username);
   return data;
@@ -46,7 +57,7 @@ export async function register(username, password, email) {
 // --- Login existing user ---
 export async function login(username, password) {
   const res = await api.post('/api/auth/login', { username, password });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.error || 'Login failed');
   if (data.token) storeSession(data.token, data.username);
   return data;
@@ -58,7 +69,7 @@ export async function validateSession() {
   if (!token) return { valid: false };
   try {
     const res = await api.post('/api/auth/validate', { token });
-    const data = await res.json();
+    const data = await safeJson(res);
     if (!data.valid) {
       // #region agent log
       fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'authService.js:validateSession',message:'validate response invalid',data:{ok:res.ok,status:res?.status},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
