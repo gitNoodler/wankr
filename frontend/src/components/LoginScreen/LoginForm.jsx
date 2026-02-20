@@ -109,11 +109,6 @@ export default function LoginForm({
           {isRegistering ? 'NEW DEGEN' : 'DEGEN LOGIN'}
         </div>
       </div>
-      {error && (
-        <div style={{ color: '#ff6b6b', fontSize: '2.4cqi', fontWeight: 700, textAlign: 'center', marginTop: '0.8cqi', textShadow: '0 0 8px rgba(255,107,107,0.5)' }}>
-          {error}
-        </div>
-      )}
 
       {/* Username top = subtitle bottom + subtitleToUsernameGap; username & password as one unit with usernamePasswordGap */}
       <form
@@ -174,10 +169,15 @@ export default function LoginForm({
               </div>
             )}
           </div>
+          {error && (
+            <div style={{ color: '#ff6b6b', fontSize: `${inputFontCqi}cqi`, fontWeight: 700, flexShrink: 0 }}>
+              {error}
+            </div>
+          )}
         </div>
 
         {isRegistering && usernameStatus.error && !usernameStatus.checking && (
-          <div style={{ color: '#ff6b6b', fontSize: '2cqi', fontWeight: 600, marginLeft: '2cqi', marginTop: '0.2cqi', textShadow: '0 0 6px rgba(255,107,107,0.4)' }}>
+          <div style={{ color: '#ff6b6b', fontSize: `${inputFontCqi}cqi`, fontWeight: 700, marginLeft: '2cqi', marginTop: '0.2cqi' }}>
             {usernameStatus.error}
           </div>
         )}
