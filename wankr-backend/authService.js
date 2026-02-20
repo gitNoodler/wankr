@@ -222,6 +222,12 @@ function getActiveUsernames() {
   return Array.from(usernames);
 }
 
+/** Call on startup so storage dir and registry exist (e.g. seed registry from existing users). */
+function initAuthStorage() {
+  ensureStorageDir();
+  loadRegistry(); // seeds registry from users.json if needed
+}
+
 module.exports = {
   register,
   login,
@@ -230,4 +236,5 @@ module.exports = {
   validateSession,
   destroySession,
   getActiveUsernames,
+  initAuthStorage,
 };

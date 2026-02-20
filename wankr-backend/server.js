@@ -15,8 +15,11 @@ const {
   validateSession,
   destroySession,
   getActiveUsernames,
+  initAuthStorage,
 } = require('./authService');
 const grokBot = require('./grokBotService');
+
+initAuthStorage();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

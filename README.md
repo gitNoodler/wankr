@@ -87,3 +87,5 @@ The dashboard needs the **full Node backend** (Infisical, xAI, `/api`, training,
 4. **Frontend:** Build with `cd frontend && npm run build`; the backend serves `frontend/dist`. No `wrangler deploy`.
 
 Result: https://wankrbot.com shows the same dashboard as localhost:5173, with real Grok and training.
+
+**Push local changes (5173) to wankrbot.com:** Run [push-to-wankrbot.bat](push-to-wankrbot.bat) (builds frontend, then commit and push to trigger deploy). See [DEPLOY_5173_TO_WANKRBOT.md](DEPLOY_5173_TO_WANKRBOT.md).

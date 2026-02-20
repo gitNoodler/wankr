@@ -47,20 +47,34 @@ export async function checkUsername(username) {
 export async function register(username, password, email) {
   const body = { username, password };
   if (email !== undefined && email !== null && String(email).trim() !== '') body.email = String(email).trim();
-  const res = await api.post('/api/auth/register', body);
-  const data = await safeJson(res);
-  if (!res.ok) throw new Error(data.error || 'Registration failed');
-  if (data.token) storeSession(data.token, data.username);
-  return data;
+  try {
+    const res = await api.post('/api/auth/register', body);
+    const data = await safeJson(res);
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    if (data.token) storeSession(data.token, data.username);
+    return data;
+  } catch (err) {
+    if (err?.name === 'TypeError' && (err.message?.includes('fetch') || err.message?.includes('Failed to fetch'))) {
+      throw new Error('Cannot reach server. Start the backend (start_backend.bat from project root) and try again.');
+    }
+    throw err;
+  }
 }
 
 // --- Login existing user ---
 export async function login(username, password) {
-  const res = await api.post('/api/auth/login', { username, password });
-  const data = await safeJson(res);
-  if (!res.ok) throw new Error(data.error || 'Login failed');
-  if (data.token) storeSession(data.token, data.username);
-  return data;
+  try {
+    const res = await api.post('/api/auth/login', { username, password });
+    const data = await safeJson(res);
+    if (!res.ok) throw new Error(data.error || 'Login failed');
+    if (data.token) storeSession(data.token, data.username);
+    return data;
+  } catch (err) {
+    if (err?.name === 'TypeError' && (err.message?.includes('fetch') || err.message?.includes('Failed to fetch'))) {
+      throw new Error('Cannot reach server. Start the backend (start_backend.bat from project root) and try again.');
+    }
+    throw err;
+  }
 }
 
 // --- Validate session (for auto-login on refresh) ---

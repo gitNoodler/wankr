@@ -364,9 +364,21 @@ export default function App() {
   const showLogin = !loggedIn && !spectatorMode;
 
   // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:render',message:'app render branch',data:{port:window.location.port,isDevToolsAllowed,showLogin,loggedIn,sessionValidating,spectatorMode},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-  }
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '9c5d30' },
+      body: JSON.stringify({
+        sessionId: '9c5d30',
+        location: 'App.jsx:render',
+        message: 'app render branch',
+        data: { port: window.location.port, isDevToolsAllowed, showLogin, loggedIn, sessionValidating, spectatorMode },
+        timestamp: Date.now(),
+        hypothesisId: 'H1',
+      }),
+    }).catch(() => {});
+  }, [showLogin, loggedIn, sessionValidating, spectatorMode]);
   // #endregion
 
   // Spectator mode takes over the entire screen
