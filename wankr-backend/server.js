@@ -17,6 +17,7 @@ const {
   getActiveUsernames,
 } = require('./authService');
 const grokBot = require('./grokBotService');
+const kolAnalysis = require('./kolAnalysisService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -408,6 +409,64 @@ app.post('/api/grok/kill', (req, res) => {
   } catch (err) {
     console.error('grok/kill error:', err);
     res.status(500).json({ error: String(err.message) });
+  }
+});
+
+// --- API: KOL Analysis (WANKR_SPEC.md social analysis engine) ---
+
+// Get all KOL accounts with scores
+app.get('/api/kol/accounts', (req, res) => {
+  try {
+    const accounts = kolAnalysis.getAccounts();
+    const sort = req.query.sort || 'roastPriority';
+    const order = req.query.order === 'asc' ? 1 : -1;
+    const sorted = [...accounts].sort((a, b) => {
+      const av = a[sort] ?? 0;
+      const bv = b[sort] ?? 0;
+      return typeof av === 'string'
+        ? order * av.localeCompare(bv)
+        : order * (bv - av);
+    });
+    res.json({ accounts: sorted });
+  } catch (err) {
+    console.error('GET /api/kol/accounts:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get aggregate stats
+app.get('/api/kol/stats', (req, res) => {
+  try {
+    const stats = kolAnalysis.getStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('GET /api/kol/stats:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Analyze a single account
+app.get('/api/kol/analyze/:handle', (req, res) => {
+  try {
+    const result = kolAnalysis.analyzeAccount(req.params.handle);
+    if (!result) {
+      return res.status(404).json({ error: 'Account not found in KOL database' });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('GET /api/kol/analyze:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reload KOL database from xlsx
+app.post('/api/kol/reload', (req, res) => {
+  try {
+    const accounts = kolAnalysis.getAccounts(true);
+    res.json({ reloaded: true, count: accounts.length });
+  } catch (err) {
+    console.error('POST /api/kol/reload:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
