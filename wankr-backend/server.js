@@ -419,13 +419,12 @@ app.get('/api/kol/accounts', (req, res) => {
   try {
     const accounts = kolAnalysis.getAccounts();
     const sort = req.query.sort || 'roastPriority';
-    const order = req.query.order === 'asc' ? 1 : -1;
+    const asc = req.query.order === 'asc';
     const sorted = [...accounts].sort((a, b) => {
       const av = a[sort] ?? 0;
       const bv = b[sort] ?? 0;
-      return typeof av === 'string'
-        ? order * av.localeCompare(bv)
-        : order * (bv - av);
+      const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+      return asc ? cmp : -cmp;
     });
     res.json({ accounts: sorted });
   } catch (err) {
