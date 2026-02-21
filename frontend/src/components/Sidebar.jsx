@@ -1,108 +1,16 @@
-import { useRef, useState, useLayoutEffect, useMemo, useCallback } from 'react';
-import { FixedSizeList } from 'react-window';
-
-const ARCHIVED_VIRTUAL_THRESHOLD = 100;
-
 function Sidebar({
-  currentId,
-  hasMessages,
+  currentLabel,
   archived,
   onLoadArchived,
-  onStartNewChat,
   onClearChat,
   onArchive,
-  onDeleteArchived,
+  onResetPrompt,
+  systemPrompt,
+  onSystemPromptChange,
+  onTrain,
+  trainCount,
+  thoughts,
 }) {
-  const archivedListRef = useRef(null);
-  const [archivedListHeight, setArchivedListHeight] = useState(0);
-
-  const archivedReversed = useMemo(() => [...archived].reverse(), [archived]);
-  const useVirtualArchived = archived.length > ARCHIVED_VIRTUAL_THRESHOLD;
-
-  useLayoutEffect(() => {
-    if (!archivedListRef.current || !useVirtualArchived) return;
-    const el = archivedListRef.current;
-    const update = () => setArchivedListHeight(el.getBoundingClientRect().height);
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    update();
-    return () => ro.disconnect();
-  }, [useVirtualArchived]);
-
-  const ArchivedRow = useCallback(({ index, style, data }) => {
-    const c = data[index];
-    if (!c) return null;
-    const isActive = c.id === currentId;
-    return (
-      <div
-        style={{
-          ...style,
-          padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
-          borderRadius: 'calc(6px * var(--scale))',
-          color: 'var(--text-content)',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '4px',
-          boxSizing: 'border-box',
-        }}
-        className={`convo-item ${isActive ? 'convo-active' : ''}`}
-        title={`${c.name || 'Unnamed'}${c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString()}` : ''}`}
-      >
-        <span
-          onClick={() => onLoadArchived(c.id)}
-          style={{
-            flex: 1,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {c.name?.trim() || 'Unnamed'}
-        </span>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeleteArchived(c);
-          }}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'rgba(255, 100, 100, 0.6)',
-            cursor: 'pointer',
-            padding: '2px 6px',
-            fontSize: 'calc(14px * var(--scale))',
-            fontWeight: 'bold',
-            lineHeight: 1,
-            borderRadius: '4px',
-            transition: 'all 0.2s ease',
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.color = '#ff4444';
-            e.target.style.background = 'rgba(255, 68, 68, 0.15)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.color = 'rgba(255, 100, 100, 0.6)';
-            e.target.style.background = 'transparent';
-          }}
-          title="Delete this chat"
-        >
-          ×
-        </button>
-      </div>
-    );
-  }, [currentId, onLoadArchived, onDeleteArchived]);
-
-  // Check if viewing a recalled archived chat
-  const isViewingArchived = archived.some(c => c.id === currentId);
-
-  // Top label: "New Chat" if viewing archived or no messages, "Current chat" if has messages
-  const topLabel = isViewingArchived ? 'New Chat' : (hasMessages ? 'Current chat' : 'New Chat');
-  const topIsActive = !isViewingArchived && hasMessages;
   return (
     <div
       className="wankr-panel sidebar-panel"
@@ -123,9 +31,10 @@ function Sidebar({
           padding: '0 var(--dashboard-panel-padding)',
           height: 'var(--dashboard-header-height)',
           minHeight: 'var(--dashboard-header-height)',
-          background: 'linear-gradient(180deg, #161616 0%, #0f0f0f 100%)',
-          borderBottom: '1px solid rgba(100, 100, 100, 0.5)',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)',
+          background: '#0c0c0c',
+          borderBottom: '2px solid rgba(0, 255, 0, 0.35)',
+          boxShadow:
+            '0 8px 18px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.7), 0 0 18px rgba(0, 255, 0, 0.18)',
           flexShrink: 0,
         }}
       >
@@ -139,10 +48,10 @@ function Sidebar({
             letterSpacing: '3px',
             textTransform: 'uppercase',
             textShadow:
-              '0 0 22px rgba(0, 255, 0, 0.95), 0 0 40px rgba(0, 255, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.7)',
+              '0 0 26px rgba(0, 255, 0, 1), 0 0 48px rgba(0, 255, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.75)',
           }}
         >
-          Social Dumpster
+          Tools
         </h2>
       </div>
 
@@ -158,7 +67,7 @@ function Sidebar({
           flexDirection: 'column',
           gap: 'var(--dashboard-panel-padding)',
           minHeight: 0,
-          background: 'linear-gradient(180deg, #141414 0%, #0e0e0e 100%)',
+          background: 'linear-gradient(180deg, #080808 0%, #050505 100%)',
           boxShadow: 'inset 0 4px 16px rgba(0, 0, 0, 0.6)',
         }}
       >
@@ -168,7 +77,7 @@ function Sidebar({
           className="btn w-full text-sm"
           style={{
             borderRadius: 'var(--dashboard-panel-radius)',
-            padding: 'calc(17px * var(--scale))',
+            padding: 'clamp(11px, 1.4vw, 17px)',
           }}
         >
           Clear Chat
@@ -179,7 +88,7 @@ function Sidebar({
           className="btn w-full text-sm"
           style={{
             borderRadius: 'var(--dashboard-panel-radius)',
-            padding: 'calc(17px * var(--scale))',
+            padding: 'clamp(11px, 1.4vw, 17px)',
           }}
         >
           Archive
@@ -194,114 +103,175 @@ function Sidebar({
               display: 'flex',
               flexDirection: 'column',
               gap: '4px',
-              maxHeight: 'calc(280px * var(--scale))',
-              height: useVirtualArchived ? 'calc(280px * var(--scale))' : undefined,
-              overflowY: useVirtualArchived ? 'hidden' : 'auto',
-              fontSize: 'calc(14px * var(--scale))',
+              maxHeight: 'clamp(80px, 12vh, 140px)',
+              overflowY: 'auto',
+              fontSize: 'clamp(13px, 1.2vw, 16px)',
             }}
           >
             <div
-              onClick={isViewingArchived ? onStartNewChat : undefined}
               style={{
-                padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
-                borderRadius: 'calc(6px * var(--scale))',
-                color: 'var(--text-content)',
-                background: topIsActive
-                  ? 'linear-gradient(180deg, rgba(0, 255, 0, 0.16) 0%, rgba(0, 255, 0, 0.1) 100%)'
-                  : 'linear-gradient(180deg, #1a1a1a 0%, #101010 100%)',
-                border: '1px solid rgba(100, 100, 100, 0.5)',
-                boxShadow: topIsActive
-                  ? '0 2px 10px rgba(0, 255, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16)'
-                  : '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+                padding: '6px 10px',
+                borderRadius: '6px',
+                color: 'var(--text-primary)',
+                background: 'linear-gradient(180deg, rgba(0, 255, 0, 0.28) 0%, rgba(0, 255, 0, 0.16) 100%)',
+                border: '1px solid rgba(0, 255, 0, 0.6)',
+                boxShadow: '0 2px 10px rgba(0, 255, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                cursor: isViewingArchived ? 'pointer' : 'default',
-                flexShrink: 0,
               }}
             >
-              {topLabel}
+              {currentLabel}
             </div>
-            {useVirtualArchived ? (
-              <div ref={archivedListRef} style={{ flex: 1, minHeight: 0 }}>
-                {archivedListHeight > 0 && (
-                  <FixedSizeList
-                    height={archivedListHeight}
-                    width="100%"
-                    itemCount={archivedReversed.length}
-                    itemSize={44}
-                    itemData={archivedReversed}
-                    style={{ overflowX: 'hidden' }}
-                  >
-                    {ArchivedRow}
-                  </FixedSizeList>
-                )}
+            {[...archived].reverse().map((c) => (
+              <div
+                key={c.id}
+                className="convo-item"
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  color: 'var(--text-primary)',
+                  background: 'linear-gradient(180deg, #1a1a1a 0%, #101010 100%)',
+                  border: '1px solid rgba(0, 255, 0, 0.25)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={`${c.name || 'Unnamed'}${c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString()}` : ''}`}
+                onClick={() => onLoadArchived(c.id)}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'linear-gradient(180deg, rgba(0, 255, 0, 0.15) 0%, rgba(0, 255, 0, 0.08) 100%)';
+                  e.target.style.borderColor = 'rgba(0, 255, 0, 0.6)';
+                  e.target.style.boxShadow = '0 2px 10px rgba(0, 255, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'linear-gradient(180deg, #1a1a1a 0%, #111 100%)';
+                  e.target.style.borderColor = 'rgba(0, 255, 0, 0.25)';
+                  e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)';
+                }}
+              >
+                {c.name?.trim() || 'Unnamed'}
               </div>
-            ) : (
-              archivedReversed.map((c) => {
-                const isActive = c.id === currentId;
-                return (
-                  <div
-                    key={c.id}
-                    className={`convo-item ${isActive ? 'convo-active' : ''}`}
-                    style={{
-                      padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
-                      borderRadius: 'calc(6px * var(--scale))',
-                      color: 'var(--text-content)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '4px',
-                    }}
-                    title={`${c.name || 'Unnamed'}${c.createdAt ? ` · ${new Date(c.createdAt).toLocaleDateString()}` : ''}`}
-                  >
-                    <span
-                      onClick={() => onLoadArchived(c.id)}
-                      style={{
-                        flex: 1,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {c.name?.trim() || 'Unnamed'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteArchived(c);
-                      }}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'rgba(255, 100, 100, 0.6)',
-                        cursor: 'pointer',
-                        padding: '2px 6px',
-                        fontSize: 'calc(14px * var(--scale))',
-                        fontWeight: 'bold',
-                        lineHeight: 1,
-                        borderRadius: '4px',
-                        transition: 'all 0.2s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.color = '#ff4444';
-                        e.target.style.background = 'rgba(255, 68, 68, 0.15)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.color = 'rgba(255, 100, 100, 0.6)';
-                        e.target.style.background = 'transparent';
-                      }}
-                      title="Delete this chat"
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })
+            ))}
+          </div>
+        </div>
+
+        {/* Training */}
+        <div>
+          <div className="sidebar-title">Training</div>
+          <div
+            style={{
+              padding: 'var(--dashboard-input-padding)',
+              background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)',
+              border: '1px solid rgba(0, 255, 0, 0.5)',
+              borderRadius: 'var(--dashboard-panel-radius)',
+              boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 12px rgba(0, 255, 0, 0.08)',
+            }}
+          >
+            <label
+              style={{
+                display: 'block',
+                fontSize: 'clamp(12px, 1vw, 14px)',
+                marginBottom: '6px',
+                color: 'rgba(220, 220, 220, 0.85)',
+              }}
+            >
+              System prompt (training data only)
+            </label>
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => onSystemPromptChange(e.target.value)}
+              className="input-field scroll-area"
+              placeholder="Optional override. Chat always uses Wankr identity."
+              style={{
+                width: '100%',
+                height: 'clamp(60px, 10vh, 100px)',
+                borderRadius: 'var(--dashboard-input-border-radius)',
+                padding: '8px',
+                fontSize: 'clamp(12px, 1vw, 14px)',
+                fontFamily: 'monospace',
+                resize: 'none',
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={onResetPrompt}
+            className="btn w-full text-sm"
+            style={{
+              borderRadius: 'var(--dashboard-panel-radius)',
+              marginTop: '8px',
+              padding: 'clamp(10px, 1.3vw, 15px)',
+            }}
+          >
+            Reset system prompt
+          </button>
+          <button
+            type="button"
+            onClick={onTrain}
+            className="btn-primary w-full text-sm font-medium"
+            style={{
+              borderRadius: 'var(--dashboard-panel-radius)',
+              marginTop: '8px',
+              padding: 'clamp(11px, 1.4vw, 17px)',
+            }}
+          >
+            Add to training data
+          </button>
+          <p
+            style={{
+              fontSize: 'clamp(12px, 1vw, 14px)',
+              marginTop: '6px',
+              color: 'rgba(220, 220, 220, 0.8)',
+            }}
+          >
+            Training examples: <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{trainCount}</span>
+          </p>
+        </div>
+
+        {/* Thought Process */}
+        <div>
+          <div className="sidebar-title">Thought Process</div>
+          <div
+            className="scroll-area"
+            style={{
+              padding: 'var(--dashboard-input-padding)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)',
+              border: '1px solid rgba(0, 255, 0, 0.5)',
+              borderRadius: 'var(--dashboard-panel-radius)',
+              color: 'rgba(220, 220, 220, 0.8)',
+              minHeight: 'clamp(60px, 8vh, 100px)',
+              maxHeight: 'clamp(100px, 15vh, 180px)',
+              overflowY: 'auto',
+              boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 12px rgba(0, 255, 0, 0.08)',
+              fontSize: 'clamp(12px, 1.1vw, 15px)',
+            }}
+          >
+            {thoughts.length === 0 && (
+              <div style={{ color: 'rgba(220, 220, 220, 0.7)', fontStyle: 'italic', opacity: 0.7 }}>
+                No thoughts yet...
+              </div>
             )}
+            {thoughts.map((t, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: '8px 10px',
+                  background: 'linear-gradient(180deg, #1a1a1a 0%, #111 100%)',
+                  borderLeft: '3px solid var(--accent)',
+                  borderRadius: '4px',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                }}
+              >
+                <span style={{ color: 'var(--accent)' }}>→</span> {t}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -312,17 +282,18 @@ function Sidebar({
           flexShrink: 0,
           textAlign: 'center',
           padding: 'var(--dashboard-input-padding) var(--dashboard-panel-padding)',
-          color: 'var(--text-muted-content)',
-          background: 'linear-gradient(180deg, #161616 0%, #1e1e1e 100%)',
-          borderTop: '2px solid rgba(100, 100, 100, 0.5)',
+          color: 'rgba(220, 220, 220, 0.75)',
+          background: '#0c0c0c',
+          borderTop: '2px solid rgba(0, 255, 0, 0.35)',
           boxShadow: `
-            0 -4px 12px rgba(0, 0, 0, 0.4),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05)
+            0 -8px 18px rgba(0, 0, 0, 0.7),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05),
+            0 0 16px rgba(0, 255, 0, 0.12)
           `,
-          fontSize: 'calc(9px * var(--scale))',
+          fontSize: 'clamp(11px, 1vw, 13px)',
         }}
       >
-        Wankr v0.1 • built by gitNoodler
+        Wankr v0.1 • built for Payton
       </div>
     </div>
   );

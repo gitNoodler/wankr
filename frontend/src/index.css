@@ -2,143 +2,52 @@
   box-sizing: border-box;
 }
 
-/* ── WANKR FORCED LAYOUT ── (no scale, no collapse) */
-
 :root {
-  --scale: 1;
-  --bg-black: #050505;
+  --bg-black: #000000;
   --bg-panel: #0a0a0a;
-  --accent: #00ff41;
-  --accent-soft: #00cc33;
-  --accent-muted: rgba(0, 255, 0, 0.55);
-  --text-content: rgba(220, 220, 220, 0.88);
-  --text-muted-content: rgba(200, 200, 200, 0.65);
-  --accent-glow: 0 0 30px #00ff41;
-  --accent-edge: 2px solid var(--accent);
-  --accent-edge-glow: rgba(0, 255, 65, 0.15);
-  --text-primary: #ffffff;
-  --text-muted: #aaaaaa;
-  --border: 1px solid rgba(140, 140, 140, 0.45);
-  --border-panel: 1px solid rgba(120, 120, 120, 0.5);
+  --accent: #00ff00;
+  --accent-soft: rgba(0, 255, 0, 0.22);
+  --accent-glow: 0 0 12px #00ff00, 0 0 24px rgba(0, 255, 0, 0.6);
+  --text-primary: #f4f4f4;
+  --text-muted: #9a9a9a;
+  --border: 1px solid rgba(0, 255, 0, 0.55);
   --gold: #ffd700;
-
-  /* FIXED SIZES — guaranteed to show */
-  --dashboard-header-height: 96px;
-  --dashboard-input-height: 96px;
-  --dashboard-sidebar-width: 420px;
-  --dashboard-panel-radius: 20px;
-  --dashboard-panel-padding: 24px;
-  --dashboard-content-padding: 40px;
-  --dashboard-title-font-size: 32px;
-  --dashboard-title-logo-size: 48px;
-  --dashboard-title-gap: 16px;
-  --dashboard-input-font-size: 18px;
-  --dashboard-input-padding: 16px;
-  --dashboard-input-border-radius: 12px;
-  --dashboard-input-gap: 12px;
+  /* Responsive: scale with viewport (+40%) */
+  --dashboard-header-height: clamp(90px, 8vh, 132px);
+  --dashboard-input-height: clamp(90px, 8vh, 132px);
+  --dashboard-sidebar-width: clamp(400px, 32vw, 600px);
+  --dashboard-panel-radius: clamp(13px, 1.3vw, 24px);
+  --dashboard-panel-padding: clamp(20px, 2vw, 38px);
+  --dashboard-content-padding: clamp(26px, 3.2vw, 64px);
+  --dashboard-title-font-size: clamp(30px, 2.6vw, 46px);
+  --dashboard-title-logo-size: clamp(64px, 5.4vw, 96px);
+  --dashboard-title-gap: clamp(18px, 1.7vw, 32px);
+  --dashboard-input-font-size: clamp(19px, 1.6vw, 26px);
+  --dashboard-input-padding: clamp(10px, 1vw, 20px);
+  --dashboard-input-border-radius: clamp(13px, 1.3vw, 24px);
+  --dashboard-input-gap: clamp(10px, 0.9vw, 20px);
 }
 
-/* Force full viewport — 100% avoids 100vw scrollbar overflow; 100dvh for mobile address bar */
-/* --viewport-height set by JS on orientationchange/resize/visibilitychange for iOS reflow */
-html {
+html, body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
-  min-height: var(--viewport-height, 100dvh);
   overflow: hidden;
-  overflow-x: hidden;
-  background: var(--bg-black);
-}
-body, #root {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
-  min-height: var(--viewport-height, 100dvh);
-  overflow: hidden;
-  overflow-x: hidden;
-  background: var(--bg-black);
-  box-sizing: border-box;
-}
-
-/* iOS safe areas: keep content and background clear of notch / Dynamic Island / home indicator */
-@supports (padding-top: env(safe-area-inset-top)) {
-  body {
-    padding-top: env(safe-area-inset-top);
-    padding-right: env(safe-area-inset-right);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-  }
-}
-
-body {
-  /* Prevent iOS rubber-band and pull-to-refresh on login */
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: touch;
 }
 
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-black);
   color: var(--text-primary);
-  font-size: 16px;
-  line-height: 1.4;
 }
 
 #root {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-/* Single source of truth: dashboard grid (no duplicate in App.css) */
-.dashboard-body {
-  flex: 1 1 0;
-  min-height: 0;
-  height: 100% !important;
-  display: grid !important;
-  grid-template-columns: minmax(280px, var(--dashboard-sidebar-width)) 1fr;
-  grid-template-rows: 1fr;
-  grid-template-areas: "sidebar main";
-  gap: var(--dashboard-panel-padding);
-  padding: var(--dashboard-panel-padding) var(--dashboard-content-padding);
   overflow: hidden;
-  background: transparent;
-}
-
-.dashboard-sidebar {
-  grid-area: sidebar;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  overflow: hidden;
-}
-
-.dashboard-sidebar > * {
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-}
-
-.dashboard-main {
-  grid-area: main;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  overflow: hidden;
-}
-
-.dashboard-main > * {
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
 }
 
 .font-wankr {
@@ -155,39 +64,37 @@ body {
 
 .panel-left {
   border-right: var(--border);
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 2px 0 12px rgba(0, 255, 0, 0.15);
 }
 
 .panel-right {
   border-left: var(--border);
-  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.4);
+  box-shadow: -2px 0 12px rgba(0, 255, 0, 0.15);
 }
 
 .btn {
-  background: linear-gradient(180deg, #1e1e1e 0%, #161616 100%);
-  border: var(--border);
-  color: var(--accent-muted);
+  background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
+  border: 1px solid rgba(0, 255, 0, 0.4);
+  color: var(--accent);
   cursor: pointer;
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 0 6px rgba(0, 255, 0, 0.06);
+    0 0 8px rgba(0, 255, 0, 0.1);
   transition: all 0.2s ease;
-  text-shadow: 0 0 4px rgba(0, 255, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 0 6px rgba(0, 255, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .btn:hover {
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.14) 0%, rgba(0, 255, 0, 0.08) 100%);
-  border-color: rgba(130, 130, 130, 0.5);
-  color: var(--accent-muted);
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.2) 0%, rgba(0, 255, 0, 0.1) 100%);
   box-shadow:
     0 6px 20px rgba(0, 0, 0, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
     0 0 16px rgba(0, 255, 0, 0.25),
-    0 0 32px rgba(0, 255, 0, 0.12);
+    0 0 32px rgba(0, 255, 0, 0.1);
   transform: translateY(-1px);
 }
 
@@ -200,18 +107,18 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.32) 0%, rgba(0, 255, 0, 0.2) 100%);
-  color: rgba(240, 240, 240, 0.95);
-  border: var(--border);
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.4) 0%, rgba(0, 255, 0, 0.25) 100%);
+  color: #fff;
+  border: 1px solid rgba(0, 255, 0, 0.6);
   cursor: pointer;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
     inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 0 8px rgba(0, 255, 0, 0.15),
-    0 0 16px rgba(0, 255, 0, 0.06);
-  text-shadow: 0 0 4px rgba(0, 255, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
+    0 0 12px rgba(0, 255, 0, 0.2),
+    0 0 24px rgba(0, 255, 0, 0.1);
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.5);
   transition: all 0.2s ease;
 }
 
@@ -221,8 +128,8 @@ body {
     0 6px 24px rgba(0, 0, 0, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 0 24px rgba(0, 255, 0, 0.5),
-    0 0 48px rgba(0, 255, 0, 0.25);
+    0 0 20px rgba(0, 255, 0, 0.35),
+    0 0 40px rgba(0, 255, 0, 0.15);
   transform: translateY(-1px);
 }
 
@@ -234,14 +141,10 @@ body {
     0 0 10px rgba(0, 255, 0, 0.2);
 }
 
-.header-menu-item:hover {
-  background: rgba(0, 255, 65, 0.1);
-}
-
 .input-field {
-  background: linear-gradient(180deg, #141414 0%, #101010 100%);
-  border: var(--border);
-  color: var(--text-content);
+  background: linear-gradient(180deg, #0a0a0a 0%, #111 100%);
+  border: 1px solid rgba(0, 255, 0, 0.4);
+  color: var(--text-primary);
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.5),
     0 1px 0 rgba(255, 255, 255, 0.05);
@@ -254,22 +157,20 @@ body {
 
 .input-field:focus {
   outline: none;
-  border-color: rgba(130, 130, 130, 0.5);
+  border-color: rgba(0, 255, 0, 0.6);
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.5),
-    0 0 16px rgba(0, 255, 0, 0.35),
-    0 0 32px rgba(0, 255, 0, 0.15);
+    0 0 10px rgba(0, 255, 0, 0.25),
+    0 0 20px rgba(0, 255, 0, 0.1);
 }
 
 .convo-item {
   cursor: pointer;
-  color: var(--text-content);
 }
 
 .convo-item:hover {
-  background: rgba(0, 255, 0, 0.1);
-  border-left: 3px solid rgba(100, 100, 100, 0.5);
-  box-shadow: 0 0 12px rgba(0, 255, 0, 0.2);
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
 }
 
 .bubble-wankr {
@@ -288,7 +189,7 @@ body {
 .bubble-user {
   background: rgba(0, 255, 0, 0.2);
   color: var(--text-primary);
-  border: 1.5px solid rgba(120, 120, 120, 0.6);
+  border: 1.5px solid rgba(0, 255, 0, 0.9);
   border-radius: 11px;
   box-shadow:
     0 4px 16px rgba(0, 255, 0, 0.3),
@@ -311,18 +212,18 @@ body {
 /* Training light indicator */
 .training-light {
   display: inline-block;
-  width: calc(14px * var(--scale));
-  height: calc(14px * var(--scale));
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: rgba(80, 80, 80, 0.7);
-  border: var(--border);
+  border: 1px solid rgba(120, 120, 120, 0.6);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
   transition: all 0.2s ease;
 }
 
 .training-light.on {
   background: var(--accent);
-  border-color: rgba(130, 130, 130, 0.5);
+  border-color: rgba(0, 255, 0, 0.8);
   box-shadow:
     0 0 10px rgba(0, 255, 0, 0.8),
     0 0 20px rgba(0, 255, 0, 0.4),
@@ -331,15 +232,13 @@ body {
 
 /* Chat input wrapper glow */
 .chat-input-wrapper:focus-within {
-  border-color: rgba(100, 100, 100, 0.6) !important;
+  border-color: rgba(0, 255, 0, 0.7) !important;
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.6),
     inset 0 2px 4px rgba(0, 0, 0, 0.4),
-    0 0 24px rgba(0, 255, 0, 0.4),
-    0 0 48px rgba(0, 255, 0, 0.2) !important;
-}
-.chat-input-wrapper button[type="submit"]:hover:not(:disabled) {
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), 0 0 40px rgba(0, 255, 0, 0.25) !important;
+    0 0 20px rgba(0, 255, 0, 0.3),
+    0 0 40px rgba(0, 255, 0, 0.15),
+    0 0 60px rgba(0, 255, 0, 0.08) !important;
 }
 
 @keyframes beam-pulse {
@@ -379,14 +278,18 @@ body {
 
 .sidebar-title {
   font-family: 'VT323', monospace;
-  font-size: calc(21px * var(--scale));
+  font-size: clamp(18px, 1.6vw, 24px);
   letter-spacing: 0.1em;
   color: var(--accent);
-  text-shadow: 0 0 10px var(--accent), 0 0 20px rgba(0, 255, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 0 14px var(--accent), 0 0 26px rgba(0, 255, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.6);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   padding-bottom: 6px;
-  border-bottom: var(--border);
+  border-bottom: 1px solid rgba(0, 255, 0, 0.4);
+}
+
+.thought {
+  animation: fadeIn 0.4s;
 }
 
 @keyframes fadeIn {
@@ -431,7 +334,7 @@ body {
 .scroll-area::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(0, 255, 0, 0.5) 0%, rgba(0, 255, 0, 0.3) 100%);
   border-radius: 7px;
-  border: var(--border);
+  border: 1px solid rgba(0, 255, 0, 0.3);
   box-shadow: 0 0 8px rgba(0, 255, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
@@ -449,15 +352,16 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #1c1c1c 0%, #141414 100%);
-  border: var(--border);
+  background: linear-gradient(180deg, #151515 0%, #0d0d0d 100%);
+  border: 1px solid rgba(0, 255, 0, 0.45);
   border-radius: var(--dashboard-panel-radius);
   box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.9),
-    0 12px 40px rgba(0, 0, 0, 0.7),
-    0 4px 12px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 0 24px rgba(0, 255, 0, 0.16),
+    0 0 48px rgba(0, 255, 0, 0.08);
   position: relative;
   overflow: hidden;
   min-height: 0;
@@ -470,29 +374,15 @@ body {
   transition: box-shadow 0.3s ease;
 }
 
-/* Center panel (chat): both inner edges catch the green light */
-.dashboard-main .wankr-panel {
-  border-left: var(--accent-edge);
-  border-right: var(--accent-edge);
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.9),
-    0 12px 40px rgba(0, 0, 0, 0.7),
-    0 4px 12px rgba(0, 0, 0, 0.5),
-    -12px 0 40px var(--accent-edge-glow),
-    12px 0 40px var(--accent-edge-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-}
-
 .sidebar-panel {
-  border-color: rgba(120, 120, 120, 0.5);
-  border-right: var(--accent-edge);
+  border-color: rgba(0, 255, 0, 0.65);
   box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.9),
-    0 12px 40px rgba(0, 0, 0, 0.7),
-    12px 0 40px var(--accent-edge-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 0 28px rgba(0, 255, 0, 0.22),
+    0 0 56px rgba(0, 255, 0, 0.12);
 }
 
 .sidebar-panel .sidebar-title {
@@ -501,7 +391,7 @@ body {
     0 0 12px rgba(0, 255, 0, 0.7),
     0 0 24px rgba(0, 255, 0, 0.3),
     0 1px 2px rgba(0, 0, 0, 0.6);
-  border-bottom: var(--border);
+  border-bottom: 1px solid rgba(0, 255, 0, 0.35);
 }
 
 .wankr-panel {
@@ -510,25 +400,27 @@ body {
 
 .wankr-panel:hover {
   box-shadow:
-    0 28px 72px rgba(0, 0, 0, 0.95),
-    0 14px 44px rgba(0, 0, 0, 0.75),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 0 36px rgba(0, 255, 0, 0.22),
+    0 0 72px rgba(0, 255, 0, 0.12);
 }
 
 .wankr-panel::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.2);
   z-index: 0;
   pointer-events: none;
 }
 
 .wankr-panel-header {
   padding: 0 var(--dashboard-panel-padding);
-  border-bottom: var(--border);
-  background: rgba(15, 15, 15, 0.95);
+  border-bottom: 2px solid rgba(0, 255, 0, 0.35);
+  background: #0c0c0c;
   flex-shrink: 0;
   position: relative;
   z-index: 10;
@@ -537,6 +429,22 @@ body {
   align-items: center;
   height: var(--dashboard-header-height);
   min-height: var(--dashboard-header-height);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.7),
+    0 0 18px rgba(0, 255, 0, 0.18);
+}
+
+.wankr-panel-header::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.55), transparent);
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.35);
 }
 
 .wankr-panel-title-wrap {
@@ -550,8 +458,8 @@ body {
   height: var(--dashboard-title-logo-size);
   object-fit: contain;
   filter:
-    drop-shadow(0 0 4px rgba(0, 255, 0, 0.45))
-    drop-shadow(0 0 8px rgba(0, 255, 0, 0.25));
+    drop-shadow(0 0 14px rgba(0, 255, 0, 0.8))
+    drop-shadow(0 0 30px rgba(0, 255, 0, 0.6));
   opacity: 0.95;
 }
 
@@ -560,7 +468,7 @@ body {
   font-weight: 600;
   font-family: 'VT323', monospace;
   color: var(--accent);
-  text-shadow: 0 0 10px var(--accent);
+  text-shadow: 0 0 14px var(--accent), 0 0 30px rgba(0, 255, 0, 0.4);
   letter-spacing: 2px;
   text-transform: uppercase;
   margin: 0;
@@ -599,9 +507,9 @@ body {
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
-  background: #050505;
-  border-left: var(--border);
-  border-right: var(--border);
+  background: #060606;
+  border-left: 1px solid rgba(100, 100, 100, 0.3);
+  border-right: 1px solid rgba(100, 100, 100, 0.3);
   position: relative;
   z-index: 5;
 }
@@ -610,7 +518,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.55);
   z-index: 0;
   pointer-events: none;
 }
@@ -619,10 +527,10 @@ body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: calc(16px * var(--scale)) calc(24px * var(--scale));
+  padding: clamp(8px, 1vw, 16px) clamp(12px, 1.5vw, 24px);
   display: flex;
   flex-direction: column;
-  gap: calc(12px * var(--scale));
+  gap: clamp(6px, 0.6vw, 12px);
   min-height: 0;
   max-height: 100%;
   background: #050505;
@@ -634,14 +542,14 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.35);
   z-index: 0;
   pointer-events: none;
 }
 
 .wankr-message {
   display: flex;
-  margin-bottom: calc(4px * var(--scale));
+  margin-bottom: 4px;
   animation: fadeIn 0.3s ease;
   position: relative;
   z-index: 2;
@@ -653,17 +561,18 @@ body {
 
 .wankr-message.ai {
   justify-content: flex-start;
-  align-items: center;
-  gap: calc(11px * var(--scale));
+  align-items: flex-start;
+  gap: 11px;
 }
 
 .wankr-ai-avatar {
-  width: calc(52px * var(--scale));
-  height: calc(52px * var(--scale));
+  width: clamp(55px, 4.9vw, 78px);
+  height: clamp(55px, 4.9vw, 78px);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 2px;
   background: transparent;
 }
 
@@ -672,18 +581,18 @@ body {
   height: 100%;
   object-fit: contain;
   background: transparent;
-  mix-blend-mode: multiply;
-  filter: drop-shadow(0 0 8px var(--accent)) drop-shadow(0 0 16px rgba(0, 255, 0, 0.35));
+  mix-blend-mode: normal;
+  filter: drop-shadow(0 0 10px var(--accent)) drop-shadow(0 0 20px rgba(0, 255, 0, 0.5));
   opacity: 0.9;
 }
 
 .wankr-message-bubble {
   max-width: 80%;
-  min-width: max(calc(392px * var(--scale)), min-content);
-  padding: calc(31px * var(--scale)) calc(39px * var(--scale));
-  border-radius: calc(24px * var(--scale));
+  min-width: max(clamp(235px, 24vw, 392px), min-content);
+  padding: clamp(20px, 2vw, 31px) clamp(28px, 2.4vw, 39px);
+  border-radius: clamp(15px, 1.5vw, 24px);
   background: linear-gradient(180deg, #1e1e1e 0%, #151515 100%);
-  border: var(--border);
+  border: 1px solid rgba(120, 120, 120, 0.4);
   box-shadow:
     0 6px 20px rgba(0, 0, 0, 0.5),
     0 2px 8px rgba(0, 0, 0, 0.4),
@@ -696,8 +605,8 @@ body {
 }
 
 .wankr-message.user .wankr-message-bubble {
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.14) 0%, rgba(0, 255, 0, 0.08) 100%);
-  border: var(--border);
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.22) 0%, rgba(0, 255, 0, 0.12) 100%);
+  border: 1px solid rgba(0, 255, 0, 0.6);
   box-shadow:
     0 6px 20px rgba(0, 0, 0, 0.4),
     0 2px 8px rgba(0, 0, 0, 0.4),
@@ -708,24 +617,16 @@ body {
 }
 
 .wankr-message.ai .wankr-message-bubble {
-  background: linear-gradient(180deg, #222 0%, #181818 100%);
-  border: var(--border);
-  box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 0 16px rgba(0, 255, 0, 0.12),
-    0 0 32px rgba(0, 255, 0, 0.06);
+  background: linear-gradient(180deg, #1e1e1e 0%, #151515 100%);
+  border: 1px solid rgba(120, 120, 120, 0.4);
 }
 
 .wankr-message-bubble p,
 .wankr-message-bubble pre {
   margin: 0;
-  color: var(--text-content);
-  font-size: calc(29px * var(--scale));
+  color: #f0f0f0;
+  font-size: clamp(24px, 2vw, 29px);
   line-height: 1.45;
-  min-height: 1.4em;
 }
 
 .wankr-empty-state {
@@ -734,23 +635,23 @@ body {
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: var(--text-muted-content);
-  font-size: calc(31px * var(--scale));
+  color: rgba(200, 200, 200, 0.5);
+  font-size: clamp(25px, 2.1vw, 31px);
   font-style: italic;
-  gap: calc(20px * var(--scale));
+  gap: clamp(11px, 1.1vw, 20px);
   position: relative;
   z-index: 2;
 }
 
 .wankr-empty-hint {
-  font-size: calc(20px * var(--scale));
-  color: var(--text-muted-content);
+  font-size: clamp(15px, 1.3vw, 20px);
+  color: rgba(200, 200, 200, 0.4);
 }
 
 .wankr-input-container {
-  padding: 0 var(--dashboard-panel-padding);
-  border-top: var(--border);
-  background: rgba(15, 15, 15, 0.95);
+  padding: clamp(6px, 1vw, 12px) var(--dashboard-panel-padding);
+  border-top: 2px solid rgba(0, 255, 0, 0.35);
+  background: #0c0c0c;
   flex-shrink: 0;
   position: relative;
   z-index: 10;
@@ -760,6 +661,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: var(--dashboard-input-gap);
+  box-shadow:
+    0 -8px 18px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.7),
+    0 0 18px rgba(0, 255, 0, 0.14);
 }
 
 .wankr-input-wrapper {
@@ -769,18 +675,18 @@ body {
   width: 90%;
   max-width: 90%;
   margin: 0 auto;
-  background: #181818;
-  border: var(--border);
+  background: #141414;
+  border: 1px solid rgba(150, 150, 150, 0.45);
   border-radius: var(--dashboard-input-border-radius);
   padding: var(--dashboard-input-padding);
   transition: all 0.25s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 255, 0, 0.08);
 }
 
 .wankr-input-wrapper:focus-within {
-  border: var(--border);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(140, 140, 140, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  background: #1c1c1c;
+  border: 1px solid rgba(0, 255, 0, 0.7);
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3), 0 0 0 2px rgba(0, 255, 0, 0.15);
+  background: #1a1a1a;
 }
 
 .wankr-input-wrapper input,
@@ -789,7 +695,7 @@ body {
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-content);
+  color: #f0f0f0;
   font-size: var(--dashboard-input-font-size);
   font-family: inherit;
   resize: none;
@@ -809,9 +715,9 @@ body {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: rgba(0, 255, 0, 0.14);
-  border: var(--border);
-  color: var(--accent-muted);
+  background: rgba(0, 255, 0, 0.2);
+  border: 1px solid rgba(0, 255, 0, 0.7);
+  color: var(--accent);
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
@@ -819,11 +725,11 @@ body {
 }
 
 .wankr-send-button:hover:not(:disabled) {
-  background: rgba(0, 255, 0, 0.28);
-  border-color: rgba(130, 130, 130, 0.5);
-  color: var(--text-content);
+  background: rgba(0, 255, 0, 0.35);
+  border-color: rgba(0, 255, 0, 0.9);
+  color: #fff;
   transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), 0 0 40px rgba(0, 255, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 255, 0, 0.4);
 }
 
 .wankr-send-button:disabled {
@@ -847,166 +753,15 @@ body {
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: var(--accent-muted);
+  background: rgba(0, 255, 0, 0.7);
   will-change: transform;
   animation: wankr-typing-bounce 1.2s ease-in-out infinite;
 }
 
-.wankr-typing span:nth-child(2) { animation: wankr-typing-bounce 1.2s ease-in-out 0.15s infinite; }
-.wankr-typing span:nth-child(3) { animation: wankr-typing-bounce 1.2s ease-in-out 0.3s infinite; }
+.wankr-typing span:nth-child(2) { animation-delay: 0.15s; }
+.wankr-typing span:nth-child(3) { animation-delay: 0.3s; }
 
 @keyframes wankr-typing-bounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
   30% { transform: translateY(-8px); opacity: 1; }
 }
-
-/* ── Training Panel (right side) ── */
-:root {
-  --training-panel-width: 380px;
-  --training-panel-width-closed: 0px;
-}
-
-.training-panel {
-  width: var(--training-panel-width);
-  min-width: var(--training-panel-width);
-  background: var(--bg-panel);
-  border-left: 2px solid var(--accent);
-  box-shadow: -12px 0 40px rgba(0, 255, 65, 0.15);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.training-panel.wankr-panel {
-  background: linear-gradient(180deg, #1c1c1c 0%, #141414 100%);
-  border: 1px solid rgba(120, 120, 120, 0.5);
-  border-left: var(--accent-edge);
-  border-radius: var(--dashboard-panel-radius);
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.9),
-    0 12px 40px rgba(0, 0, 0, 0.7),
-    -12px 0 40px var(--accent-edge-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-}
-
-.training-panel.closed {
-  width: var(--training-panel-width-closed);
-  min-width: 0;
-  border-left: none;
-  box-shadow: none;
-  opacity: 0;
-  transform: translateX(30px);
-}
-
-.dashboard-body.with-training,
-.dashboard-body.with-placeholder {
-  grid-template-columns: var(--dashboard-sidebar-width) 1fr var(--training-panel-width);
-}
-
-.dashboard-body.closed-training {
-  grid-template-columns: var(--dashboard-sidebar-width) 1fr var(--training-panel-width-closed);
-}
-
-.dashboard-right {
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-  display: flex;
-}
-
-.dashboard-right > * {
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-}
-
-/* Login panel collapse animation */
-.login-panel-collapsing {
-  animation: login-panel-collapse 0.3s ease-out forwards;
-}
-
-@keyframes login-panel-collapse {
-  to {
-    width: 0;
-    min-width: 0;
-    padding-left: 0;
-    padding-right: 0;
-    opacity: 0;
-    overflow: hidden;
-  }
-}
-
-/* Dashboard sweep-in (sidebar from left, right panel from right) */
-.dashboard-body.sweep-in .dashboard-sidebar {
-  animation: sidebar-sweep-in 0.35s ease-out forwards;
-}
-
-.dashboard-body.sweep-in .dashboard-main {
-  animation: main-expand-in 0.25s ease-out forwards;
-}
-
-.dashboard-body.sweep-in .dashboard-right {
-  animation: right-panel-sweep-in 0.35s ease-out 0.05s both;
-}
-
-@keyframes sidebar-sweep-in {
-  from {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes right-panel-sweep-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes main-expand-in {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* ── Conversation Items ── */
-.convo-item {
-  background: linear-gradient(180deg, #1a1a1a 0%, #101010 100%);
-  border: 1px solid rgba(100, 100, 100, 0.5);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.convo-item:hover:not(.convo-active) {
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.15) 0%, rgba(0, 255, 0, 0.08) 100%);
-  border-color: rgba(100, 100, 100, 0.6);
-  box-shadow: 0 2px 10px rgba(0, 255, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.convo-item.convo-active {
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.16) 0%, rgba(0, 255, 0, 0.1) 100%) !important;
-  border-color: rgba(0, 255, 0, 0.4) !important;
-  box-shadow: 0 2px 10px rgba(0, 255, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
-}
-
-/* ── Wanking Live panel ── */
-@keyframes xCallSlideIn {
-  from { opacity: 0; transform: translateY(-12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
