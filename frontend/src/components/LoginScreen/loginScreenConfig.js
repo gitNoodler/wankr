@@ -222,23 +222,6 @@ function sanitizeDevDefaults(obj, base) {
   return out;
 }
 
-const ALLOWED_KEYS_SET = new Set(ALLOWED_DEV_DEFAULT_KEYS);
-
-/**
- * Returns true only if the stored object is from our save flow: has defaultsVersion
- * and contains no keys other than defaultsVersion and ALLOWED_DEV_DEFAULT_KEYS.
- * Rejects any script-injected or tampered payload.
- */
-function isTrustedStoredDefaults(parsed) {
-  if (!parsed || typeof parsed !== 'object') return false;
-  if (parsed.defaultsVersion !== DEFAULTS_VERSION) return false;
-  for (const key of Object.keys(parsed)) {
-    if (key === 'defaultsVersion') continue;
-    if (!ALLOWED_KEYS_SET.has(key)) return false;
-  }
-  return true;
-}
-
 /**
  * Load dev defaults. Returns code defaults only (no localStorage).
  * Saved layout lives on the backend; all locations get it from GET /api/settings/dev-defaults.

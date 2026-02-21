@@ -8,7 +8,8 @@ import { computePanelBackground } from './helpers';
 import { useLoginScreenState } from './useLoginScreenState';
 import { useLoginScreenUndo } from './useLoginScreenUndo';
 import { useLoginScreenAuth } from './useLoginScreenAuth';
-import DevPasswordGate, { isDevPanelUnlocked, lockDevPanel } from './DevPasswordGate';
+import DevPasswordGate from './DevPasswordGate';
+import { isDevPanelUnlocked, lockDevPanel } from './devPanelLock';
 import WankingLiveDevPanel from '../WankingLive/WankingLiveDevPanel';
 import { useWankingLiveDevState } from '../WankingLive/useWankingLiveDevState';
 import './LoginScreen.css';
@@ -33,7 +34,6 @@ const DEV_PANEL_BOX_STYLE = {
 
 export default function LoginScreen({
   onLogin,
-  onSpectate,
   collapsing,
   onOpenMeasure,
   devPanelOpen = false,
@@ -45,7 +45,7 @@ export default function LoginScreen({
   const [devPanelUnlockedThisSession, setDevPanelUnlockedThisSession] = useState(false);
   const [dev2Open, setDev2Open] = useState(false);
   const dev1 = useWankingLiveDevState();
-  const [layersLocked, setLayersLocked] = useState(() => {
+  const [, setLayersLocked] = useState(() => {
     try {
       return localStorage.getItem(LAYERS_LOCKED_KEY) !== 'false';
     } catch { return true; }
@@ -64,58 +64,18 @@ export default function LoginScreen({
   }, []);
 
   const state = useLoginScreenState({});
-  const undo = useLoginScreenUndo({
+  useLoginScreenUndo({
     buildSnapshot: state.buildSnapshot,
     applySnapshotRef: state.applySnapshotRef,
     getSavedDefaults: () => fetchDevDefaultsFromBackend(api),
     onResetToPrimaryApplied: (primary) => api.post('/api/settings/dev-defaults', primary).catch(() => {}),
   });
-  const auth = useLoginScreenAuth({ onLogin });
-
-  const handleUnlockLayers = useCallback(() => {
-    if (!layersLocked) return;
-    if (window.confirm('Modify layer positions and scaling? Changes will apply immediately. You can re-lock after saving.')) {
-      setLayersLocked(false);
-      try { localStorage.setItem(LAYERS_LOCKED_KEY, 'false'); } catch { /* ignore */ }
-    }
-  }, [layersLocked]);
+  useLoginScreenAuth({ onLogin });
 
   const handleLockLayers = useCallback(() => {
     setLayersLocked(true);
     try { localStorage.setItem(LAYERS_LOCKED_KEY, 'true'); } catch { /* ignore */ }
   }, []);
-
-  const setScaleXLocked = useCallback((v) => {
-    state.setScaleX(v);
-    if (state.aspectLock) state.setScaleY(v);
-  }, [state]);
-
-  const setScaleYLocked = useCallback((v) => {
-    state.setScaleY(v);
-    if (state.aspectLock) state.setScaleX(v);
-  }, [state]);
-
-  const handleUsernameChange = useCallback((value) => {
-    auth.handleUsernameChange(value);
-  }, [auth]);
-
-  const handleSaveDevDefaults = useCallback(() => {
-    const valuesToSave = state.buildSnapshot();
-    if (!valuesToSave) return;
-    saveDevDefaults();
-    api
-      .post('/api/settings/dev-defaults', valuesToSave)
-      .then((res) => {
-        if (res.ok) {
-          handleLockLayers();
-        } else if (res.status === 403) {
-          window.alert('Could not save defaults. Use the dev server (port 5173) to save.');
-        } else {
-          window.alert('Save failed.');
-        }
-      })
-      .catch(() => window.alert('Save failed.'));
-  }, [state, handleLockLayers]);
 
   const panelBg = computePanelBackground(state.loginBrightness, state.loginShadeOfGray, state.loginLightToBlack);
 
@@ -188,10 +148,7 @@ export default function LoginScreen({
     fetchDevDefaultsFromBackend(api).then((data) => {
       if (data) state.applySnapshotRef.current?.(data);
     });
-  }, []);
-
-  const handleSubmit = (e) => { e?.preventDefault(); auth.doAuth(auth.isRegistering); };
-  const handleSpectate = (e) => { e?.preventDefault(); onSpectate?.(); };
+  }, [state.applySnapshotRef]);
 
   return (
     <div
