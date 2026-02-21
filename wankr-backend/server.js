@@ -5,7 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
-const { InfisicalClient } = require('@infisical/sdk');
+const { InfisicalSDK } = require('@infisical/sdk');
 const { processChat, logError, FOLDERS: ARCHIVE_FOLDERS } = require('./archiveService');
 const activeChatService = require('./activeChatService');
 const {
@@ -197,22 +197,22 @@ async function initInfisical() {
 
   try {
     console.log('🔑 Connecting to Infisical...');
-    const client = new InfisicalClient({
+    const client = new InfisicalSDK({
       siteUrl: 'https://app.infisical.com',
-      clientId,
-      clientSecret,
     });
+    await client.auth().universalAuth.login({ clientId, clientSecret });
+
     const env = process.env.INFISICAL_ENVIRONMENT || 'dev';
     console.log(`🔑 Fetching secrets from env="${env}", project="${projectId}"...`);
 
     for (const secretName of ['XAI_API_KEY', 'grokWankr']) {
       try {
-        const secret = await client.getSecret({
+        const secret = await client.secrets().getSecret({
           environment: env,
           projectId,
           secretName,
         });
-        const val = secret?.secretValue || secret?.secret_value || '';
+        const val = secret?.secretValue || '';
         if (val && val.trim()) {
           xaiApiKey = val.trim();
           console.log(`✅ xAI key loaded from Infisical (${secretName}), length=${xaiApiKey.length}`);
@@ -226,12 +226,12 @@ async function initInfisical() {
     }
     console.warn('⚠️ Infisical connected but no valid xAI key found');
     try {
-      const secret = await client.getSecret({
+      const secret = await client.secrets().getSecret({
         environment: env,
         projectId,
         secretName: 'VITE_API_KEY',
       });
-      const val = secret?.secretValue || secret?.secret_value || '';
+      const val = secret?.secretValue || '';
       if (val && val.trim()) {
         viteApiKey = val.trim();
         console.log(`✅ VITE_API_KEY loaded from Infisical, length=${viteApiKey.length}`);
