@@ -104,15 +104,43 @@ function generateGrokResponseFromTemplate(wankrMessage) {
   return GROK_FOLLOWUP_TEMPLATES[Math.floor(Math.random() * GROK_FOLLOWUP_TEMPLATES.length)];
 }
 
+// Ensure tool_use IDs are unique within a message's content array
+function ensureUniqueToolUseIds(content) {
+  if (!Array.isArray(content)) return content;
+  
+  const seenIds = new Set();
+  let idCounter = 0;
+  
+  return content.map(item => {
+    if (item && typeof item === 'object' && item.type === 'tool_use' && item.id) {
+      // If we've seen this ID before, generate a new unique one
+      if (seenIds.has(item.id)) {
+        const newId = `${item.id}_${++idCounter}_${Date.now()}`;
+        seenIds.add(newId);
+        return { ...item, id: newId };
+      }
+      seenIds.add(item.id);
+    }
+    return item;
+  });
+}
+
 // Get Grok's reply from the API: read the conversation and respond with thematic continuity
 async function getGrokReply(conv) {
   if (!xaiApiKey) return null;
   if (!conv?.messages?.length) return null;
 
-  const history = conv.messages.slice(-14).map((m) => ({
-    role: m.from === 'grok' ? 'user' : 'assistant',
-    content: m.content,
-  }));
+  const history = conv.messages.slice(-14).map((m) => {
+    let content = m.content;
+    // Ensure tool_use IDs are unique if content is an array
+    if (Array.isArray(content)) {
+      content = ensureUniqueToolUseIds(content);
+    }
+    return {
+      role: m.from === 'grok' ? 'user' : 'assistant',
+      content,
+    };
+  });
 
   const messages = [
     { role: 'system', content: GROK_PERSONA_PROMPT },
@@ -164,10 +192,17 @@ async function getWankrResponse(grokMessage) {
   }
 
   const conv = loadConversation();
-  const history = conv.messages.slice(-10).map(m => ({
-    role: m.from === 'grok' ? 'user' : 'assistant',
-    content: m.content,
-  }));
+  const history = conv.messages.slice(-10).map(m => {
+    let content = m.content;
+    // Ensure tool_use IDs are unique if content is an array
+    if (Array.isArray(content)) {
+      content = ensureUniqueToolUseIds(content);
+    }
+    return {
+      role: m.from === 'grok' ? 'user' : 'assistant',
+      content,
+    };
+  });
   history.push({ role: 'user', content: grokMessage });
   const messages = [
     { role: 'system', content: systemPrompt },

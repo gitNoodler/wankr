@@ -243,6 +243,27 @@ async function initInfisical() {
   }
 }
 
+// Ensure tool_use IDs are unique within a message's content array
+function ensureUniqueToolUseIds(content) {
+  if (!Array.isArray(content)) return content;
+  
+  const seenIds = new Set();
+  let idCounter = 0;
+  
+  return content.map(item => {
+    if (item && typeof item === 'object' && item.type === 'tool_use' && item.id) {
+      // If we've seen this ID before, generate a new unique one
+      if (seenIds.has(item.id)) {
+        const newId = `${item.id}_${++idCounter}_${Date.now()}`;
+        seenIds.add(newId);
+        return { ...item, id: newId };
+      }
+      seenIds.add(item.id);
+    }
+    return item;
+  });
+}
+
 function buildMessages(history, newMessage, trainingMode) {
   const messages = [{ role: 'system', content: DEFAULT_SYSTEM }];
   if (trainingMode) {
@@ -250,8 +271,29 @@ function buildMessages(history, newMessage, trainingMode) {
   }
   for (const m of history || []) {
     const role = (m.role || '').toLowerCase();
-    const content = (m.content || '').trim();
-    if (!content) continue;
+    let content = m.content;
+    
+    // Handle content arrays (for tool_use blocks)
+    if (Array.isArray(content)) {
+      content = ensureUniqueToolUseIds(content);
+      // Filter out empty content blocks
+      content = content.filter(item => {
+        if (typeof item === 'string') return item.trim().length > 0;
+        if (item && typeof item === 'object') {
+          // Keep tool_use blocks and non-empty text blocks
+          if (item.type === 'tool_use') return true;
+          if (item.type === 'text' && item.text) return item.text.trim().length > 0;
+          return true; // Keep other block types
+        }
+        return false;
+      });
+      if (content.length === 0) continue;
+    } else {
+      // Handle string content (legacy format)
+      content = (content || '').trim();
+      if (!content) continue;
+    }
+    
     if (role === 'user') messages.push({ role: 'user', content });
     else messages.push({ role: 'assistant', content });
   }
