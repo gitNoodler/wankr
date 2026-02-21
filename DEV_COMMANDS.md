@@ -1,6 +1,6 @@
 ## Wankr Dev Commands
 
-All commands assume repo root: `C:\Users\legro\Documents\GitHub\wankr`.
+All commands assume repo root: `C:\Users\legro\Documents\GitHub\wankr`. Use this single location only; do not rely on a synced copy elsewhere (it can get out of sync).
 
 ### Quick start (recommended)
 - `wankr.bat`  

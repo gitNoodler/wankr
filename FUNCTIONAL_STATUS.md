@@ -16,12 +16,7 @@
 - `start_wankr.bat`
 - `run_dev.bat`
 
-## Folder Sync (GitHub → Local mirror)
-- `sync_wankr_folders.bat` (run from the GitHub repo)
-  - Default: mirrors `C:\Users\legro\Documents\GitHub\wankr` → `C:\Users\legro\Wankr`
-  - Safe excludes: `.git`, `.cursor`, `node_modules`, `dist`, `logs`, `.env`, Infisical files, caches
-  - Check only: `sync_wankr_folders.bat check`
-  - Logs: `logs\sync.log` and `logs\sync_check.log`
+Work from the Git repo only (one location). Do not use a second synced copy; it can get out of sync.
 
 ## Other Scripts
 - `run_backend.bat`: starts backend only (foreground window).

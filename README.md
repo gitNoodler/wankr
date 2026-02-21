@@ -2,6 +2,8 @@
 
 Agent Box (React + Node.js + xAI/Grok) and CLI roast bot. No raw xAI keys in the repo; use Infisical or .env.
 
+**Where to work:** Use a single local location — the Git repo (e.g. `C:\Users\legro\Documents\GitHub\wankr`). Run all commands from the repo root. Do not rely on a second copy elsewhere; it can get out of sync and cause confusion.
+
 ## Social analysis engine
 
 Wankr uses a KOL database and scoring engine to detect fake/botted engagement. High positive sentiment + high bots = maximum deception (roast priority 8–10).
@@ -14,7 +16,7 @@ Wankr uses a KOL database and scoring engine to detect fake/botted engagement. H
 
 ### One-time setup (do this once)
 
-Inside `c:\Users\legro\Wankr` run:
+Inside your repo root (e.g. `C:\Users\legro\Documents\GitHub\wankr`) run:
 
 ```bat
 infisical login
