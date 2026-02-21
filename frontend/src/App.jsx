@@ -11,7 +11,6 @@ import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
 import Sidebar from './components/Sidebar';
 import TrainingPanel from './components/TrainingPanel';
-import PlaceholderPanel from './components/PlaceholderPanel';
 import KolAnalysisPanel from './components/KolAnalysisPanel';
 import LoginScreen from './components/LoginScreen';
 import SpectatorView from './components/SpectatorView';

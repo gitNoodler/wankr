@@ -208,12 +208,25 @@ function AccountDetail({ account }) {
         {account.verdictIcon} {account.verdict}
       </div>
 
+      {account.sentimentReason && (
+        <div style={{
+          fontSize: 'calc(10px * var(--scale))',
+          color: '#ff9933',
+          fontStyle: 'italic',
+          lineHeight: 1.3,
+          borderTop: '1px solid rgba(100, 100, 100, 0.3)',
+          paddingTop: 'calc(6px * var(--scale))',
+        }}>
+          {account.sentimentReason}
+        </div>
+      )}
+
       <div style={{
         fontSize: 'calc(10px * var(--scale))',
         color: 'var(--text-content)',
         lineHeight: 1.4,
-        borderTop: '1px solid rgba(100, 100, 100, 0.3)',
-        paddingTop: 'calc(6px * var(--scale))',
+        borderTop: account.sentimentReason ? 'none' : '1px solid rgba(100, 100, 100, 0.3)',
+        paddingTop: account.sentimentReason ? 0 : 'calc(6px * var(--scale))',
       }}>
         <span style={{ color: 'var(--text-muted-content)' }}>Notes: </span>
         {account.notes || 'No intel available.'}
@@ -230,7 +243,9 @@ function AccountDetail({ account }) {
         <span>|</span>
         <span>Bot Lvl: {account.botLevel}/5</span>
         <span>|</span>
-        <span>Reply Quality: {(account.replyQualityRatio * 100).toFixed(0)}%</span>
+        <span>Organic: {account.organicEngagement ?? '-'}/10</span>
+        <span>|</span>
+        <span>Eng Drop: {account.engagementDrop ?? '-'}%</span>
       </div>
     </div>
   );
