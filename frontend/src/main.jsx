@@ -17,7 +17,7 @@ async function init() {
       const data = await r.json()
       if (data?.apiKey) setRuntimeApiKey(data.apiKey)
     }
-  } catch (_) {}
+  } catch { /* config endpoint unavailable */ }
 
   const rootEl = document.getElementById('root')
   if (!rootEl) {

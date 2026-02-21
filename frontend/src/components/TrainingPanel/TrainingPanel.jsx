@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { api } from '../../utils/api';
 
 const TAB_TRAINING = 'training';
 const TAB_DEVTOOLS = 'devtools';
@@ -244,6 +245,9 @@ const TrainingPanel = ({
             <Metric label="Tokens"        value={metrics.tokensThisSession} color="#ccc" />
           </div>
         </div>
+
+        {/* Training Data Stats (real backend data) */}
+        <TrainingDataStats />
 
         {/* Checkpoints */}
         <div style={{ marginTop: 'auto' }}>
@@ -610,6 +614,132 @@ function DevToolsView() {
       <Slider label="Rotate deg" value={state.rotate} min={-180} max={180} step={1} onChange={(v) => update('rotate', v)} />
       <Slider label="z-index" value={state.zIndex} min={-10} max={100} step={1} onChange={(v) => update('zIndex', v)} />
     </>
+  );
+}
+
+function TrainingDataStats() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadStats = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      api.get('/api/training/stats').then(r => r.ok ? r.json() : null).catch(() => null),
+      api.get('/api/training/sources').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([statsData, sourcesData]) => {
+      setStats({ stats: statsData, sources: sourcesData });
+    }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      api.get('/api/training/stats').then(r => r.ok ? r.json() : null).catch(() => null),
+      api.get('/api/training/sources').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([statsData, sourcesData]) => {
+      if (!cancelled) {
+        setStats({ stats: statsData, sources: sourcesData });
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return (
+    <div style={{ textAlign: 'center', color: '#666', fontSize: '12px', padding: '8px' }}>
+      Loading training data...
+    </div>
+  );
+
+  if (!stats?.stats) return null;
+
+  const { stats: s, sources } = stats;
+  const convFiles = s?.conversations?.files ?? 0;
+  const convPairs = s?.conversations?.pairs ?? 0;
+  const overrideFiles = s?.overrides?.files ?? 0;
+  const externalFiles = s?.external?.files ?? 0;
+
+  return (
+    <div>
+      <div className="sidebar-title" style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>Training Data</span>
+        <button
+          type="button"
+          onClick={loadStats}
+          style={{
+            background: 'none',
+            border: '1px solid rgba(100,100,100,0.4)',
+            color: 'var(--accent)',
+            fontSize: '10px',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+        <div style={{
+          background: 'rgba(0,0,0,0.3)',
+          padding: '10px',
+          borderRadius: 'var(--dashboard-panel-radius)',
+          border: '1px solid rgba(100,100,100,0.3)',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--accent)' }}>{convPairs}</div>
+          <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase' }}>Training Pairs</div>
+        </div>
+        <div style={{
+          background: 'rgba(0,0,0,0.3)',
+          padding: '10px',
+          borderRadius: 'var(--dashboard-panel-radius)',
+          border: '1px solid rgba(100,100,100,0.3)',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#ffaa00' }}>{convFiles}</div>
+          <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase' }}>Conversations</div>
+        </div>
+        <div style={{
+          background: 'rgba(0,0,0,0.3)',
+          padding: '10px',
+          borderRadius: 'var(--dashboard-panel-radius)',
+          border: '1px solid rgba(100,100,100,0.3)',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#8888ff' }}>{overrideFiles}</div>
+          <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase' }}>Overrides</div>
+        </div>
+        <div style={{
+          background: 'rgba(0,0,0,0.3)',
+          padding: '10px',
+          borderRadius: 'var(--dashboard-panel-radius)',
+          border: '1px solid rgba(100,100,100,0.3)',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#cc66ff' }}>{externalFiles}</div>
+          <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase' }}>External</div>
+        </div>
+      </div>
+      {sources?.conversations?.length > 0 && (
+        <div style={{ fontSize: '11px', color: '#888', maxHeight: '120px', overflowY: 'auto' }}>
+          <div style={{ fontWeight: 600, marginBottom: '4px', color: '#aaa' }}>Recent conversations:</div>
+          {sources.conversations.slice(-5).reverse().map((c, i) => (
+            <div key={i} style={{
+              padding: '4px 6px',
+              background: 'rgba(0,0,0,0.2)',
+              borderRadius: '4px',
+              marginBottom: '3px',
+              display: 'flex',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ color: 'var(--accent)' }}>{c.username || 'anon'}</span>
+              <span>{c.pairCount} pairs</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

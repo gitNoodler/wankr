@@ -6,7 +6,7 @@ import WankingLivePlacementOverlay from './WankingLive/WankingLivePlacementOverl
 import { isDevToolsAllowed } from '../utils/devToolsAllowed';
 
 function PlaceholderPanel({ onOpenMeasure, devPanelOpen: devPanelOpenProp, onDevPanelClose, showOriginCrosshair, onToggleOriginCrosshair }) {
-  const [xCalls, setXCalls] = useState([]);
+  const [xCalls] = useState([]);
   const feedRef = useRef(null);
   const contentRef = useRef(null);
 

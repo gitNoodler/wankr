@@ -5,7 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
-const { InfisicalClient } = require('@infisical/sdk');
+const { InfisicalSDK } = require('@infisical/sdk');
 const { processChat, logError, FOLDERS: ARCHIVE_FOLDERS } = require('./archiveService');
 const activeChatService = require('./activeChatService');
 const {
@@ -17,6 +17,7 @@ const {
   getActiveUsernames,
 } = require('./authService');
 const grokBot = require('./grokBotService');
+const kolAnalysis = require('./kolAnalysisService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -196,22 +197,22 @@ async function initInfisical() {
 
   try {
     console.log('🔑 Connecting to Infisical...');
-    const client = new InfisicalClient({
+    const client = new InfisicalSDK({
       siteUrl: 'https://app.infisical.com',
-      clientId,
-      clientSecret,
     });
+    await client.auth().universalAuth.login({ clientId, clientSecret });
+
     const env = process.env.INFISICAL_ENVIRONMENT || 'dev';
     console.log(`🔑 Fetching secrets from env="${env}", project="${projectId}"...`);
 
     for (const secretName of ['XAI_API_KEY', 'grokWankr']) {
       try {
-        const secret = await client.getSecret({
+        const secret = await client.secrets().getSecret({
           environment: env,
           projectId,
           secretName,
         });
-        const val = secret?.secretValue || secret?.secret_value || '';
+        const val = secret?.secretValue || '';
         if (val && val.trim()) {
           xaiApiKey = val.trim();
           console.log(`✅ xAI key loaded from Infisical (${secretName}), length=${xaiApiKey.length}`);
@@ -225,12 +226,12 @@ async function initInfisical() {
     }
     console.warn('⚠️ Infisical connected but no valid xAI key found');
     try {
-      const secret = await client.getSecret({
+      const secret = await client.secrets().getSecret({
         environment: env,
         projectId,
         secretName: 'VITE_API_KEY',
       });
-      const val = secret?.secretValue || secret?.secret_value || '';
+      const val = secret?.secretValue || '';
       if (val && val.trim()) {
         viteApiKey = val.trim();
         console.log(`✅ VITE_API_KEY loaded from Infisical, length=${viteApiKey.length}`);
@@ -408,6 +409,63 @@ app.post('/api/grok/kill', (req, res) => {
   } catch (err) {
     console.error('grok/kill error:', err);
     res.status(500).json({ error: String(err.message) });
+  }
+});
+
+// --- API: KOL Analysis (WANKR_SPEC.md social analysis engine) ---
+
+// Get all KOL accounts with scores
+app.get('/api/kol/accounts', (req, res) => {
+  try {
+    const accounts = kolAnalysis.getAccounts();
+    const sort = req.query.sort || 'roastPriority';
+    const asc = req.query.order === 'asc';
+    const sorted = [...accounts].sort((a, b) => {
+      const av = a[sort] ?? 0;
+      const bv = b[sort] ?? 0;
+      const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+      return asc ? cmp : -cmp;
+    });
+    res.json({ accounts: sorted });
+  } catch (err) {
+    console.error('GET /api/kol/accounts:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get aggregate stats
+app.get('/api/kol/stats', (req, res) => {
+  try {
+    const stats = kolAnalysis.getStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('GET /api/kol/stats:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Analyze a single account
+app.get('/api/kol/analyze/:handle', (req, res) => {
+  try {
+    const result = kolAnalysis.analyzeAccount(req.params.handle);
+    if (!result) {
+      return res.status(404).json({ error: 'Account not found in KOL database' });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('GET /api/kol/analyze:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reload KOL database from xlsx
+app.post('/api/kol/reload', (req, res) => {
+  try {
+    const accounts = kolAnalysis.getAccounts(true);
+    res.json({ reloaded: true, count: accounts.length });
+  } catch (err) {
+    console.error('POST /api/kol/reload:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

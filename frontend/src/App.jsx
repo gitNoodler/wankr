@@ -11,7 +11,7 @@ import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
 import Sidebar from './components/Sidebar';
 import TrainingPanel from './components/TrainingPanel';
-import PlaceholderPanel from './components/PlaceholderPanel';
+import KolAnalysisPanel from './components/KolAnalysisPanel';
 import LoginScreen from './components/LoginScreen';
 import SpectatorView from './components/SpectatorView';
 import DashboardSettings from './components/DashboardSettings';
@@ -137,33 +137,18 @@ export default function App() {
   // Auto-login: validate session token on page load
   useEffect(() => {
     const token = getStoredToken();
-    const port = typeof window !== 'undefined' ? window.location.port : '';
-    // #region agent log
-    if (!token) {
-      fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:sessionValidation',message:'no token, skip validate',data:{port,hasToken:false},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-    }
-    // #endregion
     if (!token) {
       queueMicrotask(() => setSessionValidating(false));
       return;
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:validateSession.start',message:'calling validateSession',data:{port},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
     validateSession()
       .then((result) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:validateSession.then',message:'session validated',data:{port,valid:result?.valid},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
         if (result.valid) {
           setLoggedIn(true);
         }
       })
       .catch(() => { /* ignore */ })
       .finally(() => {
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:validateSession.finally',message:'validation finished',data:{port},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
         setSessionValidating(false);
       });
   }, []);
@@ -363,12 +348,6 @@ export default function App() {
 
   const showLogin = !loggedIn && !spectatorMode;
 
-  // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7244/ingest/2e3df805-3ed4-4d46-a74b-cedf907e4442',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9c5d30'},body:JSON.stringify({sessionId:'9c5d30',location:'App.jsx:render',message:'app render branch',data:{port:window.location.port,isDevToolsAllowed,showLogin,loggedIn,sessionValidating,spectatorMode},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-  }
-  // #endregion
-
   // Spectator mode takes over the entire screen
   if (spectatorMode) {
     return <SpectatorView onExit={handleExitSpectator} />;
@@ -455,13 +434,7 @@ export default function App() {
                     trainCount={trainCount}
                   />
                 ) : (
-                  <PlaceholderPanel
-                    onOpenMeasure={isDevToolsAllowed ? () => setMeasureOpen(true) : undefined}
-                    devPanelOpen={isDevToolsAllowed ? universalDevPanelOpen : false}
-                    onDevPanelClose={isDevToolsAllowed ? () => setUniversalDevPanelOpen(false) : undefined}
-                    showOriginCrosshair={showOriginCrosshair}
-                    onToggleOriginCrosshair={isDevToolsAllowed ? () => setShowOriginCrosshair((v) => !v) : undefined}
-                  />
+                  <KolAnalysisPanel />
                 )}
               </div>
             </div>

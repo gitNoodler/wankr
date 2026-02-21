@@ -2,12 +2,7 @@
   "name": "wankr",
   "private": true,
   "scripts": {
-    "dev": "wankr.bat",
     "build": "cd frontend && npm run build",
-    "sync-online": "cd frontend && npm run clear-cache && npm run build",
     "test": "cd frontend && npm run lint && npm run build"
-  },
-  "dependencies": {
-    "openai": "^6.22.0"
   }
 }

@@ -2,45 +2,28 @@
 .env
 .infisical.json
 
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.venv/
-venv/
-env/
-
-# Node (root, wankr-backend, frontend)
+# Node
 node_modules/
-wankr-backend/node_modules/
-frontend/node_modules/
 frontend/dist/
 
 # Generated / local data
 training_data.json
 chat_backup.json
 restart_requested.flag
-data/*.csv.bak
 logs/
 
 # IDE
 .vscode/
 .idea/
-
-# Cursor (optional: keep plans local)
 .cursor/plans/
 .cursor/debug.log
 .cursor/*.log
 
 # Runtime / local storage
-storage/grok_conversation.json
-storage/grok_queue.json
 storage/*.json
 wankr-backend/storage/
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Excel lock files
 ~$*
