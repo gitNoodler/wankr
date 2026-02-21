@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 
 /**
  * Dev2: Position (offset %) and scale (%) for each robot part. Drives useLoginScreenState so sliders affect the scene.
@@ -23,7 +23,10 @@ function partSnapshot(state) {
 }
 
 function PartRow({ part, snapshot, onChange, onBeforeChange }) {
-  const v = snapshot[part.id] || { offsetX: 0, offsetY: 0, scaleX: 100, scaleY: 100 };
+  const v = useMemo(
+    () => snapshot[part.id] || { offsetX: 0, offsetY: 0, scaleX: 100, scaleY: 100 },
+    [snapshot, part.id]
+  );
   const set = useCallback(
     (key, value) => {
       const n = Number(value);
@@ -138,14 +141,14 @@ export default function RobotDevPanel({
   onSaveGlobalDefaults,
 }) {
   const undoStackRef = useRef([]);
-  const [, setUndoCount] = useState(0);
+  const [undoStackLength, setUndoStackLength] = useState(0);
 
   const pushUndo = useCallback(() => {
     if (!robotSnapshot) return;
     const snap = partSnapshot(robotSnapshot);
     undoStackRef.current.push(snap);
     if (undoStackRef.current.length > 50) undoStackRef.current.shift();
-    setUndoCount((c) => c + 1);
+    setUndoStackLength(undoStackRef.current.length);
   }, [robotSnapshot]);
 
   const handlePartChange = useCallback(
@@ -160,7 +163,7 @@ export default function RobotDevPanel({
     const stack = undoStackRef.current;
     if (stack.length === 0 || !applyPartChange) return;
     const prev = stack.pop();
-    setUndoCount((c) => c + 1);
+    setUndoStackLength(stack.length);
     PARTS.forEach((p) => {
       const v = prev[p.id];
       if (v) applyPartChange(p.id, v);
@@ -176,7 +179,7 @@ export default function RobotDevPanel({
   }, [onSaveGlobalDefaults]);
 
   const snapshot = robotSnapshot ? partSnapshot(robotSnapshot) : null;
-  const canUndo = undoStackRef.current.length > 0;
+  const canUndo = undoStackLength > 0;
 
   return (
     <div

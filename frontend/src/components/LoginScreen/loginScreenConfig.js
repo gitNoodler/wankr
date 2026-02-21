@@ -229,7 +229,7 @@ const ALLOWED_KEYS_SET = new Set(ALLOWED_DEV_DEFAULT_KEYS);
  * and contains no keys other than defaultsVersion and ALLOWED_DEV_DEFAULT_KEYS.
  * Rejects any script-injected or tampered payload.
  */
-function isTrustedStoredDefaults(parsed) {
+function _isTrustedStoredDefaults(parsed) {
   if (!parsed || typeof parsed !== 'object') return false;
   if (parsed.defaultsVersion !== DEFAULTS_VERSION) return false;
   for (const key of Object.keys(parsed)) {

@@ -1,9 +1,22 @@
 /**
- * Login screen — panel-only layout (aspect-fit scene + floating form panel).
- * iOS: safe-area and viewport handled in JSX/index.css; tap highlight and touch below.
+ * Login screen — fullscreen scene with robot mascot holding the login panel.
+ * Layers: green grid floor, floating music notes, boombox, robot + panel composite.
  */
 
-/* iOS: remove tap highlight so buttons/inputs don't show gray flash */
+/* ===== Root Container ===== */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+}
+
 .login-screen,
 .login-screen * {
   -webkit-tap-highlight-color: transparent;
@@ -14,12 +27,208 @@
   touch-action: manipulation;
 }
 
-.login-scene-panel-float {
-  /* panel positioned inside .login-scene */
+/* ===== Green Grid Floor ===== */
+.login-grid-floor {
+  position: absolute;
+  bottom: 0;
+  left: -5%;
+  right: -5%;
+  height: 45%;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
+  /* Invert white bg → black, hue-rotate keeps green lines green */
+  filter: invert(1) hue-rotate(180deg);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
 }
 
-/* Spinner for username availability check (LoginForm) */
+/* ===== Decorative Elements ===== */
+.login-decor {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+
+/* Music notes - left side */
+.login-notes-1 {
+  top: 6%;
+  left: 3%;
+  width: clamp(50px, 9vmin, 110px);
+  opacity: 0.22;
+  animation: login-float 6s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.4));
+  -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+}
+
+/* Music notes - right side (mirrored) */
+.login-notes-2 {
+  top: 12%;
+  right: 4%;
+  width: clamp(40px, 7vmin, 90px);
+  opacity: 0.18;
+  animation: login-float-mirror 8s ease-in-out infinite 1s;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.4));
+  -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+}
+
+/* Boombox - lower left */
+.login-boombox {
+  bottom: 6%;
+  left: 4%;
+  width: clamp(60px, 10vmin, 140px);
+  opacity: 0.3;
+  z-index: 3;
+  filter: drop-shadow(0 0 12px rgba(0, 255, 65, 0.3));
+  animation: login-glow-pulse 4s ease-in-out infinite;
+}
+
+/* ===== Robot + Panel Composite ===== */
+.login-composite {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Robot mascot — behind the panel, scaled larger so head/hands peek around edges */
+.login-robot {
+  position: absolute;
+  width: clamp(420px, 100vmin, 750px);
+  height: auto;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -48%);
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  filter:
+    drop-shadow(0 0 18px rgba(0, 255, 65, 0.25))
+    drop-shadow(0 0 50px rgba(0, 255, 65, 0.1));
+  animation: login-robot-breathe 5s ease-in-out infinite;
+  /* Soft vignette mask to fade white background edges into the black scene */
+  -webkit-mask-image: radial-gradient(ellipse 52% 58% at 50% 48%, black 30%, transparent 68%);
+  mask-image: radial-gradient(ellipse 52% 58% at 50% 48%, black 30%, transparent 68%);
+}
+
+/* ===== Login Panel ===== */
+.login-panel {
+  position: relative;
+  z-index: 1;
+  width: clamp(280px, 62vmin, 420px);
+  background: rgba(8, 12, 10, 0.95);
+  border: 2px solid rgba(0, 255, 65, 0.4);
+  border-radius: clamp(10px, 1.8vmin, 18px);
+  box-shadow:
+    0 0 24px rgba(0, 255, 65, 0.18),
+    0 0 60px rgba(0, 255, 65, 0.06),
+    0 4px 30px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Inner container — establishes container query context for cqi units in LoginForm */
+.login-panel-inner {
+  container-type: inline-size;
+  width: 100%;
+  padding: clamp(16px, 3.5vmin, 30px) clamp(14px, 3vmin, 26px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== iOS Landscape Overlay ===== */
+.login-ios-landscape {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--accent);
+  font-family: 'VT323', monospace;
+  font-size: clamp(24px, 6vw, 32px);
+  text-align: center;
+  pointer-events: auto;
+}
+
+/* ===== Animations ===== */
+
+/* Floating music notes */
+@keyframes login-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+
+/* Floating music notes (mirrored copy) */
+@keyframes login-float-mirror {
+  0%, 100% { transform: scaleX(-1) translateY(0); }
+  50% { transform: scaleX(-1) translateY(-14px); }
+}
+
+/* Subtle robot breathing/float */
+@keyframes login-robot-breathe {
+  0%, 100% { transform: translate(-50%, -48%) scale(1); }
+  50% { transform: translate(-50%, -48%) scale(1.012); }
+}
+
+/* Boombox glow pulse */
+@keyframes login-glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 12px rgba(0, 255, 65, 0.3));
+    opacity: 0.3;
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(0, 255, 65, 0.5)) drop-shadow(0 0 35px rgba(0, 255, 65, 0.15));
+    opacity: 0.4;
+  }
+}
+
+/* Spinner for username availability check (used by LoginForm) */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ===== Responsive Tweaks ===== */
+
+/* Small phones */
+@media (max-width: 380px) {
+  .login-panel {
+    width: 92vw;
+  }
+  .login-panel-inner {
+    padding: 14px 12px;
+  }
+  .login-robot {
+    width: 110vw;
+  }
+  .login-boombox {
+    display: none;
+  }
+}
+
+/* Landscape orientation */
+@media (orientation: landscape) and (max-height: 600px) {
+  .login-panel-inner {
+    padding: 10px 14px;
+  }
+  .login-robot {
+    width: clamp(300px, 70vmin, 500px);
+  }
+  .login-notes-1,
+  .login-notes-2 {
+    display: none;
+  }
 }

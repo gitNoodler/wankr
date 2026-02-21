@@ -15,8 +15,11 @@ const {
   validateSession,
   destroySession,
   getActiveUsernames,
+  initAuthStorage,
 } = require('./authService');
 const grokBot = require('./grokBotService');
+
+initAuthStorage();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -758,7 +761,7 @@ app.post('/api/chat', async (req, res) => {
 
   if (!xaiApiKey) {
     return res.status(503).json({
-      error: 'xAI not configured. Set XAI_API_KEY or grokWankr in Infisical, or XAI_API_KEY in .env.'
+      error: 'xAI not configured. Set XAI_API_KEY or grokWankr in Infisical.'
     });
   }
 
@@ -1195,24 +1198,20 @@ if (process.env.PROXY_UI_TO_VITE === '1') {
 
 // --- Start ---
 async function main() {
-  // Prefer Infisical for xAI API key (Grok bot and chat); fall back to .env
+  // xAI API key MUST come from Infisical — no .env fallback
   await initInfisical();
-  if (!xaiApiKey && process.env.XAI_API_KEY && process.env.XAI_API_KEY.trim()) {
-    xaiApiKey = process.env.XAI_API_KEY.trim();
-    console.log('✅ xAI key from .env (fallback)');
-  }
   if (!xaiApiKey) {
-    console.warn('⚠️ No xAI key. Set XAI_API_KEY (or grokWankr) in Infisical, or XAI_API_KEY in .env.');
+    console.warn('⚠️ No xAI key. Set XAI_API_KEY (or grokWankr) in Infisical.');
   }
   if (!viteApiKey && process.env.VITE_API_KEY && process.env.VITE_API_KEY.trim()) {
     viteApiKey = process.env.VITE_API_KEY.trim();
   }
 
-  // Configure and start the grok bot with API access (uses key from Infisical or .env)
+  // Configure and start the grok bot with API access (uses key from Infisical)
   if (xaiApiKey) {
     grokBot.configure(xaiApiKey, MODEL, DEFAULT_SYSTEM);
     grokBot.initialize().then(() => {
-      console.log('🤖 Grok bot initialized and running (API key from Infisical or .env)');
+      console.log('🤖 Grok bot initialized and running (API key from Infisical)');
     }).catch(err => {
       console.error('Grok bot init error:', err.message);
     });
@@ -1226,8 +1225,10 @@ async function main() {
 
   // Railway (and similar) set PORT; use that port only. Local dev uses 5000 with fallback range.
   const portFromEnv = process.env.PORT;
-  const { server, port: actualPort } = portFromEnv
-    ? await listenSingle(Number(portFromEnv))
+  const portNum = portFromEnv != null && portFromEnv !== '' ? Number(portFromEnv) : NaN;
+  const useRailwayPort = Number.isFinite(portNum) && portNum > 0;
+  const { server, port: actualPort } = useRailwayPort
+    ? await listenSingle(portNum)
     : await tryListenPort(5000);
 
   console.log(`🚀 Wankr API on http://127.0.0.1:${actualPort}`);
@@ -1240,10 +1241,10 @@ async function main() {
   });
 }
 
-/** Listen on a single port (for Railway etc.). Resolves with { server, port } or rejects. */
+/** Listen on a single port (for Railway etc.). Binds to 0.0.0.0 so health checks and tunnel can reach the app. */
 function listenSingle(port) {
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, () => resolve({ server, port }));
+    const server = app.listen(port, '0.0.0.0', () => resolve({ server, port }));
     server.once('error', reject);
   });
 }
