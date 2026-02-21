@@ -9,6 +9,7 @@ import { useLoginScreenState } from './useLoginScreenState';
 import { useLoginScreenUndo } from './useLoginScreenUndo';
 import { useLoginScreenAuth } from './useLoginScreenAuth';
 import DevPasswordGate from './DevPasswordGate';
+import DevToolbar from './DevToolbar';
 import { isDevPanelUnlocked, lockDevPanel } from './devPanelLock';
 import WankingLiveDevPanel from '../WankingLive/WankingLiveDevPanel';
 import { useWankingLiveDevState } from '../WankingLive/useWankingLiveDevState';
@@ -329,6 +330,7 @@ export default function LoginScreen({
           onSaveGlobalDefaults={handleSaveGlobalDefaults}
         />
       )}
+      {isDevToolsAllowed && <DevToolbar />}
     </div>
   );
 }
