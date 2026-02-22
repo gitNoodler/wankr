@@ -9,6 +9,7 @@ import { computePanelBackground } from './helpers';
 import { useLoginScreenState } from './useLoginScreenState';
 import { useLoginScreenUndo } from './useLoginScreenUndo';
 import { useLoginScreenAuth } from './useLoginScreenAuth';
+import useLofiMusic from './useLofiMusic';
 import DevPasswordGate from './DevPasswordGate';
 import DevToolbar from './DevToolbar';
 import { isDevPanelUnlocked, lockDevPanel } from './devPanelLock';
@@ -74,6 +75,7 @@ export default function LoginScreen({
     onResetToPrimaryApplied: (primary) => api.post('/api/settings/dev-defaults', primary).catch(() => {}),
   });
   const auth = useLoginScreenAuth({ onLogin });
+  const lofi = useLofiMusic();
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault();
@@ -207,26 +209,9 @@ export default function LoginScreen({
           backOffsetY={state.backOffsetY}
           backScaleX={state.backScaleX}
           backScaleY={state.backScaleY}
-          robotOffsetX={state.robotOffsetX}
-          robotOffsetY={state.robotOffsetY}
-          robotScaleX={state.robotScaleX}
-          robotScaleY={state.robotScaleY}
-          shoulderOffsetX={state.shoulderOffsetX}
-          shoulderOffsetY={state.shoulderOffsetY}
-          shoulderScaleX={state.shoulderScaleX}
-          shoulderScaleY={state.shoulderScaleY}
-          handLeftOffsetX={state.handLeftOffsetX}
-          handLeftOffsetY={state.handLeftOffsetY}
-          handLeftScaleX={state.handLeftScaleX}
-          handLeftScaleY={state.handLeftScaleY}
-          handRightOffsetX={state.handRightOffsetX}
-          handRightOffsetY={state.handRightOffsetY}
-          handRightScaleX={state.handRightScaleX}
-          handRightScaleY={state.handRightScaleY}
           showLayerBackground={state.showLayerBackground}
           showLayerWankrBody={state.showLayerWankrBody}
           showLayerLogin={state.showLayerLogin}
-          showLayerHands={state.showLayerHands}
           characterSharpness={state.characterSharpness}
           leftCushion={state.leftCushion}
           topCushion={state.topCushion}
@@ -239,6 +224,8 @@ export default function LoginScreen({
           panelContentOffsetX={state.panelContentOffsetX}
           panelRightMargin={state.panelRightMargin}
           buttonsBottomGap={state.buttonsBottomGap}
+          musicPlaying={lofi.playing}
+          onToggleMusic={lofi.toggle}
           panelContent={
             <LoginForm
               username={auth.username}

@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { CANVAS, PANEL_BBOX_PCT } from './loginScreenConfig';
-import layer5Img from '@mascot/dashLayers/2ndFromBack.png';
-import layer3Img from '@mascot/dashLayers/1BehindLoginPanel_shoulderLayer.png';
-import handLeftImg from '@mascot/dashLayers/toplayer_hand_layer_Left.png';
-import topelayerImg from '@mascot/dashLayers/topelayer.png';
+import backgroundImg from '@mascot/dashLayers/background.png';
+import wankrHomeImg from '@mascot/dashLayers/wankrHome.png';
+import Boombox from './Boombox';
+import MusicNotes from './MusicNotes';
+import FloorGlowRipples from './FloorGlowRipples';
 
 export default function RobotScene({
   sceneRef,
@@ -16,26 +17,9 @@ export default function RobotScene({
   backOffsetY,
   backScaleX,
   backScaleY,
-  robotOffsetX,
-  robotOffsetY,
-  robotScaleX,
-  robotScaleY,
-  shoulderOffsetX = 0,
-  shoulderOffsetY = 0,
-  shoulderScaleX = 100,
-  shoulderScaleY = 100,
-  handLeftOffsetX,
-  handLeftOffsetY,
-  handLeftScaleX,
-  handLeftScaleY,
-  handRightOffsetX,
-  handRightOffsetY,
-  handRightScaleX,
-  handRightScaleY,
   showLayerBackground: _showLayerBackground = true, // eslint-disable-line no-unused-vars
   showLayerWankrBody = true,
   showLayerLogin: _showLayerLogin = true, // eslint-disable-line no-unused-vars
-  showLayerHands = true,
   characterSharpness = 100,
   leftCushion,
   topCushion,
@@ -52,6 +36,8 @@ export default function RobotScene({
   ductTapeStrips = [],
   respectDuctTape = true,
   onRemoveDuctTape,
+  musicPlaying = false,
+  onToggleMusic,
 }) {
   const tapeOrigin = respectDuctTape && ductTapeStrips.length > 0
     ? (() => {
@@ -62,7 +48,7 @@ export default function RobotScene({
       })()
     : 'center center';
 
-  /* Panel center (scene %): character body, shoulders, and hands anchor here so he stays centered behind the panel. */
+  /* Panel center (scene %): character body anchors here so he stays centered behind the panel. */
   const panelW = PANEL_BBOX_PCT.width * (loginBoxWidth / 100);
   const panelH = PANEL_BBOX_PCT.height * (loginBoxHeight / 100);
   const panelCenterX = PANEL_BBOX_PCT.left + leftCushion + panelW / 2;
@@ -70,6 +56,7 @@ export default function RobotScene({
   const panelAnchor = `${panelCenterX}% ${panelCenterY}%`;
 
   const panelFloatRef = useRef(null);
+  const boomboxRef = useRef(null);
   const [panelSize, setPanelSize] = useState(null);
 
   useEffect(() => {
@@ -118,58 +105,82 @@ export default function RobotScene({
           transformOrigin: tapeOrigin,
         }}
       >
-{showLayerWankrBody && (
-          <>
-            {/* Body: anchored to panel center so he sits centered behind the panel */}
+        {/* ═══ z5: Background — grid floor setting (background.png, kept as-is) ═══ */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '130%',
+            height: '55%',
+            zIndex: 5,
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Pulsing underglow beneath the grid */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: 'radial-gradient(ellipse at 50% 55%, rgba(0,255,65,0.16) 0%, rgba(0,255,65,0.05) 30%, transparent 60%)',
+              animation: 'glowPulse 5s ease-in-out infinite',
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          />
+          <img
+            src={backgroundImg}
+            alt=""
+            draggable={false}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center top',
+              display: 'block',
+              position: 'relative',
+              zIndex: 1,
+            }}
+          />
+        </div>
+
+        {/* ═══ z6: Floor glow ripples (ambient expanding rings) ═══ */}
+        <FloorGlowRipples />
+
+        {/* ═══ z10: Robot body (wankrHome.png — single full mascot, screen blend removes black bg) ═══ */}
+        {showLayerWankrBody && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 10,
+              pointerEvents: 'none',
+              transform: `translate(${backOffsetX}%, ${backOffsetY}%) scaleX(${backScaleX / 100}) scaleY(${backScaleY / 100})`,
+              transformOrigin: 'center center',
+              mixBlendMode: 'screen',
+            }}
+          >
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
-                zIndex: 10,
-                pointerEvents: 'none',
-                transform: `translate(${backOffsetX}%, ${backOffsetY}%) scaleX(${backScaleX / 100}) scaleY(${backScaleY / 100})`,
-                transformOrigin: panelAnchor,
+                backgroundImage: `url(${wankrHomeImg})`,
+                backgroundSize: '100% auto',
+                backgroundPosition: 'center 15%',
+                backgroundRepeat: 'no-repeat',
+                filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 6px rgba(0,255,65,0.15)) drop-shadow(0 0 20px rgba(0,255,65,0.06))`,
+                animation: 'robotBob 5s ease-in-out infinite',
               }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  backgroundImage: `url(${layer5Img})`,
-                  backgroundSize: 'contain',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
-                  filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 3px rgba(0,255,65,0.1)) drop-shadow(0 0 10px rgba(0,255,65,0.08)) drop-shadow(0 -1px 4px rgba(0,255,80,0.06))`,
-                }}
-              />
-            </div>
-            {/* Robot (shoulders + arms): anchored to panel center */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 11,
-                pointerEvents: 'none',
-                transform: `translate(${robotOffsetX}%, ${robotOffsetY}%) scaleX(${robotScaleX / 100}) scaleY(${robotScaleY / 100})`,
-                transformOrigin: panelAnchor,
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  backgroundImage: `url(${layer3Img})`,
-                  backgroundSize: 'contain',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
-                  transform: `translate(${shoulderOffsetX}%, ${shoulderOffsetY}%) scaleX(${shoulderScaleX / 100}) scaleY(${shoulderScaleY / 100})`,
-                  transformOrigin: panelAnchor,
-                  filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 3px rgba(0,255,65,0.08)) drop-shadow(0 0 8px rgba(0,255,65,0.06))`,
-                }}
-              />
-            </div>
-          </>
+            />
+          </div>
         )}
+
+        {/* ═══ z21: Login panel (form) ═══ */}
         {panelContent != null && (
           <div
             ref={panelFloatRef}
@@ -218,45 +229,18 @@ export default function RobotScene({
             </div>
           </div>
         )}
-        {showLayerHands && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 30,
-              pointerEvents: 'none',
-              transform: `translate(${robotOffsetX}%, ${robotOffsetY}%) scaleX(${robotScaleX / 100}) scaleY(${robotScaleY / 100})`,
-              transformOrigin: panelAnchor,
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundImage: `url(${handLeftImg})`,
-                backgroundSize: 'contain',
-                backgroundPosition: 'left center',
-                backgroundRepeat: 'no-repeat',
-                transform: `translate(${handLeftOffsetX}%, ${handLeftOffsetY}%) scaleX(${handLeftScaleX / 100}) scaleY(${handLeftScaleY / 100})`,
-                transformOrigin: 'left center',
-                filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 4px rgba(0,255,65,0.15)) drop-shadow(0 0 12px rgba(0,255,65,0.1))`,
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundImage: `url(${topelayerImg})`,
-                backgroundSize: 'contain',
-                backgroundPosition: 'right center',
-                backgroundRepeat: 'no-repeat',
-                transform: `translate(${handRightOffsetX}%, ${handRightOffsetY}%) scaleX(${handRightScaleX / 100}) scaleY(${handRightScaleY / 100})`,
-                transformOrigin: 'right center',
-                filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 4px rgba(0,255,65,0.15)) drop-shadow(0 0 12px rgba(0,255,65,0.1))`,
-              }}
-            />
-          </div>
-        )}
+
+        {/* ═══ z25: Boombox (interactive, perspective-transformed) ═══ */}
+        <Boombox
+          ref={boomboxRef}
+          playing={musicPlaying}
+          onToggle={onToggleMusic}
+        />
+
+        {/* ═══ z26: Music notes (floating from boombox when playing) ═══ */}
+        <MusicNotes playing={musicPlaying} boomboxRef={boomboxRef} />
+
+        {/* ═══ z50: Duct tape (existing) ═══ */}
         {ductTapeStrips.length > 0 && (
           <div
             style={{
@@ -313,6 +297,28 @@ export default function RobotScene({
             })}
           </div>
         )}
+
+        {/* ═══ Atmosphere overlays ═══ */}
+        {/* Vignette */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(0,0,0,0.65) 100%)',
+            pointerEvents: 'none',
+            zIndex: 60,
+          }}
+        />
+        {/* Scanlines */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)',
+            pointerEvents: 'none',
+            zIndex: 61,
+          }}
+        />
       </div>
     </div>
   );
