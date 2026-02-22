@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../utils/api';
 import RobotScene from './RobotScene';
+import LoginForm from './LoginForm';
 import RobotDevPanel from './RobotDevPanel';
 import { saveDevDefaults, fetchDevDefaultsFromBackend, getPrimaryDevDefaults, LAYERS_LOCKED_KEY, isIOS, isPortrait } from './loginScreenConfig';
 import { isDevToolsAllowed } from '../../utils/devToolsAllowed';
@@ -35,6 +36,7 @@ const DEV_PANEL_BOX_STYLE = {
 
 export default function LoginScreen({
   onLogin,
+  onSpectate,
   collapsing,
   onOpenMeasure,
   devPanelOpen = false,
@@ -71,7 +73,12 @@ export default function LoginScreen({
     getSavedDefaults: () => fetchDevDefaultsFromBackend(api),
     onResetToPrimaryApplied: (primary) => api.post('/api/settings/dev-defaults', primary).catch(() => {}),
   });
-  useLoginScreenAuth({ onLogin });
+  const auth = useLoginScreenAuth({ onLogin });
+
+  const handleSubmit = useCallback((e) => {
+    e?.preventDefault();
+    auth.doAuth(false);
+  }, [auth]);
 
   const handleLockLayers = useCallback(() => {
     setLayersLocked(true);
@@ -232,6 +239,40 @@ export default function LoginScreen({
           panelContentOffsetX={state.panelContentOffsetX}
           panelRightMargin={state.panelRightMargin}
           buttonsBottomGap={state.buttonsBottomGap}
+          panelContent={
+            <LoginForm
+              username={auth.username}
+              password={auth.password}
+              confirmPassword={auth.confirmPassword}
+              email={auth.email}
+              isRegistering={auth.isRegistering}
+              usernameStatus={auth.usernameStatus}
+              loading={auth.loading}
+              error={auth.error}
+              onUsernameChange={auth.handleUsernameChange}
+              onPasswordChange={auth.setPassword}
+              onConfirmPasswordChange={auth.setConfirmPassword}
+              onEmailChange={auth.setEmail}
+              onSubmit={handleSubmit}
+              onNewUser={auth.handleNewUser}
+              onSpectate={onSpectate}
+              onBackToLogin={auth.handleBackToLogin}
+              titleOffsetX={state.titleOffsetX}
+              titleOffsetY={state.titleOffsetY}
+              titleScale={state.titleScale}
+              subtitleOffsetX={state.subtitleOffsetX}
+              subtitleOffsetY={state.subtitleOffsetY}
+              subtitleScale={state.subtitleScale}
+              inputWidthScale={state.inputWidthScale}
+              titleTopGap={state.titleTopGap}
+              titleToSubtitleGap={state.titleToSubtitleGap}
+              subtitleToUsernameGap={state.subtitleToUsernameGap}
+              usernamePasswordGap={state.usernamePasswordGap}
+              passwordToSubmitGap={state.passwordToSubmitGap}
+              submitToButtonsGap={state.submitToButtonsGap}
+              controlHeightScale={state.controlHeightScale}
+            />
+          }
           ductTapeStrips={[]}
           respectDuctTape={true}
         />
