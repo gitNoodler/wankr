@@ -70,7 +70,7 @@ export default function RobotScene({
   const panelAnchor = `${panelCenterX}% ${panelCenterY}%`;
 
   const panelFloatRef = useRef(null);
-  const [panelSize, setPanelSize] = useState(null);
+  const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const el = panelFloatRef.current;
@@ -194,8 +194,8 @@ export default function RobotScene({
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               <div
                 style={{
-                  width: panelSize ? `${panelSize.width}px` : '100%',
-                  height: panelSize ? `${panelSize.height}px` : '100%',
+                  width: panelSize.width > 0 ? `${panelSize.width}px` : '100%',
+                  height: panelSize.height > 0 ? `${panelSize.height}px` : '100%',
                   maxWidth: '100%',
                   minWidth: 0,
                   minHeight: 0,

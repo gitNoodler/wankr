@@ -216,7 +216,8 @@ function sanitizeDevDefaults(obj, base) {
       out[key] = Boolean(obj[key]);
     } else if (typeof baseVal === 'number') {
       const range = DEV_DEFAULT_CLAMPS[key];
-      out[key] = range ? clampNum(obj[key], range[0], range[1]) : (Number(obj[key]) || baseVal);
+      const n = Number(obj[key]);
+      out[key] = range ? clampNum(obj[key], range[0], range[1]) : (Number.isNaN(n) ? baseVal : n);
     }
   }
   return out;
@@ -256,6 +257,7 @@ export function getPrimaryDevDefaults() {
 /**
  * Fetch saved dev defaults from backend (single source of truth for all ports).
  * Returns sanitized object or null if 404/error.
+ * Backend data is source of truth; don't override it with ANCHOR_OVERRIDE_DEFAULTS here.
  */
 export function fetchDevDefaultsFromBackend(api) {
   if (!api || typeof api.get !== 'function') return Promise.resolve(null);
@@ -265,8 +267,7 @@ export function fetchDevDefaultsFromBackend(api) {
     .then((data) => {
       if (!data || typeof data !== 'object') return null;
       const base = isIOS() ? { ...DEV_DEFAULTS_IOS } : { ...DEV_DEFAULTS };
-      const sanitized = sanitizeDevDefaults(data, base);
-      return USE_ANCHOR_OVERRIDES ? { ...sanitized, ...ANCHOR_OVERRIDE_DEFAULTS } : sanitized;
+      return sanitizeDevDefaults(data, base);
     })
     .catch(() => null);
 }
