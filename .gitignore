@@ -1,5 +1,6 @@
 # Secrets and local config
 .env
+.envrc
 .infisical.json
 
 # Node
@@ -12,9 +13,10 @@ chat_backup.json
 restart_requested.flag
 logs/
 
-# IDE
+# IDE / tooling
 .vscode/
 .idea/
+.claude/
 .cursor/plans/
 .cursor/debug.log
 .cursor/*.log

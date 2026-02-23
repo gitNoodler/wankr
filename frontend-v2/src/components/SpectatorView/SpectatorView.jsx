@@ -1,0 +1,497 @@
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { VariableSizeList } from 'react-window';
+import { getRestoreScrollTop } from './scrollRestore';
+import './SpectatorView.css';
+import { api } from '../../utils/api';
+import LOGO_URL from '../../assets/logo.js';
+
+const VIRTUAL_LIST_THRESHOLD = 50;
+
+function UserBubble({ user, onClick, isSelected }) {
+  const [showPreview, setShowPreview] = useState(false);
+
+  return (
+    <div
+      className={`user-bubble ${user.online ? 'online' : 'offline'} ${isSelected ? 'selected' : ''}`}
+      onClick={() => onClick(user)}
+      onMouseEnter={() => !user.online && setShowPreview(true)}
+      onMouseLeave={() => setShowPreview(false)}
+    >
+      <div className="user-avatar">
+        {user.username.charAt(0).toUpperCase()}
+      </div>
+      <div className="user-info">
+        <span className="username">{user.username}</span>
+        <span className="status-dot" />
+      </div>
+      
+      {/* Offline preview - limited messages */}
+      {showPreview && !user.online && user.lastMessages.length > 0 && (
+        <div className="offline-preview">
+          <div className="preview-header">
+            <span>Last conversation (limited)</span>
+            <span className="offline-badge">OFFLINE</span>
+          </div>
+          <div className="preview-messages">
+            {user.lastMessages.slice(-4).map((msg, idx) => (
+              <div key={idx} className={`preview-msg ${msg.role}`}>
+                <span className="msg-role">{msg.role === 'wankr' ? 'WANKR' : user.username}:</span>
+                <span className="msg-content">{msg.content}</span>
+              </div>
+            ))}
+          </div>
+          <div className="preview-footer">
+            User offline - full history available when online
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const SCROLL_AT_BOTTOM_THRESHOLD = 60;
+
+function ConversationView({ user, onClose }) {
+  const [messages, setMessages] = useState(user?.lastMessages || []);
+  const [loading, setLoading] = useState(false);
+  const [grokStatus, setGrokStatus] = useState(null);
+  const messagesContainerRef = useRef(null);
+  const listRef = useRef(null);
+  const measureRef = useRef(null);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const savedScrollTopRef = useRef(null);
+  const shouldScrollToBottomRef = useRef(true); // open = start at bottom (newest); scroll up for history
+  const [atBottom, setAtBottom] = useState(true);
+  const useVirtual = messages.length > VIRTUAL_LIST_THRESHOLD;
+
+  useEffect(() => {
+    shouldScrollToBottomRef.current = true;
+  }, [user?.id]);
+
+  // Fetch full conversation for this user
+  const fetchConversation = useCallback(async () => {
+    if (!user) return;
+    const el = messagesContainerRef.current;
+    if (el) savedScrollTopRef.current = el.scrollTop;
+    try {
+      const res = await api.get(`/api/spectator/conversation/${user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.conversation?.messages) {
+          setMessages(data.conversation.messages);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch conversation:', err);
+    }
+  }, [user]);
+
+  // Fetch grok status (for pending response countdown)
+  const fetchGrokStatus = useCallback(async () => {
+    if (user?.id !== 'grok') return;
+    try {
+      const res = await api.get('/api/spectator/grok-status');
+      if (res.ok) {
+        const data = await res.json();
+        setGrokStatus(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch grok status:', err);
+    }
+  }, [user]);
+
+  // Initial fetch and polling
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      fetchConversation().finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+      fetchGrokStatus();
+    });
+
+    // Poll for updates every 5 seconds
+    const interval = setInterval(() => {
+      fetchConversation();
+      fetchGrokStatus();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [user, fetchConversation, fetchGrokStatus]);
+
+  const checkAtBottom = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight <= SCROLL_AT_BOTTOM_THRESHOLD;
+    setAtBottom(isAtBottom);
+  }, []);
+
+  const scrollToCurrent = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      setAtBottom(true);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!measureRef.current || !useVirtual) return;
+    const el = measureRef.current;
+    const updateHeight = () => setContainerHeight(el.getBoundingClientRect().height);
+    const ro = new ResizeObserver(updateHeight);
+    ro.observe(el);
+    updateHeight();
+    return () => ro.disconnect();
+  }, [useVirtual]);
+
+  // On enter: scroll to bottom (newest). On poll: preserve scroll so user can read history.
+  useLayoutEffect(() => {
+    if (useVirtual && listRef.current) {
+      listRef.current.resetAfterIndex(0);
+    }
+    const el = messagesContainerRef.current;
+    if (!el || messages.length === 0) {
+      if (messages.length > 0) checkAtBottom();
+      return;
+    }
+    if (shouldScrollToBottomRef.current) {
+      shouldScrollToBottomRef.current = false;
+      requestAnimationFrame(() => {
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+          setAtBottom(true);
+        }
+        checkAtBottom();
+      });
+      return;
+    }
+    const saved = savedScrollTopRef.current;
+    if (saved != null) {
+      savedScrollTopRef.current = null;
+      requestAnimationFrame(() => {
+        if (el) {
+          el.scrollTop = getRestoreScrollTop(saved, el.scrollHeight, el.clientHeight);
+        }
+        checkAtBottom();
+      });
+    } else {
+      checkAtBottom();
+    }
+  }, [messages, checkAtBottom, useVirtual]);
+
+  const getItemSize = useCallback((index) => {
+    const content = messages[index]?.content || '';
+    const contentLen = content.length;
+    const lines = Math.max(1, Math.ceil(contentLen / 45));
+    const contentHeight = lines * 22;
+    return 56 + contentHeight + 14 + 16; /* +16 gap between bubbles */
+  }, [messages]);
+
+  const otherAuthorLabel = user?.id === 'grok' ? 'GROK' : (user?.username || 'User').toUpperCase();
+  const MessageRow = useCallback(({ index, style, data }) => {
+    const list = data?.messages ?? data;
+    const msg = Array.isArray(list) ? list[index] : null;
+    if (!msg) return null;
+    const author = (msg.from === 'wankr' || msg.role === 'wankr' || msg.role === 'assistant') ? 'WANKR' : (data?.user ? (data.user.id === 'grok' ? 'GROK' : (data.user.username || 'User').toUpperCase()) : otherAuthorLabel);
+    return (
+      <div style={style} className={`message ${msg.from || msg.role}`}>
+        <span className="message-author">
+          {author}
+        </span>
+        <p className="message-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
+        {msg.timestamp && (
+          <span className="message-time">
+            {new Date(msg.timestamp).toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+    );
+  }, [otherAuthorLabel]);
+
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    queueMicrotask(() => setNow(Date.now()));
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!user) return null;
+
+  const getCountdown = () => {
+    if (!grokStatus?.nextResponseAt || !now) return null;
+    const remaining = grokStatus.nextResponseAt - now;
+    if (remaining <= 0) return 'Responding soon...';
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    return `Next response in ${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="conversation-view">
+      <div className="conversation-header">
+        <button className="back-btn" onClick={onClose}>
+          ← Back
+        </button>
+        <div className="conversation-user">
+          <span className={`status-indicator ${user.online ? 'online' : 'offline'}`} />
+          <span className="conv-username">{user.username}</span>
+          <span className="conv-status">{user.online ? 'LIVE' : 'OFFLINE'}</span>
+        </div>
+        {grokStatus?.pendingResponses > 0 && (
+          <div className="pending-indicator">
+            <span className="pending-dot" />
+            <span>{getCountdown()}</span>
+          </div>
+        )}
+      </div>
+      
+      <div className="conversation-body">
+        {loading ? (
+          <div className="loading-conversation">Loading conversation...</div>
+        ) : user.online ? (
+          <div className="live-conversation">
+            <div className="live-indicator">
+              <span className="pulse" />
+              <span>Live conversation with {user.username}</span>
+            </div>
+            {messages.length > 0 ? (
+              <div className="live-messages-wrapper">
+                    {useVirtual ? (
+                  <div ref={measureRef} className="live-messages live-messages-virtual" style={{ height: '60vh', minHeight: 200 }}>
+                    {containerHeight > 0 && (
+                      <VariableSizeList
+                        ref={listRef}
+                        outerRef={messagesContainerRef}
+                        height={containerHeight}
+                        width="100%"
+                        itemCount={messages.length}
+                        itemSize={getItemSize}
+                        itemData={{ messages, user }}
+                        onScroll={checkAtBottom}
+                        overscanCount={5}
+                        style={{ overflowX: 'hidden' }}
+                      >
+                        {MessageRow}
+                      </VariableSizeList>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    ref={messagesContainerRef}
+                    className="live-messages"
+                    onScroll={checkAtBottom}
+                  >
+                    {messages.map((msg, idx) => (
+                      <div key={msg.id ?? idx} className={`message ${msg.from || msg.role}`}>
+                        <span className="message-author">
+                          {(msg.from === 'wankr' || msg.role === 'wankr' || msg.role === 'assistant') ? 'WANKR' : otherAuthorLabel}
+                        </span>
+                        <p className="message-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
+                        {msg.timestamp && (
+                          <span className="message-time">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!atBottom && (
+                  <button
+                    type="button"
+                    className="jump-to-current-btn"
+                    onClick={scrollToCurrent}
+                    title="Jump to latest message"
+                  >
+                    ↓ Current
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="no-messages">
+                <p>Starting automated training conversation...</p>
+                <p className="hint">Grok and Wankr will exchange messages every 15 minutes</p>
+              </div>
+            )}
+            
+            {/* Automated status indicator */}
+            {user.id === 'grok' && grokStatus && (
+              <div className="auto-status">
+                <span className="auto-badge">AUTOMATED</span>
+                <span className="auto-info">
+                  {grokStatus.pendingResponses > 0 
+                    ? `Next exchange: ${getCountdown()}`
+                    : 'Conversation active'
+                  }
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="offline-conversation">
+            <div className="offline-notice">
+              <span className="notice-icon">⚠</span>
+              <span>User is offline - showing last available messages</span>
+            </div>
+            {messages.length > 0 ? (
+              <div className="limited-messages">
+                {messages.slice(-4).map((msg, idx) => (
+                  <div key={idx} className={`message ${msg.from || msg.role}`}>
+                    <span className="message-author">
+                      {(msg.from === 'wankr' || msg.role === 'wankr' || msg.role === 'assistant') ? 'WANKR' : user.username.toUpperCase()}
+                    </span>
+                    <p className="message-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
+                  </div>
+                ))}
+                <div className="limit-notice">
+                  Full conversation available when user comes online
+                </div>
+              </div>
+            ) : (
+              <div className="no-messages">No messages available</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function SpectatorView({ onExit }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch active users from API
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await api.get('/api/spectator/users');
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data.users || []);
+        setError(null);
+      } else {
+        setError('Failed to fetch users');
+      }
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+      setError('Connection error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial fetch and polling
+  useEffect(() => {
+    fetchUsers();
+    const interval = setInterval(fetchUsers, 5000);
+    return () => clearInterval(interval);
+  }, [fetchUsers]);
+
+  // Filter users based on search
+  const filteredUsers = users.filter(user =>
+    user.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Sort: online first, then alphabetically
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (a.online !== b.online) return b.online - a.online;
+    return a.username.localeCompare(b.username);
+  });
+
+  const handleUserClick = useCallback((user) => {
+    setSelectedUser(user);
+  }, []);
+
+  const handleCloseConversation = useCallback(() => {
+    setSelectedUser(null);
+  }, []);
+
+  const onlineCount = users.filter(u => u.online).length;
+
+  return (
+    <div className="spectator-view">
+      {/* Header */}
+      <div className="spectator-header">
+        <button className="exit-btn" onClick={onExit} title="Exit Spectator Mode">
+          ✕
+        </button>
+        <div className="header-title">
+          <img className="wankr-header-logo" src={LOGO_URL} alt="Wankr" />
+          <span className="title-text">WANKR VISION</span>
+          <span className="live-dot" />
+        </div>
+        <div className="header-stats">
+          <span className="online-count">{onlineCount} online</span>
+        </div>
+      </div>
+
+      {/* Main content area */}
+      <div className="spectator-content">
+        {selectedUser ? (
+          <ConversationView user={selectedUser} onClose={handleCloseConversation} />
+        ) : loading ? (
+          <div className="loading-users">
+            <div className="loading-spinner" />
+            <span>Loading active users...</span>
+          </div>
+        ) : error ? (
+          <div className="error-state">
+            <span className="error-icon">⚠</span>
+            <span>{error}</span>
+            <button onClick={fetchUsers} className="retry-btn">Retry</button>
+          </div>
+        ) : (
+          <div className="users-grid">
+            {sortedUsers.length > 0 ? (
+              sortedUsers.map(user => (
+                <UserBubble
+                  key={user.id}
+                  user={user}
+                  onClick={handleUserClick}
+                  isSelected={selectedUser?.id === user.id}
+                />
+              ))
+            ) : (
+              <div className="no-users">
+                <div className="empty-state">
+                  <span className="empty-icon">👁️</span>
+                  <p>{searchQuery ? 'No users match your search' : 'No active conversations'}</p>
+                  <p className="empty-hint">The grok bot is always online and ready to chat</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Search bar at bottom */}
+      <div className="spectator-search">
+        <div className="search-container">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            placeholder="Search active users..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          {searchQuery && (
+            <button className="clear-search" onClick={() => setSearchQuery('')}>
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

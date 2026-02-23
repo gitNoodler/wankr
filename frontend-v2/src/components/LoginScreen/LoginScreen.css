@@ -1,0 +1,73 @@
+/**
+ * Login screen — full-viewport immersive scene with robot mascot.
+ * iOS: safe-area and viewport handled in JSX/index.css; tap highlight and touch below.
+ */
+
+/* iOS: remove tap highlight so buttons/inputs don't show gray flash */
+.login-screen,
+.login-screen * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.login-screen input,
+.login-screen button {
+  touch-action: manipulation;
+}
+
+.login-scene-panel-float {
+  /* panel positioned inside .login-scene */
+}
+
+/* Spinner for username availability check (LoginForm) */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════
+   ATMOSPHERE & EFFECTS KEYFRAMES
+   ═══════════════════════════════════════════════ */
+
+/* Background grid floor underglow pulse */
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+/* Robot gentle bobbing (applied to <img> inside centered wrapper) */
+@keyframes robotBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Login panel fade-in (opacity only — transform stays inline) */
+@keyframes panelFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Boombox entrance — perspective matches floor grid vanishing point */
+@keyframes boomboxFadeIn {
+  0% { opacity: 0; transform: perspective(500px) rotateX(8deg) rotateY(12deg) translateY(18px); }
+  100% { opacity: 1; transform: perspective(500px) rotateX(8deg) rotateY(12deg) translateY(0); }
+}
+
+/* Boombox vibe when playing */
+@keyframes boomboxVibe {
+  0%, 100% { transform: perspective(500px) rotateX(8deg) rotateY(12deg) rotate(0deg); }
+  25% { transform: perspective(500px) rotateX(8deg) rotateY(12deg) rotate(-0.8deg); }
+  75% { transform: perspective(500px) rotateX(8deg) rotateY(12deg) rotate(0.8deg); }
+}
+
+/* Music notes floating upward from boombox */
+@keyframes noteFloat {
+  0% { opacity: 0.85; transform: translateY(0) translateX(0) rotate(0deg) scale(1); }
+  25% { opacity: 0.7; }
+  100% { opacity: 0; transform: translateY(var(--rise)) translateX(var(--drift)) rotate(var(--spin)) scale(0.45); }
+}
+
+/* Floor ripple rings expanding */
+@keyframes rippleExpand {
+  0% { width: 30px; height: 15px; opacity: 0.55; border-width: 2px; }
+  100% { width: 1200px; height: 400px; opacity: 0; border-width: 0.5px; }
+}

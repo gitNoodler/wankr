@@ -1,0 +1,44 @@
+/**
+ * Polls /api/restart/status — when restart is requested, backs up chat to server and acks.
+ * Enables wankr.bat to safely save chat before shutting down.
+ */
+
+import { useEffect, useRef } from 'react';
+import { api } from '../utils/api';
+
+const POLL_INTERVAL_MS = 5000;
+
+export function useRestartBackup(conversation, currentId) {
+  const backingUp = useRef(false);
+  const pollingDisabled = useRef(false);
+  const conversationRef = useRef(conversation);
+  const currentIdRef = useRef(currentId);
+  conversationRef.current = conversation;
+  currentIdRef.current = currentId;
+
+  useEffect(() => {
+    if (pollingDisabled.current) return;
+
+    const interval = setInterval(async () => {
+      if (pollingDisabled.current) return;
+      if (backingUp.current) return;
+      try {
+        const res = await api.get('/api/restart/status');
+        if (!res.ok) return; // Don't throw on 5xx; stop polling on repeated failure handled below
+        const data = await res.json();
+        if (!data?.restartRequested) return;
+        backingUp.current = true;
+        await api.post('/api/chat/backup', {
+          messages: conversationRef.current,
+          currentId: currentIdRef.current || '',
+        });
+        await api.get('/api/restart/ack');
+      } catch {
+        pollingDisabled.current = true;
+      } finally {
+        backingUp.current = false;
+      }
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
+}
