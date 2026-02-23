@@ -1,5 +1,3 @@
-import React from 'react';
-
 /** Organic ambient light propagation across full viewport – multi-directional gradients.
  *  Renders outside EffectsBounds so it always spans the entire screen. */
 export default function AmbientLightPropagation() {

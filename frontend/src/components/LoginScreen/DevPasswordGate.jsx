@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { DEV_PANEL_PASSWORD, setDevPanelUnlocked } from './devPanelLock';
 
 export default function DevPasswordGate({ onUnlock, onClose }) {

@@ -48,13 +48,6 @@ export default function RobotScene({
       })()
     : 'center center';
 
-  /* Panel center (scene %): character body anchors here so he stays centered behind the panel. */
-  const panelW = PANEL_BBOX_PCT.width * (loginBoxWidth / 100);
-  const panelH = PANEL_BBOX_PCT.height * (loginBoxHeight / 100);
-  const panelCenterX = PANEL_BBOX_PCT.left + leftCushion + panelW / 2;
-  const panelCenterY = PANEL_BBOX_PCT.top + topCushion + panelH / 2;
-  const panelAnchor = `${panelCenterX}% ${panelCenterY}%`;
-
   const panelFloatRef = useRef(null);
   const boomboxRef = useRef(null);
   const [panelSize, setPanelSize] = useState(null);

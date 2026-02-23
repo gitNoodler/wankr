@@ -1,4 +1,3 @@
-import React from 'react';
 import { UserIcon, KeyIcon, CheckIcon, XIcon, BackIcon } from './LoginScreenIcons';
 
 export default function LoginForm({

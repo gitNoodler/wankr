@@ -1,5 +1,3 @@
-import React from 'react';
-
 /** Red crosshair at viewport center (scene/origin reference). Toggle from Dev1. */
 export default function OriginCrosshair({ visible }) {
   if (!visible) return null;

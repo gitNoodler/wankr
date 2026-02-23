@@ -1,5 +1,3 @@
-import React from 'react';
-
 /** When sparkActive, shows glow reflection propagating across left and right panes and full screen. */
 export default function SparkReflectionOverlay({ sparkActive = false }) {
   if (!sparkActive) return null;

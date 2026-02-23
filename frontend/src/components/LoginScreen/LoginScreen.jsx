@@ -79,7 +79,7 @@ export default function LoginScreen({
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault();
-    auth.doAuth(false);
+    auth.doAuth(auth.isRegistering);
   }, [auth]);
 
   const handleLockLayers = useCallback(() => {

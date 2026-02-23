@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function SliderRow({ label, min, max, value, onChange, step = 1, disabled = false }) {
   const clamp = (n) => Math.min(max, Math.max(min, Number.isNaN(n) ? min : n));
   const parseVal = (v) => (step < 1 ? parseFloat(v) : parseInt(v, 10));
