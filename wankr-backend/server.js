@@ -1198,10 +1198,14 @@ if (process.env.PROXY_UI_TO_VITE === '1') {
 
 // --- Start ---
 async function main() {
-  // xAI API key MUST come from Infisical — no .env fallback
+  // Prefer Infisical, but preserve env fallback for non-Infisical deployments.
   await initInfisical();
+  if (!xaiApiKey && process.env.XAI_API_KEY && process.env.XAI_API_KEY.trim()) {
+    xaiApiKey = process.env.XAI_API_KEY.trim();
+    console.log('✅ xAI key loaded from environment variable XAI_API_KEY');
+  }
   if (!xaiApiKey) {
-    console.warn('⚠️ No xAI key. Set XAI_API_KEY (or grokWankr) in Infisical.');
+    console.warn('⚠️ No xAI key. Set XAI_API_KEY in env or Infisical (XAI_API_KEY/grokWankr).');
   }
   if (!viteApiKey && process.env.VITE_API_KEY && process.env.VITE_API_KEY.trim()) {
     viteApiKey = process.env.VITE_API_KEY.trim();
