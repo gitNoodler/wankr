@@ -45,7 +45,7 @@ export default function useWankrGroove() {
       audioRef.current = a;
     }
     return audioRef.current;
-  }, []); // volume/muted captured at creation; updated in effects
+  }, [muted, volume]); // only matters for initial creation; synced via effect below
 
   /* Attempt to play (may fail without user gesture) */
   const tryPlay = useCallback(() => {
