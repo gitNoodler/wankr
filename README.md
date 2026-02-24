@@ -61,7 +61,7 @@ The dashboard is a **React + Vite** frontend with a **Node.js** backend in `wank
 cd wankr-backend && npm install && npm start
 
 # Terminal 2: React
-cd frontend && npm install && npm run dev
+cd frontend-v2 && npm install && npm run dev
 ```
 
 Open **http://localhost:5173** for the React dashboard.
@@ -69,7 +69,7 @@ Open **http://localhost:5173** for the React dashboard.
 **Production:** Build the frontend; the Node backend serves the built app.
 
 ```bash
-cd frontend && npm install && npm run build
+cd frontend-v2 && npm install && npm run build
 cd ../wankr-backend && npm start
 ```
 
@@ -83,9 +83,9 @@ The dashboard needs the **full Node backend** (Infisical, xAI, `/api`, training,
 
 **Checklist:** **[SETUP_WANKRBOT_ONLINE.md](SETUP_WANKRBOT_ONLINE.md)** (Railway + Cloudflare in order). Also: [RELAUNCH.md](RELAUNCH.md), [RAILWAY_ONE_TIME.md](RAILWAY_ONE_TIME.md). Full tunnel detail: [docs/CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md).
 
-1. **Run backend** on a VPS or **Railway**: clone repo, `cd wankr-backend`, `npm install`, add `.env` or Infisical, build frontend (`cd ../frontend && npm run build`), then `node server.js` (or `infisical run --env=prod -- node server.js`). For Railway, use the **repo root** as the service Root Directory (leave blank so the full repo is used). The root `railway.json` uses the **Dockerfile**; if the build instead uses Railpack and only sees a few files, set the service **Root Directory** to the repository root so the Dockerfile and `frontend/` / `wankr-backend/` are included. A root `start.sh` is available for Railpack/Shell builds. See RAILWAY_ONE_TIME.md.
+1. **Run backend** on a VPS or **Railway**: clone repo, `cd wankr-backend`, `npm install`, add `.env` or Infisical, build frontend (`cd ../frontend-v2 && npm run build`), then `node server.js` (or `infisical run --env=prod -- node server.js`). For Railway, use the **repo root** as the service Root Directory (leave blank so the full repo is used). The root `railway.json` uses the **Dockerfile**; if the build instead uses Railpack and only sees a few files, set the service **Root Directory** to the repository root so the Dockerfile and `frontend-v2/` / `wankr-backend/` are included. A root `start.sh` is available for Railpack/Shell builds. See RAILWAY_ONE_TIME.md.
 2. **Cloudflare Tunnel** (Zero Trust → Networks → Tunnels): create tunnel in the **same account as wankrbot.com**, run `cloudflared tunnel run --token ...` (or `run_tunnel.bat` with `CLOUDFLARE_TUNNEL_TOKEN` in `.env`). Public hostname: **wankrbot.com** → **http://127.0.0.1:5000** (local) or your **Railway backend URL**.
 3. **DNS:** In the wankrbot.com zone, remove any A/CNAME for `@` or `www` that point elsewhere; tunnel CNAMEs only.
-4. **Frontend:** Build with `cd frontend && npm run build`; the backend serves `frontend/dist`. No `wrangler deploy`.
+4. **Frontend:** Build with `cd frontend-v2 && npm run build`; the backend serves `frontend-v2/dist`. No `wrangler deploy`.
 
 Result: https://wankrbot.com shows the same dashboard as localhost:5173, with real Grok and training.

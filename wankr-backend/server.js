@@ -25,7 +25,7 @@ const ROOT = path.resolve(__dirname, '..');
 const TRAINING_FILE = path.join(ROOT, 'training_data.json');
 const CHAT_BACKUP_FILE = path.join(ROOT, 'chat_backup.json');
 const RESTART_FLAG_FILE = path.join(ROOT, 'restart_requested.flag');
-const FRONTEND_DIST = path.join(ROOT, 'frontend', 'dist');
+const FRONTEND_DIST = path.join(ROOT, 'frontend-v2', 'dist');
 const CHAT_LOG_FILE = path.join(ROOT, 'logs', 'chat.log');
 
 // Ensure logs directory exists
@@ -1204,7 +1204,7 @@ app.get('/', (req, res) => {
   if (fs.existsSync(index)) {
     return res.sendFile(index);
   }
-  res.status(404).send('Frontend not built. Run: cd frontend && npm run build');
+  res.status(404).send('Frontend not built. Run: cd frontend-v2 && npm run build');
 });
 app.use('/assets', express.static(path.join(FRONTEND_DIST, 'assets')));
 const staticDir = path.resolve(ROOT, 'static');
@@ -1247,7 +1247,7 @@ if (process.env.PROXY_UI_TO_VITE === '1') {
   app.get('*', (req, res) => {
     const index = path.join(FRONTEND_DIST, 'index.html');
     if (fs.existsSync(index)) return res.sendFile(index);
-    res.status(404).send('Frontend not built. Run: cd frontend && npm run build');
+    res.status(404).send('Frontend not built. Run: cd frontend-v2 && npm run build');
   });
 }
 
