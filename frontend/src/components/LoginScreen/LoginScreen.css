@@ -18,6 +18,21 @@
   /* panel positioned inside .login-scene */
 }
 
+/* Thin themed scrollbar for panel form overflow */
+.login-scene-panel-float ::-webkit-scrollbar {
+  width: 4px;
+}
+.login-scene-panel-float ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.login-scene-panel-float ::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 65, 0.3);
+  border-radius: 2px;
+}
+.login-scene-panel-float ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 65, 0.5);
+}
+
 /* Spinner for username availability check (LoginForm) */
 @keyframes spin {
   from { transform: rotate(0deg); }

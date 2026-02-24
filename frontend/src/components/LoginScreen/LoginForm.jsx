@@ -300,8 +300,8 @@ export default function LoginForm({
           </div>
           <p
             style={{
-              marginTop: '2cqi',
-              marginBottom: '2cqi',
+              marginTop: '1.5cqi',
+              marginBottom: '0',
               fontSize: `${buttonFontCqi}cqi`,
               fontWeight: 600,
               fontStyle: 'italic',
