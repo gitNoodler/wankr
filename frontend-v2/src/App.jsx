@@ -5,7 +5,7 @@ import { useArchive } from './hooks/useArchive';
 import { useRestartBackup } from './hooks/useRestartBackup';
 import { useViewportScale } from './hooks/useViewportScale';
 import { getTrainCount } from './services/trainingService';
-import { validateSession, logout as authLogout, getStoredToken, getStoredUsername } from './services/authService';
+import { validateSession, logout as authLogout, getStoredToken } from './services/authService';
 import { api } from './utils/api';
 import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
@@ -14,10 +14,6 @@ import TrainingPanel from './components/TrainingPanel';
 import KolAnalysisPanel from './components/KolAnalysisPanel';
 import LoginScreen from './components/LoginScreen';
 import SpectatorView from './components/SpectatorView';
-import DashboardSettings from './components/DashboardSettings';
-import MeasureTool from './components/MeasureTool';
-import { isDevToolsAllowed } from './utils/devToolsAllowed';
-import OriginCrosshair from './components/OriginCrosshair';
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -25,34 +21,11 @@ export default function App() {
   const [sessionValidating, setSessionValidating] = useState(true);
   const [loginCollapsing, setLoginCollapsing] = useState(false);
   const [dashboardSweepIn, setDashboardSweepIn] = useState(false);
-  const [measureOpen, setMeasureOpen] = useState(false);
-  const [showOriginCrosshair, setShowOriginCrosshair] = useState(false);
   const [, setOrientationKey] = useState(0);
   const [namedToast, setNamedToast] = useState(null);
   const namedToastTimeoutRef = useRef(null);
   const transitionRef = useRef(null);
   const storage = useConversationStorage();
-
-  // Universal dev panel: only on dev port (Vite). Ctrl+Alt+D or Ctrl+Shift+D. Rejected elsewhere.
-  const [universalDevPanelOpen, setUniversalDevPanelOpen] = useState(false);
-  useEffect(() => {
-    if (!isDevToolsAllowed) return;
-    const handler = (e) => {
-      const isD = e.key === 'D' || e.key === 'd' || e.code === 'KeyD';
-      const isCtrlAltD = e.ctrlKey && e.altKey && !e.shiftKey && isD;
-      const isCtrlShiftD = e.ctrlKey && e.shiftKey && !e.altKey && isD;
-      if (!isCtrlAltD && !isCtrlShiftD) return;
-      const onLoginScreen = !loggedIn && !spectatorMode && !sessionValidating;
-      const willHandle = onLoginScreen || getStoredUsername()?.toLowerCase() === 'gitnoodler';
-      if (!willHandle) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setUniversalDevPanelOpen((o) => !o);
-    };
-    const opts = { capture: true };
-    document.addEventListener('keydown', handler, opts);
-    return () => document.removeEventListener('keydown', handler, opts);
-  }, [loggedIn, spectatorMode, sessionValidating]);
 
   // Reorient layout when iOS (or any device) rotates, resizes, or app is opened from background
   useEffect(() => {
@@ -380,17 +353,10 @@ export default function App() {
             onLogin={handleLoginSuccess}
             onSpectate={handleSpectate}
             collapsing={loginCollapsing}
-            onOpenMeasure={isDevToolsAllowed ? () => setMeasureOpen(true) : undefined}
-            devPanelOpen={isDevToolsAllowed && universalDevPanelOpen}
-            onDevPanelClose={isDevToolsAllowed ? () => setUniversalDevPanelOpen(false) : undefined}
-            onRequestDevPanel={isDevToolsAllowed ? () => setUniversalDevPanelOpen(true) : undefined}
-            showOriginCrosshair={showOriginCrosshair}
-            onToggleOriginCrosshair={isDevToolsAllowed ? () => setShowOriginCrosshair((v) => !v) : undefined}
           />
         ) : (
           <>
             <Header onLogout={handleLogout} />
-            {isDevToolsAllowed && <DashboardSettings />}
             <div
               className={`dashboard-body ${dashboardSweepIn ? 'sweep-in' : ''} ${trainingMode ? 'with-training' : 'with-placeholder'}`}
               style={{
@@ -441,8 +407,6 @@ export default function App() {
           </>
         )}
       </div>
-      {isDevToolsAllowed && <OriginCrosshair visible={showOriginCrosshair} />}
-      {isDevToolsAllowed && measureOpen && <MeasureTool onClose={() => setMeasureOpen(false)} />}
       {namedToast && (
         <div
           className="named-toast"

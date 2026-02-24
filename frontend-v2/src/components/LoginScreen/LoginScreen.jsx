@@ -1,63 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '../../utils/api';
 import RobotScene from './RobotScene';
 import LoginForm from './LoginForm';
-import RobotDevPanel from './RobotDevPanel';
-import { saveDevDefaults, fetchDevDefaultsFromBackend, getPrimaryDevDefaults, LAYERS_LOCKED_KEY, isIOS, isPortrait } from './loginScreenConfig';
-import { isDevToolsAllowed } from '../../utils/devToolsAllowed';
-import { computePanelBackground } from './helpers';
-import { useLoginScreenState } from './useLoginScreenState';
-import { useLoginScreenUndo } from './useLoginScreenUndo';
+import { isIOS, isPortrait } from './loginScreenConfig';
 import { useLoginScreenAuth } from './useLoginScreenAuth';
 import useLofiMusic from './useLofiMusic';
 import useWankrGroove from './useWankrGroove';
 import GrooveGearMenu from './GrooveGearMenu';
-import DevPasswordGate from './DevPasswordGate';
-import DevToolbar from './DevToolbar';
-import { isDevPanelUnlocked, lockDevPanel } from './devPanelLock';
-import WankingLiveDevPanel from '../WankingLive/WankingLiveDevPanel';
-import { useWankingLiveDevState } from '../WankingLive/useWankingLiveDevState';
 import './LoginScreen.css';
 
-const DEV_PANEL_BOX_STYLE = {
-  position: 'fixed',
-  top: 20,
-  right: 20,
-  zIndex: 210,
-  background: 'rgba(0,0,0,0.95)',
-  padding: '16px',
-  borderRadius: '12px',
-  border: '2px solid var(--accent)',
-  boxShadow: '0 0 30px rgba(0,255,65,0.3)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  minWidth: 260,
-  maxHeight: '90vh',
-  overflowY: 'auto',
-};
-
-export default function LoginScreen({
-  onLogin,
-  onSpectate,
-  collapsing,
-  onOpenMeasure,
-  devPanelOpen = false,
-  onDevPanelClose,
-  onRequestDevPanel,
-  showOriginCrosshair = false,
-  onToggleOriginCrosshair,
-}) {
-  const [devPanelUnlockedThisSession, setDevPanelUnlockedThisSession] = useState(false);
-  const [dev2Open, setDev2Open] = useState(false);
-  const dev1 = useWankingLiveDevState();
-  const [, setLayersLocked] = useState(() => {
-    try {
-      return localStorage.getItem(LAYERS_LOCKED_KEY) !== 'false';
-    } catch { return true; }
-  });
-  const sceneRef = React.useRef(null);
-  const sceneUnitRef = React.useRef(null);
+export default function LoginScreen({ onLogin, onSpectate, collapsing }) {
   const [portrait, setPortrait] = useState(() => (typeof window !== 'undefined' ? isPortrait() : true));
   useEffect(() => {
     const sync = () => setPortrait(isPortrait());
@@ -69,13 +20,6 @@ export default function LoginScreen({
     };
   }, []);
 
-  const state = useLoginScreenState({});
-  useLoginScreenUndo({
-    buildSnapshot: state.buildSnapshot,
-    applySnapshotRef: state.applySnapshotRef,
-    getSavedDefaults: () => fetchDevDefaultsFromBackend(api),
-    onResetToPrimaryApplied: (primary) => api.post('/api/settings/dev-defaults', primary).catch(() => {}),
-  });
   const auth = useLoginScreenAuth({ onLogin });
   const lofi = useLofiMusic();
   const groove = useWankrGroove();
@@ -84,84 +28,6 @@ export default function LoginScreen({
     e?.preventDefault();
     auth.doAuth(false);
   }, [auth]);
-
-  const handleLockLayers = useCallback(() => {
-    setLayersLocked(true);
-    try { localStorage.setItem(LAYERS_LOCKED_KEY, 'true'); } catch { /* ignore */ }
-  }, []);
-
-  const panelBg = computePanelBackground(state.loginBrightness, state.loginShadeOfGray, state.loginLightToBlack);
-
-  const handleRestoreSavedLayout = useCallback(() => {
-    fetchDevDefaultsFromBackend(api).then((data) => {
-      state.applySnapshotRef.current?.(data || getPrimaryDevDefaults());
-    });
-  }, [state]);
-
-  const applyPartChange = useCallback((id, { offsetX, offsetY, scaleX, scaleY }) => {
-    if (id === 'back') {
-      state.setBackOffsetX(offsetX);
-      state.setBackOffsetY(offsetY);
-      state.setBackScaleX(scaleX);
-      state.setBackScaleY(scaleY);
-    } else if (id === 'robot') {
-      state.setRobotOffsetX(offsetX);
-      state.setRobotOffsetY(offsetY);
-      state.setRobotScaleX(scaleX);
-      state.setRobotScaleY(scaleY);
-    } else if (id === 'shoulder') {
-      state.setShoulderOffsetX(offsetX);
-      state.setShoulderOffsetY(offsetY);
-      state.setShoulderScaleX(scaleX);
-      state.setShoulderScaleY(scaleY);
-    } else if (id === 'handLeft') {
-      state.setHandLeftOffsetX(offsetX);
-      state.setHandLeftOffsetY(offsetY);
-      state.setHandLeftScaleX(scaleX);
-      state.setHandLeftScaleY(scaleY);
-    } else if (id === 'handRight') {
-      state.setHandRightOffsetX(offsetX);
-      state.setHandRightOffsetY(offsetY);
-      state.setHandRightScaleX(scaleX);
-      state.setHandRightScaleY(scaleY);
-    }
-  }, [state]);
-
-  const handleSaveGlobalDefaults = useCallback(() => {
-    const valuesToSave = state.buildSnapshot();
-    if (!valuesToSave) return;
-    saveDevDefaults();
-    api
-      .post('/api/settings/dev-defaults', valuesToSave)
-      .then((res) => {
-        if (res.ok) {
-          handleLockLayers();
-        } else if (res.status === 403) {
-          window.alert('Could not save defaults. Use the dev server (port 5173) to save.');
-        } else {
-          window.alert('Save failed.');
-        }
-      })
-      .catch(() => window.alert('Save failed.'));
-  }, [state, handleLockLayers]);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'R') {
-        e.preventDefault();
-        handleRestoreSavedLayout();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [handleRestoreSavedLayout]);
-
-  // Single source of truth: load saved layout from backend on mount (so 5000 and 5173 match)
-  useEffect(() => {
-    fetchDevDefaultsFromBackend(api).then((data) => {
-      if (data) state.applySnapshotRef.current?.(data);
-    });
-  }, [state.applySnapshotRef]);
 
   return (
     <div
@@ -199,34 +65,9 @@ export default function LoginScreen({
           <p style={{ margin: 0, textShadow: '0 0 12px var(--accent)' }}>Please rotate your device to portrait</p>
         </div>
       )}
-      {state.defaultsReady ? (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
+
+      <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         <RobotScene
-          sceneRef={sceneRef}
-          sceneUnitRef={sceneUnitRef}
-          sceneOffsetX={state.sceneOffsetX}
-          sceneOffsetY={state.sceneOffsetY}
-          sceneScaleX={state.sceneScaleX}
-          sceneScaleY={state.sceneScaleY}
-          backOffsetX={state.backOffsetX}
-          backOffsetY={state.backOffsetY}
-          backScaleX={state.backScaleX}
-          backScaleY={state.backScaleY}
-          showLayerBackground={state.showLayerBackground}
-          showLayerWankrBody={state.showLayerWankrBody}
-          showLayerLogin={state.showLayerLogin}
-          characterSharpness={state.characterSharpness}
-          leftCushion={state.leftCushion}
-          topCushion={state.topCushion}
-          loginBoxWidth={state.loginBoxWidth}
-          loginBoxHeight={state.loginBoxHeight}
-          scaleX={state.scaleX}
-          scaleY={state.scaleY}
-          panelBg={panelBg}
-          panelBorderBrightness={state.panelBorderBrightness}
-          panelContentOffsetX={state.panelContentOffsetX}
-          panelRightMargin={state.panelRightMargin}
-          buttonsBottomGap={state.buttonsBottomGap}
           musicPlaying={lofi.playing}
           onToggleMusic={lofi.toggle}
           groovePlaying={groove.playing}
@@ -251,23 +92,16 @@ export default function LoginScreen({
               onBackToLogin={auth.handleBackToLogin}
             />
           }
-          ductTapeStrips={[]}
-          respectDuctTape={true}
         />
-        </div>
-      ) : (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: '#000' }} aria-hidden="true" />
-      )}
+      </div>
 
-      {/* Gear menu — audio controls (always visible) */}
+      {/* Gear menu — audio controls */}
       <GrooveGearMenu
         volume={groove.volume}
         muted={groove.muted}
         onVolumeChange={groove.setVolume}
         onToggleMute={groove.toggleMute}
       />
-
-      {/* Dev panels removed */}
     </div>
   );
 }
