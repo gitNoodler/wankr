@@ -226,6 +226,15 @@ export default function LoginScreen({
           buttonsBottomGap={state.buttonsBottomGap}
           musicPlaying={lofi.playing}
           onToggleMusic={lofi.toggle}
+          showLayerHands={state.showLayerHands}
+          handLeftScaleX={state.handLeftScaleX}
+          handLeftScaleY={state.handLeftScaleY}
+          handLeftOffsetX={state.handLeftOffsetX}
+          handLeftOffsetY={state.handLeftOffsetY}
+          handRightScaleX={state.handRightScaleX}
+          handRightScaleY={state.handRightScaleY}
+          handRightOffsetX={state.handRightOffsetX}
+          handRightOffsetY={state.handRightOffsetY}
           panelContent={
             <LoginForm
               username={auth.username}

@@ -2,6 +2,8 @@ import React, { useRef, useState, useEffect } from 'react';
 import { CANVAS, PANEL_BBOX_PCT } from './loginScreenConfig';
 import backgroundImg from '@mascot/dashLayers/background.png';
 import wankrHomeImg from '@mascot/dashLayers/wankrHome.png';
+import leftHandImg from '@mascot/dashLayers/Lefthand.png';
+import rightHandImg from '@mascot/dashLayers/right_hand.png';
 import Boombox from './Boombox';
 import MusicNotes from './MusicNotes';
 import FloorGlowRipples from './FloorGlowRipples';
@@ -38,6 +40,15 @@ export default function RobotScene({
   onRemoveDuctTape,
   musicPlaying = false,
   onToggleMusic,
+  showLayerHands = true,
+  handLeftScaleX = 100,
+  handLeftScaleY = 100,
+  handLeftOffsetX = 0,
+  handLeftOffsetY = 0,
+  handRightScaleX = 100,
+  handRightScaleY = 100,
+  handRightOffsetX = 0,
+  handRightOffsetY = 0,
 }) {
   const tapeOrigin = respectDuctTape && ductTapeStrips.length > 0
     ? (() => {
@@ -216,18 +227,59 @@ export default function RobotScene({
                   background: panelBg,
                   borderRadius: '2.5cqi',
                   border: `2px solid rgba(0, 255, 65, ${panelBorderBrightness / 100})`,
-                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), inset 0 4px 14px rgba(0,0,0,0.22), inset 0 -2px 8px rgba(0,0,0,0.4), inset 2px 0 8px rgba(0,0,0,0.2), inset -2px 0 8px rgba(0,0,0,0.2), 0 0 20px rgba(0,255,65,${panelBorderBrightness / 100 * 0.4}), 0 0 40px rgba(0,255,65,${panelBorderBrightness / 100 * 0.2}), 0 0 80px rgba(0,255,65,0.1), 0 4px 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.5)`,
+                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 20px rgba(0,255,65,${panelBorderBrightness / 100 * 0.4}), 0 0 40px rgba(0,255,65,${panelBorderBrightness / 100 * 0.2}), 0 0 80px rgba(0,255,65,0.1), 0 4px 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.5)`,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 0,
                   position: 'relative',
                   overflow: 'hidden',
+                  overflowY: 'auto',
                 }}
               >
                 {panelContent}
               </div>
             </div>
           </div>
+        )}
+
+        {/* ═══ z30: Hand layers (above panel, gripping the edges) ═══ */}
+        {showLayerHands && (
+          <>
+            {/* Left hand — grips from the left side */}
+            <img
+              src={leftHandImg}
+              alt=""
+              draggable={false}
+              style={{
+                position: 'absolute',
+                zIndex: 30,
+                pointerEvents: 'none',
+                width: `${handLeftScaleX}%`,
+                height: `${handLeftScaleY}%`,
+                left: `${PANEL_BBOX_PCT.left + leftCushion + handLeftOffsetX}%`,
+                top: `${PANEL_BBOX_PCT.top + topCushion + handLeftOffsetY}%`,
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 0 6px rgba(0,255,65,0.2))',
+              }}
+            />
+            {/* Right hand — grips from the right side */}
+            <img
+              src={rightHandImg}
+              alt=""
+              draggable={false}
+              style={{
+                position: 'absolute',
+                zIndex: 30,
+                pointerEvents: 'none',
+                width: `${handRightScaleX}%`,
+                height: `${handRightScaleY}%`,
+                right: `${100 - (PANEL_BBOX_PCT.left + leftCushion + PANEL_BBOX_PCT.width * (loginBoxWidth / 100)) + handRightOffsetX}%`,
+                top: `${PANEL_BBOX_PCT.top + topCushion + handRightOffsetY}%`,
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 0 6px rgba(0,255,65,0.2))',
+              }}
+            />
+          </>
         )}
 
         {/* ═══ z25: Boombox (interactive, perspective-transformed) ═══ */}
