@@ -53,7 +53,7 @@ Put `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in 
 
 The dashboard is a **React + Vite** frontend with a **Node.js** backend in `wankr-backend/`. Same neon-green theme; chat, archive, and training.
 
-**Development:** Run `wankr.bat` to start the Node API (port 5000) and React dev server (port 5173). Vite proxies `/api` and `/static` to the Node backend.
+**Development:** Run `wankr.bat` to start the Node API (port 5000) and React dev server (port 5174). Vite proxies `/api` and `/static` to the Node backend.
 
 ```bash
 # Or manually:
@@ -64,7 +64,7 @@ cd wankr-backend && npm install && npm start
 cd frontend-v2 && npm install && npm run dev
 ```
 
-Open **http://localhost:5173** for the React dashboard.
+Open **http://localhost:5174** for the React dashboard.
 
 **Production:** Build the frontend; the Node backend serves the built app.
 
@@ -88,4 +88,4 @@ The dashboard needs the **full Node backend** (Infisical, xAI, `/api`, training,
 3. **DNS:** In the wankrbot.com zone, remove any A/CNAME for `@` or `www` that point elsewhere; tunnel CNAMEs only.
 4. **Frontend:** Build with `cd frontend-v2 && npm run build`; the backend serves `frontend-v2/dist`. No `wrangler deploy`.
 
-Result: https://wankrbot.com shows the same dashboard as localhost:5173, with real Grok and training.
+Result: https://wankrbot.com shows the same dashboard as localhost:5174, with real Grok and training.

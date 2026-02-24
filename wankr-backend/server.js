@@ -677,7 +677,7 @@ app.get('/api/training/stats', (req, res) => {
 });
 
 // --- Dev-only: UI architecture and developer tools only on dev local port ---
-const DEV_UI_PORT = process.env.DEV_UI_PORT || '5173';
+const DEV_UI_PORT = process.env.DEV_UI_PORT || '5174';
 function isRequestFromDevOrigin(req) {
   const origin = req.get('origin') || req.get('referer') || '';
   return origin.includes(`:${DEV_UI_PORT}`);
@@ -687,7 +687,7 @@ function rejectUnlessDevOrigin(req, res, next) {
   res.status(403).json({ error: 'UI architecture and developer tools are only available on the dev local port' });
 }
 
-// --- API: Login screen / dev panel slider defaults (sync 5173 ↔ 5000) ---
+// --- API: Login screen / dev panel slider defaults (sync 5174 ↔ 5000) ---
 const DEV_DEFAULTS_FILE = path.join(__dirname, 'storage', 'dev_defaults.json');
 function ensureStorageDir() {
   const dir = path.dirname(DEV_DEFAULTS_FILE);
