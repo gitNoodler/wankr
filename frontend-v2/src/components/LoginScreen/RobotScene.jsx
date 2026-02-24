@@ -1,39 +1,36 @@
 import React, { useRef } from 'react';
-import backgroundImg from '@mascot/dashLayers/background.png';
-import wankrHomeImg from '@mascot/dashLayers/wankrHome.png';
+import loginScreenImg from '@mascot/dashLayers/loginScreen.png';
 import Boombox from './Boombox';
 import MusicNotes from './MusicNotes';
 import FloorGlowRipples from './FloorGlowRipples';
+import RobotEyeBlink from './RobotEyeBlink';
 
 /**
  * RobotScene — Full-viewport immersive login scene.
  *
- * Layout (viewport-relative, matching wankrbot-login.html prototype):
- *   z1  Grid floor (background.png, 130% wide, bottom 55%)
- *   z2  Floor glow ripples (ambient expanding rings)
- *   z5  Robot mascot (wankrHome.png, centered, screen blend removes black bg)
- *   z20 Login panel (centered, backdrop blur, neon border)
- *   z25 Boombox (bottom-left, perspective, interactive)
- *   z26 Music notes (floating from boombox)
- *   z50 Duct tape strips (legacy)
- *   z60 Vignette overlay
- *   z61 Scanlines overlay
+ * Layered compositing:
+ *   z1  loginScreen.png (base — robot holding blank sign on neon grid)
+ *   z2  Floor glow ripples
+ *   z10 Login panel (form, positioned over the blank sign)
+ *   z18 loginScreen.png again (screen blend — both arms overlay ON TOP of panel)
+ *   z25 Boombox (interactive)
+ *   z26 Music notes
+ *   z60 Vignette
+ *   z61 Scanlines
  */
 export default function RobotScene({
   sceneRef,
   sceneUnitRef,
   sceneOffsetX,
   sceneOffsetY,
-  /* sceneScaleX/Y accepted for prop compat but not applied — viewport-relative layout */
   sceneScaleX: _sceneScaleX,  // eslint-disable-line no-unused-vars
   sceneScaleY: _sceneScaleY,  // eslint-disable-line no-unused-vars
-  /* backOffset/Scale accepted for prop compat but not applied — single robot image now */
   backOffsetX: _backOffsetX,  // eslint-disable-line no-unused-vars
   backOffsetY: _backOffsetY,  // eslint-disable-line no-unused-vars
   backScaleX: _backScaleX,    // eslint-disable-line no-unused-vars
   backScaleY: _backScaleY,    // eslint-disable-line no-unused-vars
   showLayerBackground: _showLayerBackground = true, // eslint-disable-line no-unused-vars
-  showLayerWankrBody = true,
+  showLayerWankrBody = true, // eslint-disable-line no-unused-vars
   showLayerLogin: _showLayerLogin = true, // eslint-disable-line no-unused-vars
   characterSharpness = 100,
   leftCushion: _leftCushion,      // eslint-disable-line no-unused-vars
@@ -42,8 +39,8 @@ export default function RobotScene({
   loginBoxHeight: _loginBoxHeight,// eslint-disable-line no-unused-vars
   scaleX: _scaleX,               // eslint-disable-line no-unused-vars
   scaleY: _scaleY,               // eslint-disable-line no-unused-vars
-  panelBg,
-  panelBorderBrightness,
+  panelBg: _panelBg,             // eslint-disable-line no-unused-vars
+  panelBorderBrightness: _panelBorderBrightness, // eslint-disable-line no-unused-vars
   panelContent,
   panelContentOffsetX: _panelContentOffsetX = 0, // eslint-disable-line no-unused-vars
   panelRightMargin: _panelRightMargin = 100,     // eslint-disable-line no-unused-vars
@@ -53,18 +50,25 @@ export default function RobotScene({
   onRemoveDuctTape,
   musicPlaying = false,
   onToggleMusic,
+  groovePlaying = false,
+  grooveGetAudio,
 }) {
   const boomboxRef = useRef(null);
-  const borderAlpha = Math.max(0.1, (panelBorderBrightness ?? 22) / 100 * 0.48);
 
-  /* Convert opaque panelBg (rgb) to semi-transparent for glassmorphic effect.
-     Without alpha, backdrop-filter blur is invisible and robot hides behind solid gray. */
-  const panelBackground = (() => {
-    if (!panelBg) return 'rgba(6, 14, 6, 0.82)';
-    const m = panelBg.match(/rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
-    if (m) return `rgba(${m[1]}, ${m[2]}, ${m[3]}, 0.82)`;
-    return panelBg;
-  })();
+
+  const imgFilter = `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 8px rgba(0,255,65,0.18)) drop-shadow(0 0 24px rgba(0,255,65,0.08))`;
+
+  /* Shared image style for both base and overlay copies of loginScreen.png */
+  const imgStyle = {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    objectPosition: 'center center',
+    display: 'block',
+    pointerEvents: 'none',
+  };
 
   return (
     <div
@@ -78,7 +82,6 @@ export default function RobotScene({
         background: '#000',
       }}
     >
-      {/* Scene-unit: offset only (no scale — viewport-relative layout) */}
       <div
         ref={sceneUnitRef}
         style={{
@@ -89,151 +92,124 @@ export default function RobotScene({
           transformOrigin: 'center center',
         }}
       >
-        {/* ═══ z1: Grid floor — background.png (the setting, no blend mode) ═══ */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '130%',
-            height: '55%',
-            zIndex: 1,
-            overflow: 'hidden',
-            pointerEvents: 'none',
-          }}
-        >
-          {/* Pulsing underglow beneath the grid */}
+        {/* ═══ z1: Base robot scene ═══ */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }}>
           <div
             style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'radial-gradient(ellipse at 50% 55%, rgba(0,255,65,0.16) 0%, rgba(0,255,65,0.05) 30%, transparent 60%)',
+              position: 'absolute', inset: 0,
+              background: 'radial-gradient(ellipse at 50% 55%, rgba(0,255,65,0.12) 0%, rgba(0,255,65,0.04) 30%, transparent 60%)',
               animation: 'glowPulse 5s ease-in-out infinite',
-              pointerEvents: 'none',
-              zIndex: 0,
+              pointerEvents: 'none', zIndex: 0,
             }}
           />
           <img
-            src={backgroundImg}
-            alt=""
+            src={loginScreenImg}
+            alt="WankrBot"
             draggable={false}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center top',
-              display: 'block',
-              position: 'relative',
-              zIndex: 1,
-            }}
+            style={{ ...imgStyle, position: 'relative', zIndex: 1, filter: imgFilter }}
           />
         </div>
 
-        {/* ═══ z2: Floor glow ripples (ambient expanding rings) ═══ */}
+        {/* ═══ z3-z4: Face expression layers (disabled) ═══ */}
+        {/* <RobotEyeBlink /> */}
+
+        {/* ═══ z2: Floor glow ripples ═══ */}
         <FloorGlowRipples />
 
-        {/* ═══ z5: Robot mascot (wankrHome.png — screen blend removes black bg) ═══ */}
-        {showLayerWankrBody && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 'clamp(540px, 108%, 1500px)',
-              zIndex: 5,
-              pointerEvents: 'none',
-              mixBlendMode: 'screen',
-            }}
-          >
-            <img
-              src={wankrHomeImg}
-              alt="WankrBot"
-              draggable={false}
-              style={{
-                width: '100%',
-                height: 'auto',
-                display: 'block',
-                filter: `${characterSharpness !== 100 ? `contrast(${characterSharpness / 100}) ` : ''}drop-shadow(0 0 6px rgba(0,255,65,0.15)) drop-shadow(0 0 20px rgba(0,255,65,0.06))`,
-                animation: 'robotBob 5s ease-in-out infinite',
-              }}
-            />
-          </div>
-        )}
-
-        {/* ═══ z20: Login panel (viewport-centered, backdrop blur, neon border) ═══ */}
+        {/* ═══ z10: Login panel — canvas-aligned inside the green box ═══ *
+          * The panel sits inside a flex-centered wrapper that emulates      *
+          * object-fit:contain, so canvas-% coordinates line up with the     *
+          * green box borders in loginScreen.png.                            *
+          * Green box inner area: x≈555 y≈425 w≈490 h≈225 on 1536×1024     */}
         {panelContent != null && (
           <div
-            className="login-panel-wrapper"
             style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -38%)',
-              zIndex: 20,
-              width: 'clamp(270px, 24%, 330px)',
-              pointerEvents: 'auto',
-              animation: 'panelFadeIn 0.8s ease-out both',
+              position: 'absolute', inset: 0, zIndex: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              pointerEvents: 'none',
             }}
           >
             <div
-              className="login-panel"
               style={{
-                padding: '28px 24px 20px',
-                background: panelBackground,
-                border: `1.5px solid rgba(0, 255, 65, ${borderAlpha})`,
-                borderRadius: 14,
-                backdropFilter: 'blur(24px)',
-                WebkitBackdropFilter: 'blur(24px)',
-                boxShadow:
-                  '0 0 30px rgba(0,255,65,0.08), ' +
-                  '0 0 80px rgba(0,255,65,0.04), ' +
-                  'inset 0 1px 0 rgba(0,255,65,0.1), ' +
-                  'inset 0 -1px 0 rgba(0,0,0,0.4), ' +
-                  '0 6px 20px rgba(0,0,0,0.5)',
                 position: 'relative',
-                overflow: 'hidden',
-                containerType: 'inline-size',
-                transition: 'box-shadow 0.4s ease, border-color 0.4s ease',
+                width: '100%', height: '100%',
+                maxWidth: 'calc(100vh * 1.5)',
+                maxHeight: 'calc(100vw / 1.5)',
+                pointerEvents: 'none',
               }}
             >
-              {/* Top glow accent line */}
               <div
+                className="login-panel-wrapper"
                 style={{
                   position: 'absolute',
-                  top: 0,
-                  left: '12%',
-                  width: '76%',
-                  height: 1,
-                  background: 'linear-gradient(90deg, transparent, rgba(0,255,65,0.5), transparent)',
-                  pointerEvents: 'none',
+                  left: '35.5%',
+                  top: '43.2%',
+                  width: '33%',
+                  height: '23.5%',
+                  pointerEvents: 'auto',
+                  animation: 'panelFadeIn 0.8s ease-out both',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
-              />
-              {panelContent}
+              >
+                <div
+                  className="login-panel"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 2,
+                    position: 'relative',
+                    overflowX: 'hidden',
+                    overflowY: 'auto',
+                    containerType: 'inline-size',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    padding: '1.5% 11%',
+                  }}
+                >
+                  <div style={{ position: 'relative', zIndex: 1 }}>
+                    {panelContent}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* ═══ z25: Boombox (interactive, perspective-transformed) ═══ */}
-        <Boombox
-          ref={boomboxRef}
-          playing={musicPlaying}
-          onToggle={onToggleMusic}
+        {/* ═══ z18: Hand overlays — grip ON TOP of panel ═══ *
+          * Separate 1536×1024 transparent layers for each hand.            */}
+        <img
+          src="/images/hands/left_hand.png"
+          alt=""
+          draggable={false}
+          style={{ ...imgStyle, zIndex: 18 }}
+        />
+        <img
+          src="/images/hands/right_hand.png"
+          alt=""
+          draggable={false}
+          style={{ ...imgStyle, zIndex: 18 }}
         />
 
-        {/* ═══ z26: Music notes (floating from boombox when playing) ═══ */}
+        {/* ═══ z15: Boombox (behind arm overlays at z18) ═══ */}
+        <Boombox
+          ref={boomboxRef}
+          playing={groovePlaying || musicPlaying}
+          onToggle={onToggleMusic}
+          getAudio={grooveGetAudio}
+        />
+
+        {/* ═══ z26: Music notes ═══ */}
         <MusicNotes playing={musicPlaying} boomboxRef={boomboxRef} />
 
         {/* ═══ z50: Duct tape strips ═══ */}
         {ductTapeStrips.length > 0 && (
           <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 50,
-              pointerEvents: 'none',
-            }}
+            style={{ position: 'absolute', inset: 0, zIndex: 50, pointerEvents: 'none' }}
             aria-hidden
           >
             <svg
@@ -244,13 +220,9 @@ export default function RobotScene({
               {ductTapeStrips.map((s) => (
                 <line
                   key={s.id}
-                  x1={s.x1 * 100}
-                  y1={s.y1 * 100}
-                  x2={s.x2 * 100}
-                  y2={s.y2 * 100}
-                  stroke="rgba(180,180,180,0.95)"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
+                  x1={s.x1 * 100} y1={s.y1 * 100}
+                  x2={s.x2 * 100} y2={s.y2 * 100}
+                  stroke="rgba(180,180,180,0.95)" strokeWidth="1.2" strokeLinecap="round"
                   filter="drop-shadow(0 0 1px rgba(0,0,0,0.5))"
                 />
               ))}
@@ -260,51 +232,37 @@ export default function RobotScene({
               const midY = (s.y1 + s.y2) / 2;
               return (
                 <button
-                  key={s.id}
-                  type="button"
+                  key={s.id} type="button"
                   onClick={(e) => { e.stopPropagation(); onRemoveDuctTape?.(s.id); }}
                   style={{
-                    position: 'absolute',
-                    left: `${midX * 100}%`,
-                    top: `${midY * 100}%`,
-                    transform: 'translate(-50%, -50%)',
-                    width: 32,
-                    height: 32,
-                    padding: 0,
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    pointerEvents: 'auto',
+                    position: 'absolute', left: `${midX * 100}%`, top: `${midY * 100}%`,
+                    transform: 'translate(-50%, -50%)', width: 32, height: 32,
+                    padding: 0, border: 'none', background: 'transparent',
+                    cursor: 'pointer', pointerEvents: 'auto',
                   }}
-                  title="Remove duct tape (click to remove)"
+                  title="Remove duct tape"
                 />
               );
             })}
           </div>
         )}
 
-        {/* ═══ Atmosphere overlays ═══ */}
-        {/* Vignette */}
+        {/* ═══ Atmosphere ═══ */}
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(0,0,0,0.65) 100%)',
-            pointerEvents: 'none',
-            zIndex: 60,
+            position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 60,
+            background: 'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(0,0,0,0.6) 100%)',
           }}
         />
-        {/* Scanlines */}
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)',
-            pointerEvents: 'none',
-            zIndex: 61,
+            position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 61,
+            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.025) 2px, rgba(0,0,0,0.025) 4px)',
           }}
         />
       </div>
+
+      {/* Panel tuner removed — panel is now canvas-aligned */}
     </div>
   );
 }

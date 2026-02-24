@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import notesImg from '@mascot/dashLayers/notes.png';
+const notesImg = '/dashLayers/notes.png';
 
 /**
  * MusicNotes — Spawns floating music notes from boombox position.

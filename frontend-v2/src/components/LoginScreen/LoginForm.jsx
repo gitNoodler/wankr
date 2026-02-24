@@ -1,6 +1,12 @@
 import React from 'react';
-import { UserIcon, KeyIcon, CheckIcon, XIcon, BackIcon } from './LoginScreenIcons';
+import { CheckIcon, XIcon, BackIcon } from './LoginScreenIcons';
 
+/**
+ * LoginForm — ultra-compact form anchored inside the robot's green panel box.
+ *
+ * Titles removed (already on robot's head screen). Uses cqi units so
+ * everything scales with the panel container width.
+ */
 export default function LoginForm({
   username,
   password,
@@ -18,76 +24,74 @@ export default function LoginForm({
   onNewUser,
   onSpectate,
   onBackToLogin,
-  titleOffsetX = 0,
-  titleOffsetY = 0,
-  titleScale = 100,
-  subtitleOffsetX = 0,
-  subtitleOffsetY = 0,
-  subtitleScale = 100,
-  inputWidthScale = 100,
-  titleTopGap = 1,
-  titleToSubtitleGap = 0.5,
-  subtitleToUsernameGap = 1,
-  usernamePasswordGap = 1,
-  passwordToSubmitGap = 1,
-  submitToButtonsGap = 1,
-  controlHeightScale = 100,
 }) {
-  const ts = titleScale / 100;
-  const ss = subtitleScale / 100;
-  const iws = inputWidthScale / 100;
-  const chs = controlHeightScale / 100;
-  const h = 8 * chs;
-  const hCqi = `${h}cqi`;
-  const inputFontCqi = 3.5 * chs;
-  const buttonFontCqi = 3.2 * chs;
+  /* ── Shared styles ────────────────────────────────────────────────── */
+  const inputStyle = {
+    width: '100%',
+    minWidth: 0,
+    height: '7cqi',
+    padding: '0 2.5cqi',
+    background: 'rgba(0, 0, 0, 0.55)',
+    border: '1px solid rgba(0, 255, 65, 0.22)',
+    borderRadius: 1,
+    color: '#00ff41',
+    fontSize: '4cqi',
+    fontFamily: "'VT323', 'Courier New', monospace",
+    letterSpacing: '0.06em',
+    outline: 'none',
+    boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.4)',
+    transition: 'border-color 0.25s, box-shadow 0.25s',
+    caretColor: '#00ff41',
+    boxSizing: 'border-box',
+  };
+
+  const focusHandlers = {
+    onFocus: (e) => {
+      e.target.style.borderColor = 'rgba(0, 255, 65, 0.55)';
+      e.target.style.boxShadow = 'inset 0 1px 4px rgba(0,0,0,0.4), 0 0 8px rgba(0,255,65,0.15)';
+    },
+    onBlur: (e) => {
+      e.target.style.borderColor = 'rgba(0, 255, 65, 0.22)';
+      e.target.style.boxShadow = 'inset 0 1px 4px rgba(0,0,0,0.4)';
+    },
+  };
+
+  const btnBase = {
+    borderRadius: 1,
+    fontWeight: 700,
+    fontFamily: "'VT323', 'Courier New', monospace",
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    cursor: loading ? 'wait' : 'pointer',
+    transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.12s',
+    boxSizing: 'border-box',
+  };
 
   return (
-    <>
-      {/* Main title - spacing from panel top */}
-      <div
-        className="font-wankr"
-        style={{
-          marginTop: `${titleTopGap}cqi`,
-          fontSize: `${12 * ts}cqi`,
-          fontWeight: 900,
-          color: 'var(--accent)',
-          textAlign: 'center',
-          letterSpacing: '0.15cqi',
-          textTransform: 'uppercase',
-          textShadow: '0 0 16px rgba(0, 255, 65, 0.7), 0 0 24px rgba(0, 255, 65, 0.4)',
-          transform: `translate(${titleOffsetX}%, ${titleOffsetY}%)`,
-        }}
-      >
-        WANKR BOT
-      </div>
-      {/* Subtitle - top relative to bottom of title */}
-      <div
-        style={{
-          marginTop: `${titleToSubtitleGap}cqi`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1.5cqi',
-          transform: `translate(${subtitleOffsetX}%, ${subtitleOffsetY}%)`,
-        }}
-      >
+    <form
+      onSubmit={onSubmit}
+      autoComplete="off"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.8cqi',
+        minWidth: 0,
+        width: '100%',
+      }}
+    >
+      {/* ── Subtitle row (compact) ─────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1cqi' }}>
         {isRegistering && (
           <button
             type="button"
             onClick={onBackToLogin}
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--accent)',
-              cursor: 'pointer',
-              padding: '0.5cqi',
-              display: 'flex',
-              alignItems: 'center',
-              opacity: 0.8,
-              transition: 'opacity 0.2s',
+              background: 'transparent', border: 'none', color: '#00ff41',
+              cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center',
+              opacity: 0.7, transition: 'opacity 0.2s', flexShrink: 0,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; }}
           >
             <BackIcon />
           </button>
@@ -95,227 +99,197 @@ export default function LoginForm({
         <div
           className="font-wankr"
           style={{
-            fontSize: `${6 * ss}cqi`,
+            fontSize: '4.5cqi',
             fontWeight: 700,
-            color: 'var(--accent)',
+            color: '#00ff41',
             textAlign: 'center',
-            letterSpacing: '0.08cqi',
+            letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            textShadow: '0 0 12px rgba(0, 255, 65, 0.6), 0 0 18px rgba(0, 255, 65, 0.35)',
+            textShadow: '0 0 6px rgba(0,255,65,0.5)',
             flex: 1,
-            transition: 'all 0.3s ease',
+            lineHeight: 1,
+            opacity: 0.85,
           }}
         >
           {isRegistering ? 'NEW DEGEN' : 'DEGEN LOGIN'}
         </div>
       </div>
+
+      {/* ── Error message ──────────────────────────────────────────── */}
       {error && (
-        <div style={{ color: '#ff6b6b', fontSize: '1.4cqi', textAlign: 'center', marginTop: '0.5cqi' }}>
+        <div style={{
+          color: '#ff4444', fontSize: '3cqi', textAlign: 'center',
+          fontFamily: "'VT323', monospace", textShadow: '0 0 4px rgba(255,68,68,0.4)',
+          marginTop: '-0.5cqi',
+        }}>
           {error}
         </div>
       )}
 
-      {/* Username top = subtitle bottom + subtitleToUsernameGap; username & password as one unit with usernamePasswordGap */}
-      <form
-        onSubmit={onSubmit}
-        autoComplete="off"
+      {/* ── Username ───────────────────────────────────────────────── */}
+      <div style={{ position: 'relative' }}>
+        <input
+          type="text"
+          placeholder={isRegistering ? 'Choose username' : 'Username'}
+          autoComplete="off"
+          value={username}
+          onChange={(e) => onUsernameChange(e.target.value)}
+          style={{
+            ...inputStyle,
+            paddingRight: isRegistering ? '8cqi' : '2.5cqi',
+            borderColor: isRegistering && usernameStatus.available === false
+              ? 'rgba(255, 68, 68, 0.5)'
+              : isRegistering && usernameStatus.available
+                ? 'rgba(0, 255, 65, 0.5)'
+                : inputStyle.borderColor,
+          }}
+          {...focusHandlers}
+        />
+        {isRegistering && username.trim().length >= 5 && (
+          <div style={{
+            position: 'absolute', right: '1.5cqi', top: '50%',
+            transform: 'translateY(-50%)', display: 'flex', alignItems: 'center',
+          }}>
+            {usernameStatus.checking ? (
+              <div style={{ width: '2.5cqi', height: '2.5cqi', border: '1px solid #00ff41', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            ) : usernameStatus.available ? (
+              <CheckIcon />
+            ) : usernameStatus.available === false ? (
+              <XIcon />
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      {/* ── Email (registration only) ──────────────────────────────── */}
+      {isRegistering && onEmailChange && (
+        <input
+          type="email"
+          placeholder="Email (optional)"
+          autoComplete="email"
+          value={email ?? ''}
+          onChange={(e) => onEmailChange(e.target.value)}
+          style={inputStyle}
+          {...focusHandlers}
+        />
+      )}
+
+      {/* ── Password ───────────────────────────────────────────────── */}
+      <input
+        type="password"
+        placeholder={isRegistering ? 'Password (6+ chars)' : 'Password'}
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => onPasswordChange(e.target.value)}
+        style={inputStyle}
+        {...focusHandlers}
+      />
+
+      {/* ── Confirm password (registration) ────────────────────────── */}
+      {isRegistering && (
+        <input
+          type="password"
+          placeholder="Confirm password"
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(e) => onConfirmPasswordChange(e.target.value)}
+          style={{
+            ...inputStyle,
+            borderColor: confirmPassword && password !== confirmPassword
+              ? 'rgba(255, 68, 68, 0.5)'
+              : inputStyle.borderColor,
+          }}
+          {...focusHandlers}
+        />
+      )}
+
+      {/* ── Submit button ──────────────────────────────────────────── */}
+      <button
+        type="submit"
+        disabled={loading || (isRegistering && !usernameStatus.available)}
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0,
-          minWidth: 0,
-          marginTop: `${subtitleToUsernameGap}cqi`,
+          ...btnBase,
+          width: '100%',
+          height: '8cqi',
+          padding: 0,
+          fontSize: '4.2cqi',
+          color: '#000',
+          border: '1px solid #00ff41',
+          background: 'linear-gradient(180deg, #00ff50 0%, #00dd3a 50%, #00bb30 100%)',
+          boxShadow: '0 0 10px rgba(0,255,65,0.35), inset 0 1px 0 rgba(255,255,255,0.2)',
+          opacity: (isRegistering && !usernameStatus.available) ? 0.4 : 1,
+        }}
+        onMouseEnter={(e) => {
+          if (!loading) {
+            e.currentTarget.style.boxShadow = '0 0 18px rgba(0,255,65,0.5), inset 0 1px 0 rgba(255,255,255,0.3)';
+            e.currentTarget.style.transform = 'scale(1.02)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = '0 0 10px rgba(0,255,65,0.35), inset 0 1px 0 rgba(255,255,255,0.2)';
+          e.currentTarget.style.transform = 'scale(1)';
         }}
       >
-        {/* Username row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5cqi' }}>
-          <div style={{ color: 'var(--accent)', flexShrink: 0 }}><UserIcon /></div>
-          <div style={{ flex: 1, minWidth: 0, position: 'relative', maxWidth: iws < 1 ? `${iws * 100}%` : undefined }}>
-            <input
-              type="text"
-              placeholder={isRegistering ? 'Choose username' : 'Username'}
-              autoComplete="off"
-              value={username}
-              onChange={(e) => onUsernameChange(e.target.value)}
-              style={{
-                width: '100%',
-                minWidth: 0,
-                paddingTop: `${2.5 * chs}cqi`,
-                paddingRight: isRegistering ? `${8 * chs}cqi` : '3cqi',
-                paddingBottom: `${2.5 * chs}cqi`,
-                paddingLeft: '3cqi',
-                minHeight: hCqi,
-                background: 'linear-gradient(180deg, #404040 0%, #353535 40%, #2d2d2d 100%)',
-                border: `2px solid ${isRegistering && usernameStatus.available === false ? 'rgba(255, 107, 107, 0.6)' : isRegistering && usernameStatus.available ? 'rgba(0, 255, 65, 0.6)' : 'rgba(140, 140, 140, 0.55)'}`,
-                borderRadius: `${3 * chs}cqi`,
-                color: 'var(--accent)',
-                fontSize: `${inputFontCqi}cqi`,
-                outline: 'none',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)',
-                transition: 'border-color 0.2s',
-              }}
-            />
-            {isRegistering && username.trim().length >= 5 && (
-              <div style={{
-                position: 'absolute',
-                right: '1.5cqi',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                display: 'flex',
-                alignItems: 'center',
-              }}>
-                {usernameStatus.checking ? (
-                  <div style={{ width: '1.5cqi', height: '1.5cqi', border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                ) : usernameStatus.available ? (
-                  <CheckIcon />
-                ) : usernameStatus.available === false ? (
-                  <XIcon />
-                ) : null}
-              </div>
-            )}
-          </div>
-        </div>
+        {loading ? '...' : isRegistering ? 'CREATE ACCOUNT' : 'ENTER'}
+      </button>
 
-        {isRegistering && usernameStatus.error && !usernameStatus.checking && (
-          <div style={{ color: '#ff6b6b', fontSize: '1.2cqi', marginLeft: '2cqi', marginTop: '-0.3cqi' }}>
-            {usernameStatus.error}
-          </div>
-        )}
-        {isRegistering && usernameStatus.available && !usernameStatus.checking && (
-          <div style={{ color: 'var(--accent)', fontSize: '1.2cqi', marginLeft: '2cqi', marginTop: '-0.3cqi' }}>
-            Username available (min 5 characters)
-          </div>
-        )}
-
-        {/* Optional email - registration only */}
-        {isRegistering && onEmailChange && (
-          <div style={{ marginTop: `${usernamePasswordGap}cqi`, display: 'flex', alignItems: 'center', gap: '1.5cqi' }}>
-            <div style={{ color: 'var(--accent)', flexShrink: 0 }}><UserIcon /></div>
-            <div style={{ flex: 1, minWidth: 0, maxWidth: iws < 1 ? `${iws * 100}%` : undefined }}>
-              <input
-                type="email"
-                placeholder="Email (optional)"
-                autoComplete="email"
-                value={email ?? ''}
-                onChange={(e) => onEmailChange(e.target.value)}
-                style={{
-                  width: '100%',
-                  minWidth: 0,
-                  minHeight: hCqi,
-                  padding: `${2.5 * chs}cqi 3cqi`,
-                  background: 'linear-gradient(180deg, #3a3a3a 0%, #323232 40%, #2a2a2a 100%)',
-                  border: '2px solid rgba(140, 140, 140, 0.55)',
-                  borderRadius: `${2.5 * chs}cqi`,
-                  color: 'var(--accent)',
-                  fontSize: `${inputFontCqi}cqi`,
-                  outline: 'none',
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)',
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Password row - gap from username = usernamePasswordGap */}
-        <div style={{ marginTop: `${usernamePasswordGap}cqi`, display: 'flex', alignItems: 'center', gap: '1.5cqi' }}>
-          <div style={{ color: 'var(--accent)', flexShrink: 0 }}><KeyIcon /></div>
-          <div style={{ flex: 1, minWidth: 0, maxWidth: iws < 1 ? `${iws * 100}%` : undefined }}>
-          <input
-            type="password"
-            placeholder={isRegistering ? 'Create password (6+ chars)' : 'Password'}
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => onPasswordChange(e.target.value)}
-            style={{ width: '100%', minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi 3cqi`, background: 'linear-gradient(180deg, #3a3a3a 0%, #323232 40%, #2a2a2a 100%)', border: '2px solid rgba(140, 140, 140, 0.55)', borderRadius: `${3 * chs}cqi`, color: 'var(--accent)', fontSize: `${inputFontCqi}cqi`, outline: 'none', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)' }}
-          />
-          </div>
-        </div>
-
-        {isRegistering && (
-          <div style={{ marginTop: `${usernamePasswordGap}cqi`, display: 'flex', alignItems: 'center', gap: '1.5cqi' }}>
-            <div style={{ color: 'var(--accent)', flexShrink: 0 }}><KeyIcon /></div>
-            <div style={{ flex: 1, minWidth: 0, maxWidth: iws < 1 ? `${iws * 100}%` : undefined }}>
-            <input
-              type="password"
-              placeholder="Confirm password"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(e) => onConfirmPasswordChange(e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                minHeight: hCqi,
-                padding: `${2.5 * chs}cqi 3cqi`,
-                background: 'linear-gradient(180deg, #404040 0%, #353535 40%, #2d2d2d 100%)',
-                border: `2px solid ${confirmPassword && password !== confirmPassword ? 'rgba(255, 107, 107, 0.6)' : 'rgba(100, 100, 100, 0.5)'}`,
-                borderRadius: `${3 * chs}cqi`,
-                color: 'var(--accent)',
-                fontSize: `${inputFontCqi}cqi`,
-                outline: 'none',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 3px 8px rgba(0,0,0,0.4)',
-                transition: 'border-color 0.2s',
-              }}
-            />
-            </div>
-          </div>
-        )}
-
-        {/* Submit - top relative to bottom of password; height = h */}
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={loading || (isRegistering && !usernameStatus.available)}
-          style={{
-            width: '100%',
-            minWidth: 0,
-            minHeight: hCqi,
-            marginTop: `${passwordToSubmitGap}cqi`,
-            padding: `${3 * chs}cqi`,
-            borderRadius: `${3 * chs}cqi`,
-            fontWeight: 'bold',
-            fontSize: `${buttonFontCqi}cqi`,
-            textTransform: 'uppercase',
-            color: '#000',
-            border: '2px solid var(--accent)',
-            boxShadow: '0 1px 0 rgba(255,255,255,0.25), 0 3px 0 rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.35), 0 0 14px rgba(0, 255, 65, 0.35)',
-            background: 'linear-gradient(180deg, #00ff50 0%, #00e040 50%, #00c835 100%)',
-            opacity: (isRegistering && !usernameStatus.available) ? 0.5 : 1,
-            transition: 'opacity 0.2s',
-          }}
-        >
-          {loading ? '...' : isRegistering ? 'CREATE ACCOUNT' : 'SUBMIT'}
-        </button>
-      </form>
-
-      {/* New User / Spectate - top relative to bottom of submit; bottom to panel ≥ 20px handled by panel padding */}
+      {/* ── Bottom actions (login mode) ────────────────────────────── */}
       {!isRegistering && (
-        <>
-          <div style={{ display: 'flex', gap: '1.5cqi', minWidth: 0, marginTop: `${submitToButtonsGap}cqi` }}>
-            <button type="button" className="btn-primary" onClick={onNewUser} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi`, borderRadius: `${3 * chs}cqi`, fontWeight: 'bold', fontSize: `${buttonFontCqi}cqi`, border: '2px solid var(--accent)', color: '#000', background: 'linear-gradient(180deg, rgba(0,255,65,0.9) 0%, rgba(0,200,80,0.85) 50%, rgba(0,180,70,0.8) 100%)', boxShadow: '0 0 10px rgba(0,255,65,0.25), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
-              New User
-            </button>
-            <button type="button" className="btn" onClick={onSpectate} disabled={loading} style={{ flex: 1, minWidth: 0, minHeight: hCqi, padding: `${2.5 * chs}cqi`, borderRadius: `${3 * chs}cqi`, fontSize: `${buttonFontCqi}cqi`, fontWeight: 600, border: '2px solid var(--accent)', color: 'var(--accent)', background: 'rgba(18, 24, 20, 0.98)', boxShadow: '0 0 10px rgba(0,255,65,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
-              Spectate
-            </button>
-          </div>
-          <p
+        <div style={{ display: 'flex', gap: '1.5cqi', minWidth: 0 }}>
+          <button
+            type="button"
+            onClick={onNewUser}
+            disabled={loading}
             style={{
-              marginTop: '2cqi',
-              marginBottom: '2cqi',
-              fontSize: `${buttonFontCqi}cqi`,
-              fontWeight: 600,
-              fontStyle: 'italic',
-              color: 'rgba(120, 120, 120, 0.98)',
-              textShadow: '1px 1px 0 rgba(255,255,255,0.28), 2px 2px 0 rgba(255,255,255,0.08), -1px -1px 0 rgba(0,0,0,0.55), -2px -2px 1px rgba(0,0,0,0.25)',
-              letterSpacing: '0.04em',
-              textAlign: 'center',
-              lineHeight: 1.25,
+              ...btnBase,
+              flex: 1, minWidth: 0,
+              height: '6.5cqi',
+              padding: 0,
+              fontSize: '3.2cqi',
+              border: '1px solid rgba(0,255,65,0.4)',
+              color: '#00ff41',
+              background: 'rgba(0, 255, 65, 0.08)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 255, 65, 0.18)';
+              e.currentTarget.style.borderColor = 'rgba(0,255,65,0.6)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 255, 65, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(0,255,65,0.4)';
             }}
           >
-            &quot;Don&apos;t miss out! Join the WankrBot circle jerk today!&quot; — Wankr
-          </p>
-        </>
+            New User
+          </button>
+          <button
+            type="button"
+            onClick={onSpectate}
+            disabled={loading}
+            style={{
+              ...btnBase,
+              flex: 1, minWidth: 0,
+              height: '6.5cqi',
+              padding: 0,
+              fontSize: '3.2cqi',
+              border: '1px solid rgba(0,255,65,0.2)',
+              color: 'rgba(0,255,65,0.55)',
+              background: 'rgba(0, 0, 0, 0.3)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 255, 65, 0.06)';
+              e.currentTarget.style.color = 'rgba(0,255,65,0.8)';
+              e.currentTarget.style.borderColor = 'rgba(0,255,65,0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)';
+              e.currentTarget.style.color = 'rgba(0,255,65,0.55)';
+              e.currentTarget.style.borderColor = 'rgba(0,255,65,0.2)';
+            }}
+          >
+            Spectate
+          </button>
+        </div>
       )}
-    </>
+    </form>
   );
 }

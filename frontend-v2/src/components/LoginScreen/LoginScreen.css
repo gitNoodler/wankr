@@ -14,6 +14,22 @@
   touch-action: manipulation;
 }
 
+/* Neon placeholder text */
+.login-screen input::placeholder {
+  color: rgba(0, 255, 65, 0.22);
+  font-family: 'VT323', monospace;
+  letter-spacing: 0.08em;
+}
+
+/* Remove autofill background override */
+.login-screen input:-webkit-autofill,
+.login-screen input:-webkit-autofill:hover,
+.login-screen input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #00ff41;
+  -webkit-box-shadow: 0 0 0 1000px rgba(0,0,0,0.9) inset;
+  caret-color: #00ff41;
+}
+
 .login-scene-panel-float {
   /* panel positioned inside .login-scene */
 }

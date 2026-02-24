@@ -70,7 +70,7 @@ export default function FloorGlowRipples() {
       style={{
         position: 'absolute',
         inset: 0,
-        zIndex: 6,
+        zIndex: 0,
         pointerEvents: 'none',
         overflow: 'hidden',
       }}

@@ -10,6 +10,8 @@ import { useLoginScreenState } from './useLoginScreenState';
 import { useLoginScreenUndo } from './useLoginScreenUndo';
 import { useLoginScreenAuth } from './useLoginScreenAuth';
 import useLofiMusic from './useLofiMusic';
+import useWankrGroove from './useWankrGroove';
+import GrooveGearMenu from './GrooveGearMenu';
 import DevPasswordGate from './DevPasswordGate';
 import DevToolbar from './DevToolbar';
 import { isDevPanelUnlocked, lockDevPanel } from './devPanelLock';
@@ -76,6 +78,7 @@ export default function LoginScreen({
   });
   const auth = useLoginScreenAuth({ onLogin });
   const lofi = useLofiMusic();
+  const groove = useWankrGroove();
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault();
@@ -226,6 +229,8 @@ export default function LoginScreen({
           buttonsBottomGap={state.buttonsBottomGap}
           musicPlaying={lofi.playing}
           onToggleMusic={lofi.toggle}
+          groovePlaying={groove.playing}
+          grooveGetAudio={groove.getAudio}
           panelContent={
             <LoginForm
               username={auth.username}
@@ -244,20 +249,6 @@ export default function LoginScreen({
               onNewUser={auth.handleNewUser}
               onSpectate={onSpectate}
               onBackToLogin={auth.handleBackToLogin}
-              titleOffsetX={state.titleOffsetX}
-              titleOffsetY={state.titleOffsetY}
-              titleScale={state.titleScale}
-              subtitleOffsetX={state.subtitleOffsetX}
-              subtitleOffsetY={state.subtitleOffsetY}
-              subtitleScale={state.subtitleScale}
-              inputWidthScale={state.inputWidthScale}
-              titleTopGap={state.titleTopGap}
-              titleToSubtitleGap={state.titleToSubtitleGap}
-              subtitleToUsernameGap={state.subtitleToUsernameGap}
-              usernamePasswordGap={state.usernamePasswordGap}
-              passwordToSubmitGap={state.passwordToSubmitGap}
-              submitToButtonsGap={state.submitToButtonsGap}
-              controlHeightScale={state.controlHeightScale}
             />
           }
           ductTapeStrips={[]}
@@ -268,97 +259,15 @@ export default function LoginScreen({
         <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: '#000' }} aria-hidden="true" />
       )}
 
-      {isDevToolsAllowed && (
-        <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 60, display: 'flex', gap: 6 }}>
-          <button
-            type="button"
-            onClick={() => onRequestDevPanel?.()}
-            title="Dev1 – Wanking Live dev (Ctrl+Alt+D or Ctrl+Shift+D)"
-            style={{
-              padding: '6px 10px',
-              fontSize: 11,
-              fontWeight: 600,
-              color: 'var(--accent)',
-              background: 'rgba(0,0,0,0.6)',
-              border: '1px solid rgba(0,255,65,0.5)',
-              borderRadius: 6,
-              cursor: 'pointer',
-              letterSpacing: '0.5px',
-            }}
-          >
-            Dev1
-          </button>
-          <button
-            type="button"
-            onClick={() => setDev2Open((o) => !o)}
-            title="Dev2 – Robot position & scale (px, relative to screen origin)"
-            style={{
-              padding: '6px 10px',
-              fontSize: 11,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.8)',
-              background: 'rgba(0,0,0,0.6)',
-              border: '1px solid rgba(255,255,255,0.4)',
-              borderRadius: 6,
-              cursor: 'pointer',
-              letterSpacing: '0.5px',
-            }}
-          >
-            Dev2
-          </button>
-        </div>
-      )}
+      {/* Gear menu — audio controls (always visible) */}
+      <GrooveGearMenu
+        volume={groove.volume}
+        muted={groove.muted}
+        onVolumeChange={groove.setVolume}
+        onToggleMute={groove.toggleMute}
+      />
 
-      {isDevToolsAllowed && devPanelOpen && !isDevPanelUnlocked() && !devPanelUnlockedThisSession && (
-        <div style={DEV_PANEL_BOX_STYLE}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 'bold', color: 'var(--accent)', letterSpacing: '1px' }}>DEV1</span>
-            <button type="button" onClick={onDevPanelClose} style={{ background: 'transparent', border: '1px solid rgba(255,100,100,0.5)', borderRadius: 4, color: '#ff6b6b', padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>CLOSE</button>
-          </div>
-          <DevPasswordGate onUnlock={() => setDevPanelUnlockedThisSession(true)} onClose={onDevPanelClose} />
-        </div>
-      )}
-      {isDevToolsAllowed && devPanelOpen && (isDevPanelUnlocked() || devPanelUnlockedThisSession) && (
-        <WankingLiveDevPanel
-          elements={dev1.elements}
-          boundaries={dev1.boundaries}
-          hideBoundariesVisual={dev1.hideBoundariesVisual}
-          onHideBoundariesVisualChange={dev1.setHideBoundariesVisual}
-          isIndentionPanel={dev1.isIndentionPanel}
-          onIndentionPanelChange={dev1.setIsIndentionPanel}
-          selectedElementId={dev1.selectedElementId}
-          onSelectElement={dev1.setSelectedElementId}
-          onAddElement={dev1.handleAddElement}
-          onUpdateElement={dev1.handleUpdateElement}
-          onDeleteElement={dev1.handleDeleteElement}
-          onAddBoundary={dev1.handleAddBoundary}
-          onUpdateBoundary={dev1.handleUpdateBoundary}
-          onDeleteBoundary={dev1.handleDeleteBoundary}
-          selectedBoundaryLayer={dev1.selectedBoundaryLayer}
-          onSelectedBoundaryLayerChange={dev1.setSelectedBoundaryLayer}
-          placementMode={dev1.placementMode}
-          onPlacementModeChange={dev1.setPlacementMode}
-          onOpenMeasure={onOpenMeasure}
-          onClose={onDevPanelClose}
-          onLock={() => {
-            lockDevPanel();
-            setDevPanelUnlockedThisSession(false);
-            onDevPanelClose();
-          }}
-          onClearCache={dev1.handleClearCache}
-          showOriginCrosshair={showOriginCrosshair}
-          onToggleOriginCrosshair={onToggleOriginCrosshair}
-        />
-      )}
-      {isDevToolsAllowed && dev2Open && (
-        <RobotDevPanel
-          onClose={() => setDev2Open(false)}
-          robotSnapshot={state}
-          applyPartChange={applyPartChange}
-          onSaveGlobalDefaults={handleSaveGlobalDefaults}
-        />
-      )}
-      {isDevToolsAllowed && <DevToolbar />}
+      {/* Dev panels removed */}
     </div>
   );
 }

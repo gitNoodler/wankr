@@ -26,7 +26,7 @@ export default function App() {
   const [loginCollapsing, setLoginCollapsing] = useState(false);
   const [dashboardSweepIn, setDashboardSweepIn] = useState(false);
   const [measureOpen, setMeasureOpen] = useState(false);
-  const [showOriginCrosshair, setShowOriginCrosshair] = useState(true);
+  const [showOriginCrosshair, setShowOriginCrosshair] = useState(false);
   const [, setOrientationKey] = useState(0);
   const [namedToast, setNamedToast] = useState(null);
   const namedToastTimeoutRef = useRef(null);
