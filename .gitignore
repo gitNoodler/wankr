@@ -6,6 +6,7 @@
 # Node
 node_modules/
 frontend/dist/
+frontend-v2/dist/
 
 # Generated / local data
 training_data.json
