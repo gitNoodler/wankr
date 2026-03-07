@@ -12,6 +12,7 @@ const TrainingPanel = ({
   onResetPrompt,
   onTrain,
   trainCount,
+  onClose,
 }) => {
   const [activeTab, setActiveTab] = useState(TAB_TRAINING);
   const [config, setConfig] = useState({
@@ -90,7 +91,7 @@ const TrainingPanel = ({
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: onClose ? 'space-between' : 'center',
           padding: '0 var(--dashboard-panel-padding)',
           height: 'var(--dashboard-header-height)',
           minHeight: 'var(--dashboard-header-height)',
@@ -115,6 +116,31 @@ const TrainingPanel = ({
         >
           {activeTab === TAB_DEVTOOLS ? 'UI Dev Tools' : 'Training Mode'}
         </h2>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close panel"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 36,
+              height: 36,
+              padding: 0,
+              border: '1px solid rgba(255, 100, 100, 0.4)',
+              borderRadius: 8,
+              background: 'transparent',
+              color: '#ff6b6b',
+              cursor: 'pointer',
+              fontSize: 18,
+              fontWeight: 'bold',
+              flexShrink: 0,
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Tab bar */}

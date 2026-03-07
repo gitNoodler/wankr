@@ -21,8 +21,25 @@ export function useViewportScale() {
       document.documentElement.style.setProperty('--scale', String(clamped));
     };
 
+    // iOS viewport height fix: sets --viewport-height to actual inner height
+    // (accounts for address bar, keyboard, etc.)
+    const updateVH = () => {
+      document.documentElement.style.setProperty(
+        '--viewport-height',
+        `${window.innerHeight}px`
+      );
+    };
+    updateVH();
+
+    let rafId = 0;
+    const onResize = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => { update(); updateVH(); });
+    };
+
     update();
-    window.addEventListener('resize', update);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', updateVH);
 
     const blockCtrlZoom = (e) => {
       if (e.ctrlKey || e.metaKey) {
@@ -32,7 +49,9 @@ export function useViewportScale() {
     window.addEventListener('wheel', blockCtrlZoom, { passive: false });
 
     return () => {
-      window.removeEventListener('resize', update);
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', updateVH);
       window.removeEventListener('wheel', blockCtrlZoom);
     };
   }, []);

@@ -6,7 +6,7 @@ const VIRTUAL_LIST_THRESHOLD = 50;
 
 const AT_BOTTOM_THRESHOLD = 80;
 
-function ChatPanel({ messages, onSend, onStop, disabled }) {
+function ChatPanel({ messages, onSend, onStop, disabled, isMobile }) {
   const scrollContainerRef = useRef(null);
   const listRef = useRef(null);
   const measureRef = useRef(null);
@@ -304,11 +304,11 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               border: 'none',
               outline: 'none',
               color: 'var(--text-content)',
-              fontSize: 'var(--dashboard-input-font-size)',
+              fontSize: isMobile ? '16px' : 'var(--dashboard-input-font-size)',
               fontFamily: 'inherit',
               padding: 'calc(6px * var(--scale)) calc(11px * var(--scale))',
               resize: 'none',
-              minHeight: 'calc(31px * var(--scale))',
+              minHeight: isMobile ? '44px' : 'calc(31px * var(--scale))',
               maxHeight: 'calc(168px * var(--scale))',
               overflowY: 'auto',
               lineHeight: 1.4,
@@ -325,8 +325,8 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 'calc(45px * var(--scale))',
-              height: 'calc(45px * var(--scale))',
+              width: isMobile ? '44px' : 'calc(45px * var(--scale))',
+              height: isMobile ? '44px' : 'calc(45px * var(--scale))',
               borderRadius: '50%',
               background: 'linear-gradient(180deg, rgba(0, 255, 0, 0.3) 0%, rgba(0, 255, 0, 0.15) 100%)',
               border: '1px solid rgba(55, 55, 55, 0.6)',
@@ -356,7 +356,7 @@ function ChatPanel({ messages, onSend, onStop, disabled }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              height: 'calc(45px * var(--scale))',
+              height: isMobile ? '44px' : 'calc(45px * var(--scale))',
               padding: '0 calc(20px * var(--scale))',
               borderRadius: 'var(--dashboard-input-border-radius)',
               background: isThinking

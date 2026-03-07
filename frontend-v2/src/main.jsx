@@ -1,10 +1,28 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ErrorBoundary } from './ErrorBoundary'
-import { clearAllWankrCache } from './components/LoginScreen/loginScreenConfig'
 import { setRuntimeApiKey } from './utils/api'
 import './index.css'
 import App from './App.jsx'
+
+/** Remove all wankr-related keys from localStorage and sessionStorage. */
+function clearAllWankrCache() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('wankr_')) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+  try {
+    const keys = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith('wankr_')) keys.push(k);
+    }
+    keys.forEach((k) => sessionStorage.removeItem(k));
+  } catch { /* ignore */ }
+}
 
 if (import.meta.env.DEV) {
   window.clearAllWankrCache = clearAllWankrCache
@@ -24,11 +42,9 @@ async function init() {
     document.body.innerHTML = '<div style="padding:24px;color:#ff5555;font-family:monospace">#root not found. Check index.html.</div>'
   } else {
     createRoot(rootEl).render(
-      <StrictMode>
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
-      </StrictMode>,
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>,
     )
   }
 }

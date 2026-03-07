@@ -2,6 +2,28 @@
   box-sizing: border-box;
 }
 
+/* Hide all AppKit auto-injected UI except the modal overlay used for wallet selection */
+appkit-button,
+appkit-connect-button,
+appkit-account-button,
+appkit-network-button,
+w3m-button,
+w3m-account-button,
+w3m-connect-button,
+w3m-network-button {
+  display: none !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+}
+/* Catch any stray AppKit floating elements injected into body */
+body > [class*="w3m-"],
+body > [class*="appkit-"] {
+  display: none !important;
+}
+
 /* ── WANKR FORCED LAYOUT ── (no scale, no collapse) */
 
 :root {
@@ -1008,5 +1030,229 @@ body {
 @keyframes xCallSlideIn {
   from { opacity: 0; transform: translateY(-12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE — mobile / tablet / small-desktop overrides
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --touch-min: 44px;
+  --mobile-padding: 12px;
+  --mobile-header-height: 56px;
+}
+
+/* ── Drawer / panel overlay animations ── */
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+/* ── Drawer backdrop ── */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ═══ MOBILE ≤ 767px ═══ */
+@media (max-width: 767px) {
+  :root {
+    --dashboard-header-height: 56px;
+    --dashboard-panel-padding: 10px;
+    --dashboard-content-padding: 8px;
+    --dashboard-panel-radius: 12px;
+    --dashboard-title-font-size: 22px;
+    --dashboard-title-logo-size: 32px;
+    --dashboard-title-gap: 10px;
+    --dashboard-input-font-size: 16px;
+    --dashboard-input-padding: 10px;
+    --dashboard-input-border-radius: 10px;
+    --dashboard-input-gap: 8px;
+    --dashboard-input-height: 72px;
+  }
+
+  /* Dashboard grid → single column */
+  .dashboard-body {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: unset !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: hidden;
+  }
+
+  /* Sidebar: hidden by default, drawer overlay when .drawer-open */
+  .dashboard-sidebar {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 85vw;
+    max-width: 360px;
+    z-index: 100;
+    animation: slideInLeft 0.25s ease-out;
+  }
+  .dashboard-sidebar.drawer-open {
+    display: flex;
+  }
+
+  /* Main fills remaining space */
+  .dashboard-main {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+
+  /* Right panel: hidden by default, overlay when .panel-open */
+  .dashboard-right {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 85vw;
+    max-width: 380px;
+    z-index: 100;
+    animation: slideInRight 0.25s ease-out;
+  }
+  .dashboard-right.panel-open {
+    display: flex;
+  }
+
+  /* Panel border radius off on mobile overlays */
+  .dashboard-sidebar .wankr-panel,
+  .dashboard-right .wankr-panel,
+  .dashboard-right .training-panel {
+    border-radius: 0;
+  }
+
+  /* Center chat panel border thinning */
+  .dashboard-main .wankr-panel {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+  }
+
+  /* Smaller message bubbles */
+  .wankr-message-bubble {
+    max-width: 90%;
+    min-width: 0;
+    padding: calc(14px * var(--scale)) calc(16px * var(--scale));
+    border-radius: calc(16px * var(--scale));
+  }
+  .wankr-message-bubble p,
+  .wankr-message-bubble pre {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  /* AI avatar smaller */
+  .wankr-ai-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Messages area padding */
+  .wankr-messages {
+    padding: 10px 8px;
+    gap: 8px;
+  }
+
+  /* Empty state sizing */
+  .wankr-empty-state {
+    font-size: 18px;
+  }
+  .wankr-empty-hint {
+    font-size: 14px;
+  }
+
+  /* Scrollbars: thinner on mobile */
+  .scroll-area::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  /* Training panel grid */
+  .dashboard-body.with-training,
+  .dashboard-body.with-placeholder,
+  .dashboard-body.closed-training {
+    grid-template-columns: unset !important;
+  }
+}
+
+/* ═══ TABLET 768–1023px ═══ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --dashboard-header-height: 72px;
+    --dashboard-sidebar-width: 300px;
+    --training-panel-width: 320px;
+    --dashboard-panel-padding: 16px;
+    --dashboard-content-padding: 16px;
+    --dashboard-title-font-size: 26px;
+  }
+
+  /* Two-column: sidebar + main. Right panel is overlay */
+  .dashboard-body {
+    grid-template-columns: var(--dashboard-sidebar-width) 1fr !important;
+  }
+  .dashboard-body.with-training,
+  .dashboard-body.with-placeholder {
+    grid-template-columns: var(--dashboard-sidebar-width) 1fr !important;
+  }
+
+  .dashboard-right {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 360px;
+    max-width: 90vw;
+    z-index: 100;
+    animation: slideInRight 0.25s ease-out;
+  }
+  .dashboard-right.panel-open {
+    display: flex;
+  }
+}
+
+/* ═══ SMALL DESKTOP 1024–1279px ═══ */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  :root {
+    --dashboard-sidebar-width: 340px;
+    --training-panel-width: 340px;
+  }
+}
+
+/* ═══ TOUCH TARGET ENFORCEMENT ≤ 1023px ═══ */
+@media (max-width: 1023px) {
+  /* All buttons need 44px minimum */
+  button,
+  [role="button"] {
+    min-height: var(--touch-min);
+    min-width: var(--touch-min);
+  }
+
+  /* Inputs: 16px font prevents iOS zoom, 44px height for tappability */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+    min-height: var(--touch-min);
+  }
+
+  /* Header beam thinner on mobile */
+  .header-beam {
+    height: 2px;
+  }
 }
 

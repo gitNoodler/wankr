@@ -1,31 +1,48 @@
 # Secrets and local config
 .env
-.envrc
 .infisical.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
 
 # Node
 node_modules/
-frontend/dist/
+wankr-backend/node_modules/
+frontend-v2/node_modules/
+frontend-v2/dist/
+
+# Old frontend (replaced by frontend-v2)
+frontend/
 
 # Generated / local data
 training_data.json
 chat_backup.json
 restart_requested.flag
-logs/
+data/*.csv.bak
 
-# IDE / tooling
+# IDE
 .vscode/
 .idea/
-.claude/
-.cursor/plans/
-.cursor/debug.log
-.cursor/*.log
 
-# Runtime / local storage
-storage/*.json
-wankr-backend/storage/
+# Cursor / Claude
+.cursor/
+.claude/
+
+# Local-only
+storage/
+logs/
+__quarantine__/
+images_frontend-UI/
+*.bat
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Excel lock files
 ~$*
