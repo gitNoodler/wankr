@@ -3,11 +3,17 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
+const { ethers } = require('ethers');
+const ed25519 = require('@noble/ed25519');
+const bs58 = require('bs58');
 
 const USERS_FILE = path.join(__dirname, 'storage', 'users.json');
 const REGISTRY_FILE = path.join(__dirname, 'storage', 'username_registry.json');
 const SESSIONS_FILE = path.join(__dirname, 'storage', 'sessions.json');
+const WALLET_FILE = path.join(__dirname, 'storage', 'wallet_addresses.json');
+const NONCES_FILE = path.join(__dirname, 'storage', 'nonces.json');
 const SALT_ROUNDS = 10;
+const NONCE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MIN_USERNAME_LENGTH = 5;
 
@@ -123,6 +129,7 @@ async function login(username, password) {
   const users = loadUsers();
   const user = users.find((u) => u.username === name);
   if (!user) return { ok: false, error: 'Invalid username or password' };
+  if (!user.passwordHash) return { ok: false, error: 'Invalid username or password' };
 
   const match = await bcrypt.compare(pass, user.passwordHash);
   if (!match) return { ok: false, error: 'Invalid username or password' };
@@ -222,6 +229,219 @@ function getActiveUsernames() {
   return Array.from(usernames);
 }
 
+// --- Wallet address registry ---
+function loadWalletAddresses() {
+  ensureStorageDir();
+  try {
+    if (fs.existsSync(WALLET_FILE)) {
+      const raw = fs.readFileSync(WALLET_FILE, 'utf8');
+      const data = JSON.parse(raw);
+      return typeof data === 'object' && data !== null ? data : {};
+    }
+  } catch (err) {
+    console.error('authService loadWalletAddresses:', err.message);
+  }
+  return {};
+}
+
+function saveWalletAddresses(wallets) {
+  ensureStorageDir();
+  fs.writeFileSync(WALLET_FILE, JSON.stringify(wallets, null, 2), 'utf8');
+}
+
+// --- Nonce management ---
+function loadNonces() {
+  ensureStorageDir();
+  try {
+    if (fs.existsSync(NONCES_FILE)) {
+      const raw = fs.readFileSync(NONCES_FILE, 'utf8');
+      const data = JSON.parse(raw);
+      return typeof data === 'object' && data !== null ? data : {};
+    }
+  } catch (err) {
+    console.error('authService loadNonces:', err.message);
+  }
+  return {};
+}
+
+function saveNonces(nonces) {
+  ensureStorageDir();
+  fs.writeFileSync(NONCES_FILE, JSON.stringify(nonces, null, 2), 'utf8');
+}
+
+function issueNonce(chain, address) {
+  const nonces = loadNonces();
+  // Purge expired nonces
+  const now = Date.now();
+  for (const id of Object.keys(nonces)) {
+    if (nonces[id].expiresAt < now) delete nonces[id];
+  }
+  const nonceId = crypto.randomBytes(16).toString('hex');
+  const nonce = crypto.randomBytes(32).toString('hex');
+  nonces[nonceId] = { chain, address: address.toLowerCase(), nonce, expiresAt: now + NONCE_TTL_MS };
+  saveNonces(nonces);
+  return { nonceId, nonce };
+}
+
+function consumeNonce(nonceId) {
+  const nonces = loadNonces();
+  const entry = nonces[nonceId];
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    delete nonces[nonceId];
+    saveNonces(nonces);
+    return null;
+  }
+  delete nonces[nonceId];
+  saveNonces(nonces);
+  return entry;
+}
+
+// --- Signature verification ---
+function verifyEVMSignature(message, signature, address) {
+  try {
+    const recovered = ethers.verifyMessage(message, signature);
+    return recovered.toLowerCase() === address.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+// Configure ed25519 sha512 (needed for @noble/ed25519 v2)
+const { sha512 } = require('@noble/hashes/sha512');
+ed25519.etc.sha512Sync = (...m) => sha512(ed25519.etc.concatBytes(...m));
+
+function verifySolanaSignature(message, signatureHex, address) {
+  try {
+    const msgBytes = Buffer.from(message, 'utf8');
+    const sigBytes = Buffer.from(signatureHex, 'hex');
+    const pubBytes = bs58.decode(address);
+    return ed25519.verify(sigBytes, msgBytes, pubBytes);
+  } catch {
+    return false;
+  }
+}
+
+// --- Wallet auth flows ---
+async function walletLogin(nonceId, chain, address, signature) {
+  const nonceEntry = consumeNonce(nonceId);
+  if (!nonceEntry) return { ok: false, error: 'Invalid or expired nonce' };
+  if (nonceEntry.address !== address.toLowerCase()) return { ok: false, error: 'Address mismatch' };
+
+  const message = `Sign this message to login to Wankr:\n${nonceEntry.nonce}`;
+  let valid = false;
+  if (chain === 'evm') {
+    valid = verifyEVMSignature(message, signature, address);
+  } else if (chain === 'solana') {
+    valid = await verifySolanaSignature(message, signature, address);
+  } else {
+    return { ok: false, error: 'Unsupported chain' };
+  }
+  if (!valid) return { ok: false, error: 'Invalid signature' };
+
+  const wallets = loadWalletAddresses();
+  const addrKey = address.toLowerCase();
+  if (wallets[addrKey]) {
+    // Known address — auto-login
+    const username = wallets[addrKey];
+    const token = createSession(username);
+    return { ok: true, username, token };
+  }
+  // New wallet — frontend must show username picker
+  return { ok: true, isNewWallet: true };
+}
+
+async function walletRegister(nonceId, chain, address, signature, username) {
+  const name = normalizeUsername(username);
+  if (!name || name.length < MIN_USERNAME_LENGTH) return { ok: false, error: 'Username must be at least 5 characters' };
+  if (name.length > 20) return { ok: false, error: 'Username must be 20 characters or less' };
+  if (!/^[a-z0-9_]+$/.test(name)) return { ok: false, error: 'Username can only contain letters, numbers, and underscores' };
+  if (RESERVED_USERNAMES.includes(name)) return { ok: false, error: 'This username is reserved' };
+
+  const registry = loadRegistry();
+  if (registry.includes(name)) return { ok: false, error: 'Username already taken' };
+
+  const nonceEntry = consumeNonce(nonceId);
+  if (!nonceEntry) return { ok: false, error: 'Invalid or expired nonce' };
+  if (nonceEntry.address !== address.toLowerCase()) return { ok: false, error: 'Address mismatch' };
+
+  const message = `Sign this message to login to Wankr:\n${nonceEntry.nonce}`;
+  let valid = false;
+  if (chain === 'evm') {
+    valid = verifyEVMSignature(message, signature, address);
+  } else if (chain === 'solana') {
+    valid = await verifySolanaSignature(message, signature, address);
+  } else {
+    return { ok: false, error: 'Unsupported chain' };
+  }
+  if (!valid) return { ok: false, error: 'Invalid signature' };
+
+  // Create user record (no passwordHash — wallet-only account)
+  const users = loadUsers();
+  const addrField = chain === 'evm' ? 'evmAddresses' : 'solanaAddresses';
+  const userRecord = {
+    username: name,
+    createdAt: new Date().toISOString(),
+    [addrField]: [address.toLowerCase()],
+  };
+  users.push(userRecord);
+  saveUsers(users);
+  registry.push(name);
+  saveRegistry(registry);
+
+  // Map address to username
+  const wallets = loadWalletAddresses();
+  wallets[address.toLowerCase()] = name;
+  saveWalletAddresses(wallets);
+
+  const requestUsername = String(username || '').trim();
+  const token = createSession(requestUsername);
+  return { ok: true, username: requestUsername, token };
+}
+
+async function linkWallet(sessionToken, nonceId, chain, address, signature) {
+  const session = validateSession(sessionToken);
+  if (!session.valid) return { ok: false, error: 'Invalid session' };
+
+  const nonceEntry = consumeNonce(nonceId);
+  if (!nonceEntry) return { ok: false, error: 'Invalid or expired nonce' };
+  if (nonceEntry.address !== address.toLowerCase()) return { ok: false, error: 'Address mismatch' };
+
+  const message = `Sign this message to login to Wankr:\n${nonceEntry.nonce}`;
+  let valid = false;
+  if (chain === 'evm') {
+    valid = verifyEVMSignature(message, signature, address);
+  } else if (chain === 'solana') {
+    valid = await verifySolanaSignature(message, signature, address);
+  } else {
+    return { ok: false, error: 'Unsupported chain' };
+  }
+  if (!valid) return { ok: false, error: 'Invalid signature' };
+
+  // Check if address already linked to someone else
+  const wallets = loadWalletAddresses();
+  const addrKey = address.toLowerCase();
+  if (wallets[addrKey] && wallets[addrKey] !== normalizeUsername(session.username)) {
+    return { ok: false, error: 'This wallet is already linked to another account' };
+  }
+
+  // Add address to user record
+  const users = loadUsers();
+  const normalName = normalizeUsername(session.username);
+  const user = users.find((u) => u.username === normalName);
+  if (!user) return { ok: false, error: 'User not found' };
+
+  const addrField = chain === 'evm' ? 'evmAddresses' : 'solanaAddresses';
+  if (!user[addrField]) user[addrField] = [];
+  if (!user[addrField].includes(addrKey)) user[addrField].push(addrKey);
+  saveUsers(users);
+
+  wallets[addrKey] = normalName;
+  saveWalletAddresses(wallets);
+
+  return { ok: true };
+}
+
 module.exports = {
   register,
   login,
@@ -230,4 +450,8 @@ module.exports = {
   validateSession,
   destroySession,
   getActiveUsernames,
+  issueNonce,
+  walletLogin,
+  walletRegister,
+  linkWallet,
 };

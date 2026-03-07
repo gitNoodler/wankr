@@ -251,7 +251,7 @@ function AccountDetail({ account }) {
   );
 }
 
-export default function KolAnalysisPanel() {
+export default function KolAnalysisPanel({ onClose }) {
   const [accounts, setAccounts] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -309,7 +309,7 @@ export default function KolAnalysisPanel() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: onClose ? 'space-between' : 'center',
           padding: '0 var(--dashboard-panel-padding)',
           height: 'var(--dashboard-header-height)',
           minHeight: 'var(--dashboard-header-height)',
@@ -333,6 +333,31 @@ export default function KolAnalysisPanel() {
         >
           KOL Intel
         </h2>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close panel"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 36,
+              height: 36,
+              padding: 0,
+              border: '1px solid rgba(255, 100, 100, 0.4)',
+              borderRadius: 8,
+              background: 'transparent',
+              color: '#ff6b6b',
+              cursor: 'pointer',
+              fontSize: 18,
+              fontWeight: 'bold',
+              flexShrink: 0,
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Stats bar */}

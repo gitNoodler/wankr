@@ -4,77 +4,32 @@ import { useChat } from './hooks/useChat';
 import { useArchive } from './hooks/useArchive';
 import { useRestartBackup } from './hooks/useRestartBackup';
 import { useViewportScale } from './hooks/useViewportScale';
+import { useResponsive } from './hooks/useResponsive';
 import { getTrainCount } from './services/trainingService';
-import { validateSession, logout as authLogout, getStoredToken, getStoredUsername } from './services/authService';
+import { validateSession, logout as authLogout, getStoredToken } from './services/authService';
 import { api } from './utils/api';
 import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
 import Sidebar from './components/Sidebar';
 import TrainingPanel from './components/TrainingPanel';
 import KolAnalysisPanel from './components/KolAnalysisPanel';
-import LoginScreen from './components/LoginScreen';
 import SpectatorView from './components/SpectatorView';
-import DashboardSettings from './components/DashboardSettings';
-import MeasureTool from './components/MeasureTool';
-import { isDevToolsAllowed } from './utils/devToolsAllowed';
-import OriginCrosshair from './components/OriginCrosshair';
+import LoginPanel from './components/LoginPanel';
+import useLofiMusic from './components/Music/useLofiMusic';
+import useWankrGroove from './components/Music/useWankrGroove';
+import GrooveGearMenu from './components/Music/GrooveGearMenu';
+import DevMasterPanel from './components/DevMaster/DevMasterPanel';
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [spectatorMode, setSpectatorMode] = useState(false);
   const [sessionValidating, setSessionValidating] = useState(true);
-  const [loginCollapsing, setLoginCollapsing] = useState(false);
-  const [dashboardSweepIn, setDashboardSweepIn] = useState(false);
-  const [measureOpen, setMeasureOpen] = useState(false);
-  const [showOriginCrosshair, setShowOriginCrosshair] = useState(false);
-  const [, setOrientationKey] = useState(0);
+  const [spectatorMode, setSpectatorMode] = useState(false);
   const [namedToast, setNamedToast] = useState(null);
   const namedToastTimeoutRef = useRef(null);
-  const transitionRef = useRef(null);
+  const lofi = useLofiMusic();
+  const groove = useWankrGroove();
   const storage = useConversationStorage();
 
-  // Universal dev panel: only on dev port (Vite). Ctrl+Alt+D or Ctrl+Shift+D. Rejected elsewhere.
-  const [universalDevPanelOpen, setUniversalDevPanelOpen] = useState(false);
-  useEffect(() => {
-    if (!isDevToolsAllowed) return;
-    const handler = (e) => {
-      const isD = e.key === 'D' || e.key === 'd' || e.code === 'KeyD';
-      const isCtrlAltD = e.ctrlKey && e.altKey && !e.shiftKey && isD;
-      const isCtrlShiftD = e.ctrlKey && e.shiftKey && !e.altKey && isD;
-      if (!isCtrlAltD && !isCtrlShiftD) return;
-      const onLoginScreen = !loggedIn && !spectatorMode && !sessionValidating;
-      const willHandle = onLoginScreen || getStoredUsername()?.toLowerCase() === 'gitnoodler';
-      if (!willHandle) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setUniversalDevPanelOpen((o) => !o);
-    };
-    const opts = { capture: true };
-    document.addEventListener('keydown', handler, opts);
-    return () => document.removeEventListener('keydown', handler, opts);
-  }, [loggedIn, spectatorMode, sessionValidating]);
-
-  // Reorient layout when iOS (or any device) rotates, resizes, or app is opened from background
-  useEffect(() => {
-    const reflow = () => {
-      const h = window.visualViewport?.height ?? window.innerHeight;
-      document.documentElement.style.setProperty('--viewport-height', `${h}px`);
-      setOrientationKey((k) => k + 1);
-    };
-    reflow();
-    window.addEventListener('orientationchange', reflow);
-    window.addEventListener('resize', reflow);
-    window.visualViewport?.addEventListener('resize', reflow);
-    window.visualViewport?.addEventListener('scroll', reflow);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reflow(); });
-    return () => {
-      window.removeEventListener('orientationchange', reflow);
-      window.removeEventListener('resize', reflow);
-      window.visualViewport?.removeEventListener('resize', reflow);
-      window.visualViewport?.removeEventListener('scroll', reflow);
-      document.removeEventListener('visibilitychange', reflow);
-    };
-  }, []);
   const {
     currentId,
     conversation,
@@ -89,6 +44,47 @@ export default function App() {
 
   useRestartBackup(conversation, currentId);
   useViewportScale();
+  const { isMobile, isTablet, isDesktop } = useResponsive();
+
+  // Drawer / panel state for mobile & tablet
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+
+  // Close drawers when viewport crosses to desktop
+  useEffect(() => {
+    if (isDesktop) {
+      setSidebarOpen(false);
+      setRightPanelOpen(false);
+    }
+  }, [isDesktop]);
+
+  const closeDrawers = useCallback(() => {
+    setSidebarOpen(false);
+    setRightPanelOpen(false);
+  }, []);
+
+  // Auto-login: validate session token on page load
+  useEffect(() => {
+    const token = getStoredToken();
+    if (!token) {
+      queueMicrotask(() => setSessionValidating(false));
+      return;
+    }
+    validateSession()
+      .then((result) => {
+        if (result.valid) setLoggedIn(true);
+      })
+      .catch(() => {})
+      .finally(() => setSessionValidating(false));
+  }, []);
+
+  const handleLoginSuccess = useCallback(() => {
+    setLoggedIn(true);
+  }, []);
+
+  const handleSpectate = useCallback(() => {
+    setSpectatorMode(true);
+  }, []);
 
   const [trainCount, setTrainCount] = useState(0);
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -101,7 +97,7 @@ export default function App() {
       localStorage.setItem('wankr_training_mode', String(enabled));
     } catch { /* ignore */ }
   }, []);
-  
+
   const chat = useChat(conversation, setConversation, systemPrompt, setTrainCount, currentId, handleTrainingModeChange);
 
   const showNamedToast = useCallback((name) => {
@@ -134,28 +130,8 @@ export default function App() {
     };
   }, []);
 
-  // Auto-login: validate session token on page load
+  // After load: fetch active chats from backend and merge with localStorage (prefer newer updatedAt)
   useEffect(() => {
-    const token = getStoredToken();
-    if (!token) {
-      queueMicrotask(() => setSessionValidating(false));
-      return;
-    }
-    validateSession()
-      .then((result) => {
-        if (result.valid) {
-          setLoggedIn(true);
-        }
-      })
-      .catch(() => { /* ignore */ })
-      .finally(() => {
-        setSessionValidating(false);
-      });
-  }, []);
-
-  // After login: fetch active chats from backend and merge with localStorage (prefer newer updatedAt)
-  useEffect(() => {
-    if (!loggedIn) return;
     const token = getStoredToken();
     if (!token) return;
     api.get(`/api/chats/active?token=${encodeURIComponent(token)}`)
@@ -182,30 +158,7 @@ export default function App() {
         });
       })
       .catch(() => {});
-  }, [loggedIn, persistArchived]);
-
-  const handleLoginSuccess = useCallback(() => {
-    if (transitionRef.current) return;
-    setLoginCollapsing(true);
-    transitionRef.current = setTimeout(() => {
-      transitionRef.current = null;
-      // Token is already stored by authService.login/register
-      setLoggedIn(true);
-      setLoginCollapsing(false);
-      setDashboardSweepIn(true);
-      setTimeout(() => setDashboardSweepIn(false), 500);
-    }, 300);
-  }, []);
-
-  const handleSpectate = useCallback(() => {
-    if (transitionRef.current) return;
-    setLoginCollapsing(true);
-    transitionRef.current = setTimeout(() => {
-      transitionRef.current = null;
-      setSpectatorMode(true);
-      setLoginCollapsing(false);
-    }, 300);
-  }, []);
+  }, [persistArchived]);
 
   const handleExitSpectator = useCallback(() => {
     setSpectatorMode(false);
@@ -221,12 +174,6 @@ export default function App() {
 
   useEffect(() => {
     getTrainCount().then(setTrainCount).catch(() => setTrainCount(0));
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (transitionRef.current) clearTimeout(transitionRef.current);
-    };
   }, []);
 
   // Sync training mode to backend whenever it changes or on page load
@@ -258,10 +205,10 @@ export default function App() {
       const shouldAutoArchive = conversation.length > 0 && !isRecalledChat();
       const messagesSnapshot = shouldAutoArchive ? [...conversation] : null;
       const idSnapshot = shouldAutoArchive ? currentId : null;
-      
+
       // Switch to the target archived chat FIRST (immediately)
       loadArchived(id);
-      
+
       // THEN auto-archive the old chat in background (non-blocking)
       if (shouldAutoArchive && messagesSnapshot && idSnapshot) {
         // Fire-and-forget auto-archive with timeout
@@ -269,13 +216,13 @@ export default function App() {
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-            
+
             const response = await api.post('/api/chat/generate-name', { messages: messagesSnapshot }, { signal: controller.signal });
             clearTimeout(timeoutId);
-            
+
             const data = await response.json();
             const name = data.name || 'Unnamed Degen Session';
-            
+
             const archivedChat = {
               id: idSnapshot,
               name,
@@ -283,7 +230,7 @@ export default function App() {
               createdAt: new Date().toISOString(),
               autoNamed: true,
             };
-            
+
             // Add to sidebar
             persistArchived(prev => [...prev, archivedChat]);
 
@@ -350,7 +297,17 @@ export default function App() {
 
   // Spectator mode takes over the entire screen
   if (spectatorMode) {
-    return <SpectatorView onExit={handleExitSpectator} />;
+    return (
+      <>
+        <SpectatorView onExit={handleExitSpectator} />
+        <GrooveGearMenu
+          volume={groove.volume}
+          muted={groove.muted}
+          onVolumeChange={groove.setVolume}
+          onToggleMute={groove.toggleMute}
+        />
+      </>
+    );
   }
 
   return (
@@ -365,7 +322,7 @@ export default function App() {
         position: 'relative',
       }}
     >
-      {/* Solid black background; no image, no visual effects (login + robot + panel only). */}
+      {/* Solid black background */}
       <div
         style={{
           position: 'absolute',
@@ -376,73 +333,79 @@ export default function App() {
       />
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {showLogin ? (
-          <LoginScreen
-            onLogin={handleLoginSuccess}
-            onSpectate={handleSpectate}
-            collapsing={loginCollapsing}
-            onOpenMeasure={isDevToolsAllowed ? () => setMeasureOpen(true) : undefined}
-            devPanelOpen={isDevToolsAllowed && universalDevPanelOpen}
-            onDevPanelClose={isDevToolsAllowed ? () => setUniversalDevPanelOpen(false) : undefined}
-            onRequestDevPanel={isDevToolsAllowed ? () => setUniversalDevPanelOpen(true) : undefined}
-            showOriginCrosshair={showOriginCrosshair}
-            onToggleOriginCrosshair={isDevToolsAllowed ? () => setShowOriginCrosshair((v) => !v) : undefined}
-          />
+          <div style={sessionValidating ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}>
+            <LoginPanel onLogin={handleLoginSuccess} onSpectate={handleSpectate} getAudio={groove.getAudio} />
+          </div>
         ) : (
           <>
-            <Header onLogout={handleLogout} />
-            {isDevToolsAllowed && <DashboardSettings />}
-            <div
-              className={`dashboard-body ${dashboardSweepIn ? 'sweep-in' : ''} ${trainingMode ? 'with-training' : 'with-placeholder'}`}
-              style={{
-                background: 'transparent',
-                position: 'relative',
-                zIndex: 10,
-                gridTemplateColumns: 'var(--dashboard-sidebar-width) 1fr var(--training-panel-width)',
-              }}
-            >
-              <div className="dashboard-sidebar">
-                <Sidebar
-                  currentId={currentId}
-                  hasMessages={conversation.length > 0}
-                  archived={archived}
-                  onLoadArchived={handleLoadArchived}
-                  onStartNewChat={startNewChat}
-                  onClearChat={clearChat}
-                  onArchive={openArchive}
-                  onDeleteArchived={deleteArchivedChat}
-                />
-              </div>
-              <div className="dashboard-main">
-                <ChatPanel
-                  messages={conversation}
-                  onSend={chat.handleSend}
-                  onStop={chat.handleStop}
-                  disabled={chat.sending}
-                />
-              </div>
-              <div className="dashboard-right">
-                {trainingMode ? (
-                  <TrainingPanel
-                    trainingMode={trainingMode}
-                    onConfigChange={(newConfig) => {
-                      api.post('/api/training/config', newConfig).catch(() => {});
-                    }}
-                    systemPrompt={systemPrompt}
-                    onSystemPromptChange={setSystemPrompt}
-                    onResetPrompt={() => setSystemPrompt('')}
-                    onTrain={chat.handleTrain}
-                    trainCount={trainCount}
-                  />
-                ) : (
-                  <KolAnalysisPanel />
-                )}
-              </div>
-            </div>
+        <Header
+          isMobile={isMobile}
+          onMenuToggle={() => setSidebarOpen((o) => !o)}
+          onLogout={handleLogout}
+          volume={groove.volume}
+          muted={groove.muted}
+          onVolumeChange={groove.setVolume}
+          onToggleMute={groove.toggleMute}
+        />
+        <div
+          className={`dashboard-body ${trainingMode ? 'with-training' : 'with-placeholder'}`}
+          style={{
+            background: 'transparent',
+            position: 'relative',
+            zIndex: 10,
+            ...(!isMobile && !isTablet ? { gridTemplateColumns: 'var(--dashboard-sidebar-width) 1fr var(--training-panel-width)' } : {}),
+          }}
+        >
+          <div className={`dashboard-sidebar${sidebarOpen ? ' drawer-open' : ''}`}>
+            <Sidebar
+              currentId={currentId}
+              hasMessages={conversation.length > 0}
+              archived={archived}
+              onLoadArchived={(id) => { handleLoadArchived(id); if (!isDesktop) setSidebarOpen(false); }}
+              onStartNewChat={() => { startNewChat(); if (!isDesktop) setSidebarOpen(false); }}
+              onClearChat={clearChat}
+              onArchive={openArchive}
+              onDeleteArchived={deleteArchivedChat}
+              onClose={!isDesktop ? () => setSidebarOpen(false) : undefined}
+            />
+          </div>
+          <div className="dashboard-main">
+            <ChatPanel
+              messages={conversation}
+              onSend={chat.handleSend}
+              onStop={chat.handleStop}
+              disabled={chat.sending}
+              isMobile={isMobile}
+            />
+          </div>
+          <div className={`dashboard-right${rightPanelOpen ? ' panel-open' : ''}`}>
+            {trainingMode ? (
+              <TrainingPanel
+                trainingMode={trainingMode}
+                onConfigChange={(newConfig) => {
+                  api.post('/api/training/config', newConfig).catch(() => {});
+                }}
+                systemPrompt={systemPrompt}
+                onSystemPromptChange={setSystemPrompt}
+                onResetPrompt={() => setSystemPrompt('')}
+                onTrain={chat.handleTrain}
+                trainCount={trainCount}
+                onClose={!isDesktop ? () => setRightPanelOpen(false) : undefined}
+              />
+            ) : (
+              <KolAnalysisPanel
+                onClose={!isDesktop ? () => setRightPanelOpen(false) : undefined}
+              />
+            )}
+          </div>
+          {/* Backdrop for mobile/tablet drawers */}
+          {(sidebarOpen || rightPanelOpen) && !isDesktop && (
+            <div className="drawer-backdrop" onClick={closeDrawers} />
+          )}
+        </div>
           </>
         )}
       </div>
-      {isDevToolsAllowed && <OriginCrosshair visible={showOriginCrosshair} />}
-      {isDevToolsAllowed && measureOpen && <MeasureTool onClose={() => setMeasureOpen(false)} />}
       {namedToast && (
         <div
           className="named-toast"
@@ -467,6 +430,16 @@ export default function App() {
           Named: {namedToast.name}
         </div>
       )}
+      {showLogin && (
+        <GrooveGearMenu
+          volume={groove.volume}
+          muted={groove.muted}
+          onVolumeChange={groove.setVolume}
+          onToggleMute={groove.toggleMute}
+        />
+      )}
+      {/* DevMaster hidden during UI rebuild */}
+      {/* <DevMasterPanel /> */}
     </div>
   );
 }

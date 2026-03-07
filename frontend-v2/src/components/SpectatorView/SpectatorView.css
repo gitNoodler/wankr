@@ -759,3 +759,68 @@
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
 }
+
+/* ── Mobile overrides ── */
+@media (max-width: 767px) {
+  .spectator-header {
+    min-height: 48px;
+    padding: 8px 12px;
+  }
+
+  .exit-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+
+  .title-text {
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+
+  .wankr-header-logo {
+    width: 24px;
+    height: 24px;
+  }
+
+  .spectator-content {
+    padding: 12px;
+  }
+
+  .users-grid {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .user-bubble {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .search-input {
+    font-size: 16px;
+  }
+
+  .spectator-search {
+    padding: 10px 12px;
+  }
+
+  .search-container {
+    padding: 10px 14px;
+  }
+
+  .back-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .jump-to-current-btn {
+    min-height: 44px;
+    padding: 12px 18px;
+  }
+
+  /* Hide offline tooltip on touch (not useful) */
+  .offline-preview {
+    display: none;
+  }
+}

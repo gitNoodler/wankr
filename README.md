@@ -2,8 +2,6 @@
 
 Agent Box (React + Node.js + xAI/Grok) and CLI roast bot. No raw xAI keys in the repo; use Infisical or .env.
 
-**Where to work:** Use a single local location — the Git repo (e.g. `C:\Users\legro\Documents\GitHub\wankr`). Run all commands from the repo root. Do not rely on a second copy elsewhere; it can get out of sync and cause confusion.
-
 ## Social analysis engine
 
 Wankr uses a KOL database and scoring engine to detect fake/botted engagement. High positive sentiment + high bots = maximum deception (roast priority 8–10).
@@ -16,7 +14,7 @@ Wankr uses a KOL database and scoring engine to detect fake/botted engagement. H
 
 ### One-time setup (do this once)
 
-Inside your repo root (e.g. `C:\Users\legro\Documents\GitHub\wankr`) run:
+Inside `c:\Users\legro\Wankr` run:
 
 ```bat
 infisical login
@@ -33,7 +31,7 @@ infisical init
 
 Pick your Org and your Project. This creates `.infisical.json` (project binding; currently in `.gitignore`—remove it from `.gitignore` if you want to commit and share project binding).
 
-After that, set `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in `.env`, then run `wankr.bat`.
+After that, set `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in `.env`, then run `launch.bat`.
 
 ### Skip init (optional)
 
@@ -42,7 +40,7 @@ Set `INFISICAL_PROJECT_ID` in `.env` (from the Infisical dashboard URL).
 ---
 
 **Option 1 — Fastest**  
-Put `XAI_API_KEY=xai-...` in `.env`, then run `wankr.bat`.
+Put `XAI_API_KEY=xai-...` in `.env`, then run `launch.bat`.
 
 **Option 2 — Infisical Machine Identity**  
 Put `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in `.env`. The Node backend fetches `XAI_API_KEY` or `grokWankr` from Infisical at startup.
@@ -53,7 +51,7 @@ Put `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID` in 
 
 The dashboard is a **React + Vite** frontend with a **Node.js** backend in `wankr-backend/`. Same neon-green theme; chat, archive, and training.
 
-**Development:** Run `wankr.bat` to start the Node API (port 5000) and React dev server (port 5173). Vite proxies `/api` and `/static` to the Node backend.
+**Development:** Run `launch.bat` to start the Node API (port 5000) and React dev server (port 5173). Vite proxies `/api` and `/static` to the Node backend.
 
 ```bash
 # Or manually:
@@ -75,17 +73,4 @@ cd ../wankr-backend && npm start
 
 Open **http://127.0.0.1:5000**.
 
-**Restart:** Run `wankr.bat` to stop, save chat, and relaunch. Chat is backed up before shutdown and restored when you refresh.
-
-## Going online (production) — Cloudflare Tunnel + backend
-
-The dashboard needs the **full Node backend** (Infisical, xAI, `/api`, training, Grok). Use **Cloudflare Tunnel** from the account that **owns wankrbot.com** to expose that backend. Do **not** use Workers for this (static-only, and custom domains require the Worker and domain in the same account).
-
-**Checklist:** **[SETUP_WANKRBOT_ONLINE.md](SETUP_WANKRBOT_ONLINE.md)** (Railway + Cloudflare in order). Also: [RELAUNCH.md](RELAUNCH.md), [RAILWAY_ONE_TIME.md](RAILWAY_ONE_TIME.md). Full tunnel detail: [docs/CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md).
-
-1. **Run backend** on a VPS or **Railway**: clone repo, `cd wankr-backend`, `npm install`, add `.env` or Infisical, build frontend (`cd ../frontend && npm run build`), then `node server.js` (or `infisical run --env=prod -- node server.js`). For Railway, use the **repo root** as the service Root Directory (leave blank so the full repo is used). The root `railway.json` uses the **Dockerfile**; if the build instead uses Railpack and only sees a few files, set the service **Root Directory** to the repository root so the Dockerfile and `frontend/` / `wankr-backend/` are included. A root `start.sh` is available for Railpack/Shell builds. See RAILWAY_ONE_TIME.md.
-2. **Cloudflare Tunnel** (Zero Trust → Networks → Tunnels): create tunnel in the **same account as wankrbot.com**, run `cloudflared tunnel run --token ...` (or `run_tunnel.bat` with `CLOUDFLARE_TUNNEL_TOKEN` in `.env`). Public hostname: **wankrbot.com** → **http://127.0.0.1:5000** (local) or your **Railway backend URL**.
-3. **DNS:** In the wankrbot.com zone, remove any A/CNAME for `@` or `www` that point elsewhere; tunnel CNAMEs only.
-4. **Frontend:** Build with `cd frontend && npm run build`; the backend serves `frontend/dist`. No `wrangler deploy`.
-
-Result: https://wankrbot.com shows the same dashboard as localhost:5173, with real Grok and training.
+**Restart:** Run `restart.bat` to stop, save chat, and relaunch. Chat is backed up before shutdown and restored when you refresh.

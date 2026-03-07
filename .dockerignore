@@ -1,0 +1,47 @@
+# Dependencies (rebuilt in container)
+**/node_modules
+
+# Build outputs (rebuilt in container)
+frontend-v2/dist
+frontend/dist
+
+# Claude worktrees and config
+.claude/worktrees
+**/.claude/worktrees
+
+# Git
+.git
+.gitignore
+
+# Logs and runtime storage
+logs/
+storage/
+*.log
+
+# Environment files (secrets set via Railway dashboard)
+.env
+.env.*
+!.env.example
+
+# Dev tooling
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Docs (not needed in image)
+docs/
+*.md
+!README.md
+
+# Old frontend (not used)
+frontend/
+
+# Misc
+__pycache__/
+*.pyc
+.loginignore/
