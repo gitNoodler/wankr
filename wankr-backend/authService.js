@@ -4,8 +4,6 @@ const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const { ethers } = require('ethers');
-const ed25519 = require('@noble/ed25519');
-const bs58 = require('bs58');
 
 const USERS_FILE = path.join(__dirname, 'storage', 'users.json');
 const REGISTRY_FILE = path.join(__dirname, 'storage', 'username_registry.json');
@@ -307,16 +305,28 @@ function verifyEVMSignature(message, signature, address) {
   }
 }
 
-// Configure ed25519 sha512 (needed for @noble/ed25519 v2)
-const { sha512 } = require('@noble/hashes/sha512');
-ed25519.etc.sha512Sync = (...m) => sha512(ed25519.etc.concatBytes(...m));
+// Lazy-loaded ESM deps for Solana verification
+let _ed25519, _bs58, _solanaReady;
+async function initSolanaDeps() {
+  if (_solanaReady) return;
+  const [edMod, bs58Mod, hashesMod] = await Promise.all([
+    import('@noble/ed25519'),
+    import('bs58'),
+    import('@noble/hashes/sha512'),
+  ]);
+  _ed25519 = edMod;
+  _bs58 = bs58Mod.default || bs58Mod;
+  _ed25519.etc.sha512Sync = (...m) => hashesMod.sha512(_ed25519.etc.concatBytes(...m));
+  _solanaReady = true;
+}
 
-function verifySolanaSignature(message, signatureHex, address) {
+async function verifySolanaSignature(message, signatureHex, address) {
   try {
+    await initSolanaDeps();
     const msgBytes = Buffer.from(message, 'utf8');
     const sigBytes = Buffer.from(signatureHex, 'hex');
-    const pubBytes = bs58.decode(address);
-    return ed25519.verify(sigBytes, msgBytes, pubBytes);
+    const pubBytes = _bs58.decode(address);
+    return _ed25519.verify(sigBytes, msgBytes, pubBytes);
   } catch {
     return false;
   }
