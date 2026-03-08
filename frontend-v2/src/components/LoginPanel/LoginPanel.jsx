@@ -118,41 +118,6 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
   const [mobileZoomed, setMobileZoomed] = useState(false);
   const [mobileZoomXf, setMobileZoomXf] = useState(null);
 
-  // Default resting view on mobile: zoom into the robot so scene fills the screen
-  const calcMobileRest = useCallback(() => {
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const imgAspect = IMG_W / IMG_H;
-    const scrAspect = vw / vh;
-    // contain-fit dimensions
-    let contentW, contentH, contentX, contentY;
-    if (scrAspect > imgAspect) {
-      contentH = vh; contentW = vh * imgAspect;
-      contentX = (vw - contentW) / 2; contentY = 0;
-    } else {
-      contentW = vw; contentH = vw / imgAspect;
-      contentX = 0; contentY = (vh - contentH) / 2;
-    }
-    // Robot center in screen coords (~50% x, ~48% y of the source image)
-    const robotCx = contentX + 0.50 * contentW;
-    const robotCy = contentY + 0.48 * contentH;
-    // Scale so the content height fills ~90% of viewport
-    const s = (vh * 0.90) / contentH;
-    const tx = vw / 2 - robotCx * s;
-    const ty = vh / 2 - robotCy * s;
-    return { s, tx, ty };
-  }, []);
-
-  const [mobileRestXf, setMobileRestXf] = useState(null);
-
-  // Compute resting transform on mount and resize
-  useEffect(() => {
-    if (!isMobile) return;
-    const update = () => setMobileRestXf(calcMobileRest());
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [isMobile, calcMobileRest]);
-
   const calcMobileZoom = useCallback(() => {
     const vw = window.innerWidth, vh = window.innerHeight;
     const imgAspect = IMG_W / IMG_H;
@@ -1158,9 +1123,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           style={{
             transform: mobileZoomed && mobileZoomXf
               ? `translate(${mobileZoomXf.tx}px, ${mobileZoomXf.ty}px) scale(${mobileZoomXf.s})`
-              : mobileRestXf
-                ? `translate(${mobileRestXf.tx}px, ${mobileRestXf.ty}px) scale(${mobileRestXf.s})`
-                : 'translate(0, 0) scale(1)',
+              : 'translate(0, 0) scale(1)',
           }}
         >
           {/* Grid */}

@@ -47,6 +47,29 @@ export default function App() {
   useViewportScale();
   const { isMobile, isTablet, isDesktop } = useResponsive();
 
+  // Force landscape on mobile: request fullscreen + lock orientation on first tap
+  useEffect(() => {
+    if (!isMobile) return;
+    const lockLandscape = async () => {
+      try {
+        const el = document.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+        if (screen.orientation?.lock) {
+          await screen.orientation.lock('landscape');
+        }
+      } catch { /* browser may deny — not all support it */ }
+      document.removeEventListener('touchstart', lockLandscape, true);
+      document.removeEventListener('click', lockLandscape, true);
+    };
+    document.addEventListener('touchstart', lockLandscape, { once: true, capture: true });
+    document.addEventListener('click', lockLandscape, { once: true, capture: true });
+    return () => {
+      document.removeEventListener('touchstart', lockLandscape, true);
+      document.removeEventListener('click', lockLandscape, true);
+    };
+  }, [isMobile]);
+
   // Drawer / panel state for mobile & tablet
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
