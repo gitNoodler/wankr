@@ -332,11 +332,11 @@ export default function App() {
         }}
       />
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {showLogin ? (
-          <div style={sessionValidating ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}>
-            <LoginPanel onLogin={handleLoginSuccess} onSpectate={handleSpectate} getAudio={groove.getAudio} />
-          </div>
-        ) : (
+        {/* Always mounted to avoid remount flicker; hidden via CSS */}
+        <div style={showLogin ? (sessionValidating ? { visibility: 'hidden', pointerEvents: 'none' } : undefined) : { display: 'none' }}>
+          <LoginPanel onLogin={handleLoginSuccess} onSpectate={handleSpectate} getAudio={groove.getAudio} />
+        </div>
+        {!showLogin && (
           <>
         <Header
           isMobile={isMobile}
