@@ -78,7 +78,9 @@
 
 .header-stats {
   position: absolute;
-  right: 20px;
+  left: 56px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 12px;
   color: rgba(0, 255, 65, 0.7);
 }

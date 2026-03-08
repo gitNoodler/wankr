@@ -70,7 +70,7 @@ function ensureAnalyser(audioElement) {
     const source = ctx.createMediaElementSource(audioElement);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
-    analyser.smoothingTimeConstant = 0.3;
+    analyser.smoothingTimeConstant = 0.15;
     source.connect(analyser);
     analyser.connect(ctx.destination);
     audioElement._wankrCtx = ctx;
@@ -117,6 +117,41 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
   // Mobile scene zoom state
   const [mobileZoomed, setMobileZoomed] = useState(false);
   const [mobileZoomXf, setMobileZoomXf] = useState(null);
+
+  // Default resting view on mobile: zoom into the robot so scene fills the screen
+  const calcMobileRest = useCallback(() => {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const imgAspect = IMG_W / IMG_H;
+    const scrAspect = vw / vh;
+    // contain-fit dimensions
+    let contentW, contentH, contentX, contentY;
+    if (scrAspect > imgAspect) {
+      contentH = vh; contentW = vh * imgAspect;
+      contentX = (vw - contentW) / 2; contentY = 0;
+    } else {
+      contentW = vw; contentH = vw / imgAspect;
+      contentX = 0; contentY = (vh - contentH) / 2;
+    }
+    // Robot center in screen coords (~50% x, ~48% y of the source image)
+    const robotCx = contentX + 0.50 * contentW;
+    const robotCy = contentY + 0.48 * contentH;
+    // Scale so the content height fills ~90% of viewport
+    const s = (vh * 0.90) / contentH;
+    const tx = vw / 2 - robotCx * s;
+    const ty = vh / 2 - robotCy * s;
+    return { s, tx, ty };
+  }, []);
+
+  const [mobileRestXf, setMobileRestXf] = useState(null);
+
+  // Compute resting transform on mount and resize
+  useEffect(() => {
+    if (!isMobile) return;
+    const update = () => setMobileRestXf(calcMobileRest());
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [isMobile, calcMobileRest]);
 
   const calcMobileZoom = useCallback(() => {
     const vw = window.innerWidth, vh = window.innerHeight;
@@ -377,26 +412,26 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
         analyser.getByteFrequencyData(data);
         // Kick envelope: bins 1-3 (~43-172Hz)
         const rawKick = (data[1] + data[2] + data[3]) / 3 / 255;
-        const wasKickQuiet = kickRef.current < 0.15;
+        const wasKickQuiet = kickRef.current < 0.12;
         if (rawKick > kickRef.current) {
           kickRef.current = rawKick;
         } else {
-          kickRef.current *= 0.88;
+          kickRef.current *= 0.82; // faster decay = quicker re-arm for next beat
         }
         const k = kickRef.current;
-        const isKick = wasKickQuiet && k > 0.3;
+        const isKick = wasKickQuiet && k > 0.25;
 
         // Hi-hat envelope: bins 100-180 (~4.3-7.7kHz — sizzle/attack range)
         let hihatSum = 0;
         for (let i = 100; i <= 180; i++) hihatSum += data[i];
         const rawHihat = hihatSum / 81 / 255;
-        const wasHihatQuiet = hihatRef.current < 0.10;
+        const wasHihatQuiet = hihatRef.current < 0.08;
         if (rawHihat > hihatRef.current) {
           hihatRef.current = rawHihat;
         } else {
-          hihatRef.current *= 0.75; // fast decay — hi-hats are short transients
+          hihatRef.current *= 0.65; // faster decay — re-arm quickly for next hit
         }
-        const isHihat = wasHihatQuiet && hihatRef.current > 0.25;
+        const isHihat = wasHihatQuiet && hihatRef.current > 0.20;
 
         // Overall energy: sum of all bins for intensity tracking
         let totalEnergy = 0;
@@ -620,8 +655,8 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           }
         }
 
-        // Spring interpolation: snap down fast on beat, lift slowly between beats
-        const SETTLE_MS = 80; // hold on panel briefly after snap
+        // Spring interpolation: snap down instantly on beat, lift between beats
+        const SETTLE_MS = 60; // hold on panel briefly after snap
         for (const hand of ['left', 'right']) {
           const tKey = hand + 'T';
           const snapKey = hand + 'SnapTime';
@@ -630,15 +665,15 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
             if (hand === 'left' && ts.lastKickTime > 0) {
               // Predictive lift: accelerate as next kick approaches
               const progress = (now - ts.lastKickTime) / ts.kickInterval;
-              const liftRate = 0.02 + Math.min(progress, 1) * 0.10;
+              const liftRate = 0.03 + Math.min(progress, 1) * 0.12;
               ts[tKey] += (1 - ts[tKey]) * liftRate;
             } else {
               // Right hand: constant anticipation lift
-              ts[tKey] += (1 - ts[tKey]) * 0.04;
+              ts[tKey] += (1 - ts[tKey]) * 0.06;
             }
           } else if (sinceTap <= SETTLE_MS) {
-            // Just tapped: snap down fast
-            ts[tKey] += (0 - ts[tKey]) * 0.35;
+            // Just tapped: near-instant snap to panel
+            ts[tKey] = ts[tKey] * 0.1;
           } else {
             // Session inactive: ease back to rest
             ts[tKey] += (0 - ts[tKey]) * 0.08;
@@ -1123,7 +1158,9 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           style={{
             transform: mobileZoomed && mobileZoomXf
               ? `translate(${mobileZoomXf.tx}px, ${mobileZoomXf.ty}px) scale(${mobileZoomXf.s})`
-              : 'translate(0, 0) scale(1)',
+              : mobileRestXf
+                ? `translate(${mobileRestXf.tx}px, ${mobileRestXf.ty}px) scale(${mobileRestXf.s})`
+                : 'translate(0, 0) scale(1)',
           }}
         >
           {/* Grid */}
@@ -1345,12 +1382,10 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
         .lp-layer-tissue-back {
           z-index: 2;
           image-rendering: auto;
-          will-change: transform;
         }
         .lp-layer-tissue {
           z-index: 6;
           image-rendering: auto;
-          will-change: transform;
         }
         .lp-layer-magazine {
           z-index: 6;
@@ -1378,7 +1413,6 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           width: 100%;
           height: 100%;
           pointer-events: none;
-          will-change: transform;
         }
         .lp-arm-unit-back  { z-index: 3; }
         .lp-arm-unit-front { z-index: 5; }
@@ -1418,9 +1452,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
         .lp-layer-hand {
           z-index: 5;
           image-rendering: auto;
-          transform: translateZ(0);
           backface-visibility: hidden;
-          will-change: transform;
         }
         .lp-finger-joint {
           position: absolute;
@@ -1428,7 +1460,6 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           width: 100%;
           height: 100%;
           pointer-events: none;
-          will-change: transform;
         }
         .lp-finger-tip { z-index: 6; }
         .lp-right-index-joint {
@@ -1441,7 +1472,6 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           height: 100%;
           pointer-events: none;
           z-index: 5;
-          will-change: transform;
         }
         /* Left hand — slightly warm green, nudge toward #00ff41 */
         .lp-hand-L {
@@ -1500,7 +1530,6 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           width: 100%;
           height: 100%;
           z-index: 2;
-          will-change: transform, filter;
         }
         .lp-layer-boombox { z-index: 2; }
         .lp-layer-subs-static { z-index: 3; }
@@ -1510,7 +1539,6 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           width: 100%;
           height: 100%;
           z-index: 4;
-          will-change: transform, filter;
         }
         .lp-panel {
           position: absolute;
@@ -1529,7 +1557,8 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           gap: 11px;
           padding: 17px 86px 28px;
           box-sizing: border-box;
-          animation: lpGlow 4s ease-in-out infinite;
+          box-shadow: 0 0 15px rgba(0,255,65,0.25), 0 0 45px rgba(0,255,65,0.08), inset 0 0 20px rgba(0,255,65,0.03);
+          will-change: transform;
         }
         .lp-subtitle {
           color: rgba(0, 255, 65, 0.5);
@@ -1718,10 +1747,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           background: rgba(0, 230, 255, 0.14);
           box-shadow: 0 0 12px rgba(0,230,255,0.2);
         }
-        @keyframes lpGlow {
-          0%, 100% { box-shadow: 0 0 12px rgba(0,255,65,0.2), 0 0 40px rgba(0,255,65,0.06), inset 0 0 15px rgba(0,255,65,0.02); }
-          50%       { box-shadow: 0 0 18px rgba(0,255,65,0.3), 0 0 50px rgba(0,255,65,0.1), inset 0 0 25px rgba(0,255,65,0.04); }
-        }
+        /* lpGlow removed — static box-shadow used instead to prevent GPU layer invalidation */
         @keyframes lpFadeIn {
           from { opacity: 0; transform: scale(0.97); }
           to   { opacity: 1; transform: scale(1); }

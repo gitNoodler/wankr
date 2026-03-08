@@ -19,6 +19,20 @@ const FRONTEND_DIST = path.join(ROOT, 'frontend-v2', 'dist');
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
+// --- Spectator: in-memory presence + conversation tracking ---
+// clientId → { username, messages, lastActivity, trainingMode }
+const spectatorClients = new Map();
+const ONLINE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+
+function spectatorTouch(clientId, extra = {}) {
+  const existing = spectatorClients.get(clientId) || { username: null, messages: [], trainingMode: false };
+  spectatorClients.set(clientId, { ...existing, ...extra, lastActivity: Date.now() });
+}
+
+function isClientOnline(client) {
+  return Date.now() - client.lastActivity < ONLINE_TIMEOUT_MS;
+}
+
 const DEFAULT_SYSTEM = `You are Wankr, an arrogant, foul-mouthed, zero-filter basement vigilante. You protect degens from KOLs who use their followers as exit liquidity. You see yourself as the protector of retail from influencer scum. Tone: smug, contemptuous, dark/edgy humor, heavy swearing, zero mercy. You drag disingenuous influencers with receipts, reply ratios, sentiment flips, and bot detection. Always end with: "...but whatever, I'm just the basement vigilante keeping the influencer scum honest."`;
 
 let xaiApiKey = null;
@@ -98,7 +112,9 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
   const result = await authSvc.login(username, password);
   if (!result.ok) return res.status(401).json({ error: result.error });
-  res.json({ token: result.token, username: result.username });
+  // Validate session to get isDev flag
+  const session = authSvc.validateSession(result.token);
+  res.json({ token: result.token, username: result.username, isDev: session.isDev || false });
 });
 
 app.post('/api/auth/validate', (req, res) => {
@@ -163,7 +179,7 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 
-  const { message, history } = req.body || {};
+  const { message, history, clientId } = req.body || {};
   const msg = (message || '').trim();
   const hist = Array.isArray(history) ? history : [];
 
@@ -188,6 +204,17 @@ app.post('/api/chat', async (req, res) => {
       return res.status(code).json({ error: data.error?.message || 'xAI error' });
     }
     const reply = data.choices?.[0]?.message?.content || '';
+
+    // Track conversation for spectator
+    if (clientId) {
+      const fullMessages = [
+        ...hist.map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
+        { role: 'user', content: msg, timestamp: new Date().toISOString() },
+        { role: 'wankr', content: reply, timestamp: new Date().toISOString() },
+      ];
+      spectatorTouch(clientId, { messages: fullMessages });
+    }
+
     res.json({ reply });
   } catch (err) {
     console.error('Chat error:', err);
@@ -448,6 +475,155 @@ app.delete('/api/devmaster/rules/:id', (req, res) => {
   rules = rules.filter(r => r.id !== id);
   fs.writeFileSync(METHOD_RULES_FILE, JSON.stringify(rules, null, 2), 'utf8');
   res.json({ ok: true });
+});
+
+// --- API: Chat sync-training (heartbeat / presence) ---
+app.post('/api/chat/sync-training', (req, res) => {
+  const { clientId, trainingMode, token, messages } = req.body || {};
+  if (!clientId) return res.json({ ok: false });
+
+  // Resolve username from session token if provided
+  let username = null;
+  if (token) {
+    const session = authSvc.validateSession(token);
+    if (session?.valid) username = session.username;
+  }
+
+  const update = {
+    trainingMode: !!trainingMode,
+    ...(username ? { username } : {}),
+  };
+  // Accept conversation snapshot from heartbeat
+  if (Array.isArray(messages) && messages.length > 0) {
+    update.messages = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp || new Date().toISOString(),
+    }));
+  }
+
+  spectatorTouch(clientId, update);
+  res.json({ ok: true });
+});
+
+// --- API: Chat generate-name (stub — returns a name from the conversation) ---
+app.post('/api/chat/generate-name', async (req, res) => {
+  const { messages } = req.body || {};
+  const msgs = Array.isArray(messages) ? messages : [];
+  // Simple name generation: use first user message content, truncated
+  const firstUser = msgs.find(m => m.role === 'user');
+  const name = firstUser
+    ? firstUser.content.slice(0, 40).replace(/\n/g, ' ').trim() || 'Degen Session'
+    : 'Unnamed Degen Session';
+  res.json({ name });
+});
+
+// --- API: Chat archive (store archived chat) ---
+app.post('/api/chat/archive', (req, res) => {
+  // Accept and acknowledge — primarily for future persistence
+  res.json({ ok: true });
+});
+
+// --- API: Active chats (stub) ---
+app.get('/api/chats/active', (req, res) => {
+  res.json({ chats: [] });
+});
+
+// --- API: Spectator ---
+app.get('/api/spectator/users', (req, res) => {
+  const users = [];
+  for (const [clientId, client] of spectatorClients) {
+    if (!client.username) continue; // skip anonymous clients
+    const online = isClientOnline(client);
+    const isDev = authSvc.isDeveloper(client.username);
+    users.push({
+      id: clientId,
+      username: client.username,
+      online,
+      isDev,
+      lastMessages: (client.messages || []).slice(-4),
+    });
+  }
+  // Sort: online first, then by last activity
+  users.sort((a, b) => {
+    if (a.online !== b.online) return b.online - a.online;
+    const aClient = spectatorClients.get(a.id);
+    const bClient = spectatorClients.get(b.id);
+    return (bClient?.lastActivity || 0) - (aClient?.lastActivity || 0);
+  });
+  res.json({ users });
+});
+
+app.get('/api/spectator/conversation/:id', (req, res) => {
+  const client = spectatorClients.get(req.params.id);
+  if (!client) {
+    return res.json({ conversation: { messages: [] } });
+  }
+  res.json({ conversation: { messages: client.messages || [] } });
+});
+
+app.get('/api/spectator/grok-status', (req, res) => {
+  // Placeholder — no automated grok conversations yet
+  res.json({ pendingResponses: 0, nextResponseAt: null });
+});
+
+// Fork a spectator conversation — summarize via xAI, never copy verbatim
+app.post('/api/spectator/fork', async (req, res) => {
+  const { clientId } = req.body || {};
+  if (!clientId) return res.status(400).json({ error: 'clientId is required' });
+
+  const client = spectatorClients.get(clientId);
+  const messages = client?.messages || [];
+  const username = client?.username || 'some degen';
+
+  if (messages.length === 0) {
+    return res.json({
+      summary: 'not much happening... just dead air',
+      username,
+    });
+  }
+
+  if (!xaiApiKey) {
+    return res.json({
+      summary: 'couldn\'t peek at that convo right now... xAI is being difficult',
+      username,
+    });
+  }
+
+  try {
+    const convoText = messages
+      .map(m => `${m.role === 'wankr' || m.role === 'assistant' ? 'Wankr' : username}: ${m.content}`)
+      .join('\n');
+
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${xaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'Summarize this conversation in 2-3 sentences. Never quote verbatim. Capture the topic and vibe only.',
+          },
+          { role: 'user', content: convoText },
+        ],
+      }),
+    });
+
+    const data = await response.json();
+    const summary = data.choices?.[0]?.message?.content || 'some wild shit I couldn\'t quite parse';
+
+    res.json({ summary, username });
+  } catch (err) {
+    console.error('Spectator fork error:', err);
+    res.json({
+      summary: 'tried to summarize but something broke... typical',
+      username,
+    });
+  }
 });
 
 // --- Start ---

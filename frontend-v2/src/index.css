@@ -961,6 +961,7 @@ body {
   }
 }
 
+
 /* Dashboard sweep-in (sidebar from left, right panel from right) */
 .dashboard-body.sweep-in .dashboard-sidebar {
   animation: sidebar-sweep-in 0.35s ease-out forwards;

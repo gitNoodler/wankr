@@ -21,7 +21,22 @@ function UserBubble({ user, onClick, isSelected }) {
         {user.username.charAt(0).toUpperCase()}
       </div>
       <div className="user-info">
-        <span className="username">{user.username}</span>
+        <span className="username">
+          {user.isDev && (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              style={{ width: 12, height: 12, verticalAlign: 'middle', marginRight: 4 }}
+              title="Developer"
+            >
+              <path
+                d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"
+                fill="rgba(0, 255, 0, 0.8)"
+              />
+            </svg>
+          )}
+          {user.username}
+        </span>
         <span className="status-dot" />
       </div>
       
@@ -51,9 +66,10 @@ function UserBubble({ user, onClick, isSelected }) {
 
 const SCROLL_AT_BOTTOM_THRESHOLD = 60;
 
-function ConversationView({ user, onClose }) {
+function ConversationView({ user, onClose, onFork }) {
   const [messages, setMessages] = useState(user?.lastMessages || []);
   const [loading, setLoading] = useState(false);
+  const [forking, setForking] = useState(false);
   const [grokStatus, setGrokStatus] = useState(null);
   const messagesContainerRef = useRef(null);
   const listRef = useRef(null);
@@ -239,8 +255,40 @@ function ConversationView({ user, onClose }) {
         <button className="back-btn" onClick={onClose}>
           ← Back
         </button>
+        {onFork && (
+          <button
+            className="back-btn"
+            disabled={forking}
+            onClick={async () => {
+              setForking(true);
+              try {
+                const res = await api.post('/api/spectator/fork', { clientId: user.id });
+                const data = await res.json();
+                onFork(data.summary, data.username);
+              } catch (err) {
+                console.error('Fork failed:', err);
+                setForking(false);
+              }
+            }}
+          >
+            {forking ? 'Forking...' : '⑂ Fork'}
+          </button>
+        )}
         <div className="conversation-user">
           <span className={`status-indicator ${user.online ? 'online' : 'offline'}`} />
+          {user.isDev && (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              style={{ width: 14, height: 14, flexShrink: 0 }}
+              title="Developer"
+            >
+              <path
+                d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"
+                fill="rgba(0, 255, 0, 0.8)"
+              />
+            </svg>
+          )}
           <span className="conv-username">{user.username}</span>
           <span className="conv-status">{user.online ? 'LIVE' : 'OFFLINE'}</span>
         </div>
@@ -364,7 +412,7 @@ function ConversationView({ user, onClose }) {
   );
 }
 
-export default function SpectatorView({ onExit }) {
+export default function SpectatorView({ onExit, onFork }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -438,7 +486,7 @@ export default function SpectatorView({ onExit }) {
       {/* Main content area */}
       <div className="spectator-content">
         {selectedUser ? (
-          <ConversationView user={selectedUser} onClose={handleCloseConversation} />
+          <ConversationView user={selectedUser} onClose={handleCloseConversation} onFork={onFork} />
         ) : loading ? (
           <div className="loading-users">
             <div className="loading-spinner" />

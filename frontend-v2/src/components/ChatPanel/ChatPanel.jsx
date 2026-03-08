@@ -6,7 +6,7 @@ const VIRTUAL_LIST_THRESHOLD = 50;
 
 const AT_BOTTOM_THRESHOLD = 80;
 
-function ChatPanel({ messages, onSend, onStop, disabled, isMobile }) {
+function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isDev }) {
   const scrollContainerRef = useRef(null);
   const listRef = useRef(null);
   const measureRef = useRef(null);
@@ -133,6 +133,7 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile }) {
       {/* Simplified Chat Header */}
       <div
         style={{
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -165,6 +166,41 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile }) {
             className={`training-light${trainingLightOn ? ' on' : ''}`}
             title={trainingLightOn ? 'Training mode active' : 'Training mode off'}
           />
+          {username && (
+            <>
+              <span style={{ width: 1, height: 'calc(16px * var(--scale))', background: 'rgba(255,255,255,0.12)', marginLeft: 'calc(4px * var(--scale))' }} />
+              {isDev && (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  style={{
+                    width: 'calc(16px * var(--scale))',
+                    height: 'calc(16px * var(--scale))',
+                    flexShrink: 0,
+                  }}
+                  title="Developer"
+                >
+                  <path
+                    d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"
+                    fill="#00ff00"
+                  />
+                </svg>
+              )}
+              <span
+                style={{
+                  fontSize: 'calc(12px * var(--scale))',
+                  color: isDev ? '#00ff00' : 'rgba(0, 255, 0, 0.6)',
+                  fontWeight: 600,
+                  letterSpacing: '1px',
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
+                }}
+                title={username + (isDev ? ' (Developer)' : '')}
+              >
+                {username}
+              </span>
+            </>
+          )}
         </div>
       </div>
 

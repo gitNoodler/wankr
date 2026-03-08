@@ -6,7 +6,7 @@ import { useRestartBackup } from './hooks/useRestartBackup';
 import { useViewportScale } from './hooks/useViewportScale';
 import { useResponsive } from './hooks/useResponsive';
 import { getTrainCount } from './services/trainingService';
-import { validateSession, logout as authLogout, getStoredToken } from './services/authService';
+import { validateSession, logout as authLogout, getStoredToken, getStoredUsername, getStoredIsDev } from './services/authService';
 import { api } from './utils/api';
 import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
@@ -22,6 +22,7 @@ import DevMasterPanel from './components/DevMaster/DevMasterPanel';
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isDev, setIsDev] = useState(getStoredIsDev());
   const [sessionValidating, setSessionValidating] = useState(true);
   const [spectatorMode, setSpectatorMode] = useState(false);
   const [namedToast, setNamedToast] = useState(null);
@@ -72,7 +73,10 @@ export default function App() {
     }
     validateSession()
       .then((result) => {
-        if (result.valid) setLoggedIn(true);
+        if (result.valid) {
+          setLoggedIn(true);
+          setIsDev(!!result.isDev);
+        }
       })
       .catch(() => {})
       .finally(() => setSessionValidating(false));
@@ -80,6 +84,7 @@ export default function App() {
 
   const handleLoginSuccess = useCallback(() => {
     setLoggedIn(true);
+    setIsDev(getStoredIsDev());
   }, []);
 
   const handleSpectate = useCallback(() => {
@@ -164,6 +169,16 @@ export default function App() {
     setSpectatorMode(false);
   }, []);
 
+  const handleForkSpectatorChat = useCallback((summary, username) => {
+    startNewChat();
+    const wankrMessage = {
+      role: 'wankr',
+      content: `some degen named ${username} was going off about ${summary}... what's your take?`,
+    };
+    setConversation([wankrMessage]);
+    setSpectatorMode(false);
+  }, [startNewChat, setConversation]);
+
   const handleLogout = useCallback(async () => {
     try {
       await authLogout();
@@ -176,28 +191,21 @@ export default function App() {
     getTrainCount().then(setTrainCount).catch(() => setTrainCount(0));
   }, []);
 
-  // Sync training mode to backend whenever it changes or on page load
+  // Sync training mode + heartbeat to backend (keeps user "online" for spectator)
   useEffect(() => {
-    if (currentId) {
-      if (import.meta.env.DEV) console.log(`🔄 Syncing training mode: ${trainingMode} for client: ${currentId}`);
-      api.post('/api/chat/sync-training', { clientId: currentId, trainingMode })
-        .then(async (r) => {
-          if (!r.ok) {
-            if (r.status === 405) console.warn('Sync-training 405: backend not reached (is wankrbot.com on Tunnel + backend, not Workers?)');
-            return null;
-          }
-          const text = await r.text();
-          if (!text.trim()) return null;
-          try {
-            return JSON.parse(text);
-          } catch {
-            return null;
-          }
-        })
-        .then((data) => { if (import.meta.env.DEV && data != null) console.log('Sync response:', data); })
-        .catch((err) => console.warn('Sync-training failed:', err.message || err));
-    }
-  }, [trainingMode, currentId]);
+    if (!currentId) return;
+    const doSync = () => {
+      api.post('/api/chat/sync-training', {
+        clientId: currentId,
+        trainingMode,
+        token: getStoredToken(),
+        messages: conversation,
+      }).catch(() => {});
+    };
+    doSync();
+    const interval = setInterval(doSync, 10000); // heartbeat every 10s
+    return () => clearInterval(interval);
+  }, [trainingMode, currentId, conversation]);
 
   const handleLoadArchived = useCallback(
     async (id) => {
@@ -294,21 +302,7 @@ export default function App() {
   }, [restoreFromBackup, setConversation]);
 
   const showLogin = !loggedIn && !spectatorMode;
-
-  // Spectator mode takes over the entire screen
-  if (spectatorMode) {
-    return (
-      <>
-        <SpectatorView onExit={handleExitSpectator} />
-        <GrooveGearMenu
-          volume={groove.volume}
-          muted={groove.muted}
-          onVolumeChange={groove.setVolume}
-          onToggleMute={groove.toggleMute}
-        />
-      </>
-    );
-  }
+  const showDashboard = loggedIn && !spectatorMode;
 
   return (
     <div
@@ -331,12 +325,33 @@ export default function App() {
           background: '#000',
         }}
       />
+
+      {/* Spectator — always mounted once entered, hidden via CSS */}
+      {spectatorMode && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 30 }}>
+          <SpectatorView onExit={handleExitSpectator} onFork={handleForkSpectatorChat} />
+          <GrooveGearMenu
+            volume={groove.volume}
+            muted={groove.muted}
+            onVolumeChange={groove.setVolume}
+            onToggleMute={groove.toggleMute}
+          />
+        </div>
+      )}
+
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {/* Always mounted to avoid remount flicker; hidden via CSS */}
-        <div style={showLogin ? (sessionValidating ? { visibility: 'hidden', pointerEvents: 'none' } : undefined) : { display: 'none' }}>
+        {/* Login — always mounted at full opacity. z-index alone controls stacking. */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: showLogin ? 20 : -1,
+          pointerEvents: showLogin ? 'auto' : 'none',
+          transform: 'translateZ(0)',
+          ...(sessionValidating && { visibility: 'hidden' }),
+        }}>
           <LoginPanel onLogin={handleLoginSuccess} onSpectate={handleSpectate} getAudio={groove.getAudio} />
         </div>
-        {!showLogin && (
+        {showDashboard && (
           <>
         <Header
           isMobile={isMobile}
@@ -376,6 +391,8 @@ export default function App() {
               onStop={chat.handleStop}
               disabled={chat.sending}
               isMobile={isMobile}
+              username={getStoredUsername()}
+              isDev={isDev}
             />
           </div>
           <div className={`dashboard-right${rightPanelOpen ? ' panel-open' : ''}`}>

@@ -78,6 +78,9 @@ function normalizeUsername(s) {
 // Reserved usernames that cannot be registered
 const RESERVED_USERNAMES = ['grok', 'wankr', 'admin', 'system', 'bot'];
 
+// Developer usernames — shown with dev icon in UI
+const DEVELOPERS = ['gitnoodler'];
+
 async function register(username, password, email) {
   const name = normalizeUsername(username);
   const pass = String(password || '').trim();
@@ -203,7 +206,8 @@ function validateSession(token) {
     saveSessions(sessions);
     return { valid: false };
   }
-  return { valid: true, username: session.username };
+  const isDev = DEVELOPERS.includes(normalizeUsername(session.username));
+  return { valid: true, username: session.username, isDev };
 }
 
 function destroySession(token) {
@@ -452,6 +456,10 @@ async function linkWallet(sessionToken, nonceId, chain, address, signature) {
   return { ok: true };
 }
 
+function isDeveloper(username) {
+  return DEVELOPERS.includes(normalizeUsername(username));
+}
+
 module.exports = {
   register,
   login,
@@ -460,6 +468,7 @@ module.exports = {
   validateSession,
   destroySession,
   getActiveUsernames,
+  isDeveloper,
   issueNonce,
   walletLogin,
   walletRegister,
