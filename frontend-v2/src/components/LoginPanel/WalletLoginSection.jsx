@@ -80,7 +80,7 @@ function WalletInner({ parentMode, onLogin, onSpectate, inline, onUsernameMode, 
   const handleConnect = useCallback(() => {
     if (mode === 'pending') return;
     const { modal: m } = getWalletConfig();
-    if (!m) return;
+    if (!m) { setError('Wallet provider not configured'); return; }
     setError('');
     if (isConnected && connectedAddress) {
       setAuthRequested(true);
@@ -181,9 +181,8 @@ function WalletInner({ parentMode, onLogin, onSpectate, inline, onUsernameMode, 
   );
 }
 
-/** Outer wrapper — provides wagmi context, renders nothing if no projectId */
+/** Outer wrapper — provides wagmi context */
 export default function WalletLoginSection(props) {
-  if (!projectId) return null;
   const { wagmiConfig } = getWalletConfig();
 
   return (

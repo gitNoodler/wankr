@@ -2,8 +2,7 @@ import { useState, useCallback, useRef, useEffect, useLayoutEffect, lazy, Suspen
 import { login, register, checkUsername } from '../../services/authService';
 import { useResponsive } from '../../hooks/useResponsive';
 
-const hasWalletId = !!import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
-const WalletLoginSection = hasWalletId ? lazy(() => import('./WalletLoginSection')) : null;
+const WalletLoginSection = lazy(() => import('./WalletLoginSection'));
 
 /*
  * Login panel — viewport-origin positioning.
@@ -1054,7 +1053,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
                 <button type="submit" className="lp-btn lp-btn-secondary lp-btn-primary-alt" disabled={loading}>
                   {loading ? '...' : mode === 'login' ? 'LOGIN' : 'REGISTER'}
                 </button>
-                {WalletLoginSection && mode === 'login' && <Suspense fallback={null}><WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} inline /></Suspense>}
+                {mode === 'login' && <Suspense fallback={null}><WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} inline /></Suspense>}
               </div>
 
               <div className="lp-bottom-row">
@@ -1066,7 +1065,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
                 </button>
               </div>
 
-              {WalletLoginSection && mode !== 'login' && <Suspense fallback={null}><WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} /></Suspense>}
+              {mode !== 'login' && <Suspense fallback={null}><WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} /></Suspense>}
             </>
           )}
         </form>
