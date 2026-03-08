@@ -4,6 +4,7 @@ WORKDIR /workspace
 COPY frontend-v2/package*.json frontend-v2/
 RUN npm ci --prefix frontend-v2
 COPY frontend-v2/ frontend-v2/
+ARG CACHE_BUST=1
 RUN cd frontend-v2 && npm run build
 
 # Stage 2: Backend + serve frontend dist (smaller image, no dev deps from frontend)
