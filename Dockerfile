@@ -2,8 +2,9 @@
 FROM node:22-slim AS frontend-builder
 WORKDIR /workspace
 COPY frontend-v2/package*.json frontend-v2/
+RUN npm ci --prefix frontend-v2
 COPY frontend-v2/ frontend-v2/
-RUN cd frontend-v2 && npm ci && npm run build
+RUN cd frontend-v2 && npm run build
 
 # Stage 2: Backend + serve frontend dist (smaller image, no dev deps from frontend)
 FROM node:22-slim
