@@ -1,8 +1,7 @@
-import { useState, useCallback, useRef, useEffect, useLayoutEffect, lazy, Suspense } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { login, register, checkUsername } from '../../services/authService';
 import { useResponsive } from '../../hooks/useResponsive';
-
-const WalletLoginSection = lazy(() => import('./WalletLoginSection'));
+import WalletLoginSection from './WalletLoginSection';
 
 /*
  * Login panel — viewport-origin positioning.
@@ -1016,7 +1015,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           <div className="lp-title font-wankr">WankrBot</div>
 
           {walletUsername ? (
-            <Suspense fallback={null}><WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} takeover /></Suspense>
+            <WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} takeover />
           ) : (
             <>
               <div className="lp-subtitle font-wankr">Login, Degen</div>
@@ -1053,7 +1052,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
                 <button type="submit" className="lp-btn lp-btn-secondary lp-btn-primary-alt" disabled={loading}>
                   {loading ? '...' : mode === 'login' ? 'LOGIN' : 'REGISTER'}
                 </button>
-                {mode === 'login' && <Suspense fallback={null}><WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} inline /></Suspense>}
+                {mode === 'login' && <WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} inline />}
               </div>
 
               <div className="lp-bottom-row">
@@ -1065,7 +1064,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
                 </button>
               </div>
 
-              {mode !== 'login' && <Suspense fallback={null}><WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} /></Suspense>}
+              {mode !== 'login' && <WalletLoginSection parentMode={mode} onLogin={onLogin} onSpectate={onSpectate} onUsernameMode={setWalletUsername} />}
             </>
           )}
         </form>
