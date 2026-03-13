@@ -4,6 +4,8 @@ WORKDIR /workspace
 COPY frontend-v2/package*.json frontend-v2/
 RUN npm ci --prefix frontend-v2
 COPY frontend-v2/ frontend-v2/
+ARG VITE_WALLETCONNECT_PROJECT_ID=0df1ebc0fd718c15627764d95c6b63a4
+ENV VITE_WALLETCONNECT_PROJECT_ID=$VITE_WALLETCONNECT_PROJECT_ID
 RUN cd frontend-v2 && npm run build
 
 # Stage 2: Backend + serve frontend dist (smaller image, no dev deps from frontend)
