@@ -29,8 +29,13 @@ const BOOM = {
 };
 
 // Build boombox transform with optional sidebar slide.
+// Scales translateX based on viewport width so boombox stays on-screen.
 function getBoomTransform(sidebarPx = 0) {
-  let t = `perspective(${BOOM.perspective}px) rotateY(${BOOM.rotateY}deg) rotate(${BOOM.rotate}deg) translateX(${BOOM.translateX}%) translateY(${BOOM.translateY}%)`;
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1400;
+  // Scale translateX: full value at >=1400px, down to 0 at <=700px
+  const txScale = Math.max(0, Math.min(1, (vw - 700) / 700));
+  const tx = BOOM.translateX * txScale;
+  let t = `perspective(${BOOM.perspective}px) rotateY(${BOOM.rotateY}deg) rotate(${BOOM.rotate}deg) translateX(${tx}%) translateY(${BOOM.translateY}%)`;
   if (sidebarPx > 0) {
     t += ` translateX(-${sidebarPx}px)`;
   }
@@ -92,6 +97,16 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
   const [usernameStatus, setUsernameStatus] = useState(null);
   const [walletUsername, setWalletUsername] = useState(false);
   const checkTimer = useRef(null);
+  const usernameInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
+
+  // Force-clear inputs on mount — defeats browser autofill that ignores autoComplete="off"
+  useEffect(() => {
+    setUsername('');
+    setPassword('');
+    if (usernameInputRef.current) usernameInputRef.current.value = '';
+    if (passwordInputRef.current) passwordInputRef.current.value = '';
+  }, []);
   const panelRef = useRef(null);
   const leftBackRef = useRef(null);
   const leftFrontRef = useRef(null);
@@ -110,6 +125,8 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
   const headImgsRef = useRef({ faces: null, loaded: false });
   const wooferRef = useRef(null);
   const wooferReflRef = useRef(null);
+  const boomRef = useRef(null);
+  const boomReflRef = useRef(null);
   const rafRef = useRef(null);
   const kickRef = useRef(0);
   const hihatRef = useRef(0);
@@ -201,13 +218,17 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
       return;
     }
     const update = () => {
-      const w = window.innerWidth, h = window.innerHeight;
+      const w = Math.max(700, window.innerWidth), h = window.innerHeight;
       // Always scale by height — matches contain in landscape, cover in portrait
       const s = h / IMG_H;
       const oX = (w - IMG_W * s) / 2; // positive in landscape, negative in portrait
       const oY = 0;
       // Scale for tissue/magazine proportional positioning
       document.documentElement.style.setProperty('--fit-s', s / TISSUE_REF_S);
+      // X-axis clamped scale — reduces horizontal offsets on narrow viewports
+      // 1.0 when viewport fits the full image width, shrinks toward 0 when cropped
+      const widthFit = Math.max(0.7, Math.min(1, w / (IMG_W * s)));
+      document.documentElement.style.setProperty('--fit-sx', widthFit);
       // Panel
       const pe = panelRef.current;
       if (pe) {
@@ -244,6 +265,10 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           e.style.transform = xform;
         }
       }
+      // Update boombox transform on resize to keep it on-screen
+      const boomT = getBoomTransform(0);
+      if (boomRef.current) boomRef.current.style.transform = boomT;
+      if (boomReflRef.current) boomReflRef.current.style.transform = boomT;
     };
     let rafId = 0;
     const onResize = () => {
@@ -256,6 +281,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', onResize);
       document.documentElement.style.removeProperty('--fit-s');
+      document.documentElement.style.removeProperty('--fit-sx');
     };
   }, [isMobile]);
 
@@ -648,7 +674,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
         }
 
         // Compute image→viewport pivot (height-based scale, matches cover in portrait)
-        const vw = window.innerWidth;
+        const vw = Math.max(700, window.innerWidth);
         const vh = window.innerHeight;
         const imgScale = vh / IMG_H;
         const ox = (vw - IMG_W * imgScale) / 2;
@@ -814,7 +840,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
 
     const applyUnit = (u) => {
       const cfg = getCfg(u);
-      const w = window.innerWidth, h = window.innerHeight;
+      const w = Math.max(700, window.innerWidth), h = window.innerHeight;
       const s = h / IMG_H;
       const oX = (w - IMG_W * s) / 2;
       const pw = PANEL_CANVAS.w * s, ph = PANEL_CANVAS.h * s;
@@ -849,7 +875,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
     };
     const onMove = (e) => {
       if (!active) return;
-      const w = window.innerWidth, h = window.innerHeight;
+      const w = Math.max(700, window.innerWidth), h = window.innerHeight;
       const s = h / IMG_H;
       const pw = PANEL_CANVAS.w * s, ph = PANEL_CANVAS.h * s;
       const cfg = getCfg(active.unit);
@@ -952,7 +978,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
       {!isMobile && (
         <>
         {/* Boombox reflection — behind the grid */}
-        <div className="lp-boom-unit lp-boom-refl" style={{ transform: getBoomTransform(sidebarOffset) }}>
+        <div ref={boomReflRef} className="lp-boom-unit lp-boom-refl" style={{ transform: getBoomTransform(sidebarOffset) }}>
           <img src="/boombox_reflectionBase.png" alt="" className="lp-layer lp-layer-refl-base" />
           <div ref={wooferReflRef} className="lp-refl-subs">
             <img src="/boombox_reflectionLeftSub.png" alt="" className="lp-layer" />
@@ -966,6 +992,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
 
         {/* Boombox */}
         <div
+          ref={boomRef}
           className="lp-boom-unit"
           style={{ transform: getBoomTransform(sidebarOffset) }}
         >
@@ -981,8 +1008,8 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
         </div>
 
         {/* Tissue box + grouped tissues — behind the robot on the grid floor */}
-        <img src="/tissue_box.png" alt="" className="lp-layer lp-layer-tissue-back" style={{ transform: 'translate(calc(378 * var(--fit-s, 1) * 1px), calc(119 * var(--fit-s, 1) * 1px))' }} />
-        <img src="/tissue_grouped.png" alt="" className="lp-layer lp-layer-tissue-back" style={{ transform: 'translate(calc(326 * var(--fit-s, 1) * 1px), calc(197 * var(--fit-s, 1) * 1px))' }} />
+        <img src="/tissue_box.png" alt="" className="lp-layer lp-layer-tissue-back" style={{ transform: 'translate(calc(378 * var(--fit-s, 1) * var(--fit-sx, 1) * 1px), calc(119 * var(--fit-s, 1) * 1px))' }} />
+        <img src="/tissue_grouped.png" alt="" className="lp-layer lp-layer-tissue-back" style={{ transform: 'translate(calc(326 * var(--fit-s, 1) * var(--fit-sx, 1) * 1px), calc(197 * var(--fit-s, 1) * 1px))' }} />
 
         {/* Feet — planted on grid, never move */}
         <canvas ref={feetCanvasRef} className="lp-layer lp-layer-leg lp-leg-feet" />
@@ -1022,10 +1049,12 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
 
               <div className="lp-field-wrap">
                 <input
+                  ref={usernameInputRef}
                   className="lp-input"
                   type="text"
+                  name="wankr_user_off"
                   placeholder="username"
-                  autoComplete="username"
+                  autoComplete="off"
                   spellCheck={false}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -1038,10 +1067,12 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
               </div>
 
               <input
+                ref={passwordInputRef}
                 className="lp-input"
                 type="password"
+                name="wankr_pass_off"
                 placeholder="password"
-                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                autoComplete="off"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -1107,10 +1138,10 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
         </div>{/* /lp-robot-body */}
 
         {/* Front layers — crumpled tissues + magazine in front of robot */}
-        <img src="/tissue_crumpled_1.png" alt="" className="lp-layer lp-layer-tissue" style={{ transform: 'translate(calc(251 * var(--fit-s, 1) * 1px), calc(128 * var(--fit-s, 1) * 1px))' }} />
-        <img src="/tissue_crumpled_2.png" alt="" className="lp-layer lp-layer-tissue" style={{ transform: 'translate(calc(-369 * var(--fit-s, 1) * 1px), calc(163 * var(--fit-s, 1) * 1px))' }} />
-        <img src="/tissue_crumpled_3.png" alt="" className="lp-layer lp-layer-tissue" style={{ transform: 'translate(calc(-1559 * var(--fit-s, 1) * 1px), calc(270 * var(--fit-s, 1) * 1px))' }} />
-        <img src="/tissue_crumpled_4.png" alt="" className="lp-layer lp-layer-tissue" style={{ transform: 'translate(calc(26 * var(--fit-s, 1) * 1px), calc(96 * var(--fit-s, 1) * 1px))' }} />
+        <img src="/tissue_crumpled_1.png" alt="" className="lp-layer lp-layer-tissue" style={{ transform: 'translate(calc(251 * var(--fit-s, 1) * var(--fit-sx, 1) * 1px), calc(128 * var(--fit-s, 1) * 1px))' }} />
+        <img src="/tissue_crumpled_2.png" alt="" className="lp-layer lp-layer-tissue" style={{ transform: 'translate(calc(-369 * var(--fit-s, 1) * var(--fit-sx, 1) * 1px), calc(163 * var(--fit-s, 1) * 1px))' }} />
+        <img src="/tissue_crumpled_3.png" alt="" className="lp-layer lp-layer-tissue" style={{ transform: 'translate(calc(-1559 * var(--fit-s, 1) * var(--fit-sx, 1) * 1px), calc(270 * var(--fit-s, 1) * 1px))' }} />
+        <img src="/tissue_crumpled_4.png" alt="" className="lp-layer lp-layer-tissue" style={{ transform: 'translate(calc(26 * var(--fit-s, 1) * var(--fit-sx, 1) * 1px), calc(96 * var(--fit-s, 1) * 1px))' }} />
         <img src="/magazines_1.png" alt="" className="lp-layer lp-layer-magazine" />
         </>
       )}
@@ -1170,7 +1201,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
                       className="lp-input"
                       type="text"
                       placeholder="username"
-                      autoComplete="username"
+                      autoComplete="off"
                       spellCheck={false}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
@@ -1186,7 +1217,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
                     className="lp-input"
                     type="password"
                     placeholder="password"
-                    autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                    autoComplete="off"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -1258,7 +1289,8 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           inset: 0;
           z-index: 50;
           background: #000;
-          overflow: hidden;
+          overflow: auto;
+          min-width: 700px;
         }
         .lp-layer {
           position: absolute;
@@ -1328,7 +1360,7 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           will-change: transform;
         }
         .lp-leg-feet {
-          z-index: 3;
+          z-index: 7;
         }
         .lp-leg-shins {
           z-index: 4;
@@ -1342,25 +1374,32 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           transform-origin: 50% 33%;
           will-change: transform;
         }
+        .lp-layer-tissue-back,
+        .lp-layer-tissue,
+        .lp-layer-magazine {
+          image-rendering: auto;
+          /* Keep props on-screen — contain always, even in portrait cover mode */
+          object-fit: contain !important;
+        }
         .lp-layer-tissue-back {
           z-index: 2;
-          image-rendering: auto;
         }
         .lp-layer-tissue {
           z-index: 6;
-          image-rendering: auto;
         }
         .lp-layer-magazine {
           z-index: 6;
-          image-rendering: auto;
         }
         .lp-boom-unit {
           position: absolute;
-          inset: 0;
-          width: 110%;
+          top: 0;
+          left: 0;
+          width: min(110%, 100vw);
           height: 100%;
+          max-width: 100vw;
           z-index: 2;
           transition: transform 0.4s ease;
+          overflow: hidden;
         }
         .lp-boom-unit .lp-layer {
           position: absolute;
@@ -1720,6 +1759,13 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
         @media (max-aspect-ratio: 3/2) {
           .lp-layer {
             object-fit: cover;
+          }
+        }
+
+        /* ── Narrow screens: shrink boombox to stay in-frame ── */
+        @media (max-width: 1100px) {
+          .lp-boom-unit {
+            width: 100%;
           }
         }
 

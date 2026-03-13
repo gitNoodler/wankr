@@ -36,12 +36,16 @@ export function useDevMaster() {
   }, [visible]);
 
   useEffect(() => {
+    if (!visible) return;
+    setAgentsState(getAgents());
     const interval = setInterval(() => setAgentsState(getAgents()), 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [visible]);
 
-  // Ctrl+Shift+D keyboard shortcut
+  // Ctrl+Shift+D keyboard shortcut — local only
   useEffect(() => {
+    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isLocal) return;
     function handleKey(e) {
       if (e.ctrlKey && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();

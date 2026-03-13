@@ -238,10 +238,48 @@ async function processChat(chat, isDelete, username, xaiApiKey) {
   return { success: true };
 }
 
+/**
+ * Export all training pairs as JSONL for xAI fine-tuning.
+ * Each line: {"messages": [{"role":"system","content":"..."},{"role":"user","content":"..."},{"role":"assistant","content":"..."}]}
+ * @param {string} systemPrompt - The system prompt to include in each training example
+ * @returns {string|null} JSONL string, or null if no pairs found
+ */
+function exportFineTuneJSONL(systemPrompt) {
+  const convDir = FOLDERS.trainingConversations;
+  if (!fs.existsSync(convDir)) return null;
+
+  const files = fs.readdirSync(convDir).filter(f => f.endsWith('.json.gz'));
+  const lines = [];
+
+  for (const f of files) {
+    try {
+      const compressed = fs.readFileSync(path.join(convDir, f));
+      const data = JSON.parse(zlib.gunzipSync(compressed).toString('utf8'));
+      for (const pair of (data.trainingPairs || [])) {
+        if (pair.user && pair.assistant) {
+          const entry = {
+            messages: [
+              { role: 'system', content: systemPrompt || '' },
+              { role: 'user', content: pair.user },
+              { role: 'assistant', content: pair.assistant },
+            ],
+          };
+          lines.push(JSON.stringify(entry));
+        }
+      }
+    } catch {}
+  }
+
+  if (lines.length === 0) return null;
+  console.log(`Fine-tune export: ${lines.length} training pairs`);
+  return lines.join('\n') + '\n';
+}
+
 module.exports = {
   processChat,
   logError,
   countExchanges,
+  exportFineTuneJSONL,
   MIN_EXCHANGES,
   FOLDERS,
   initStorage,

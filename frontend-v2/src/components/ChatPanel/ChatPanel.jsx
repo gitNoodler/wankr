@@ -1,4 +1,4 @@
-import { useRef, useLayoutEffect, useMemo, useState, useEffect, useCallback } from 'react';
+import { memo, useRef, useLayoutEffect, useMemo, useState, useEffect, useCallback } from 'react';
 import { VariableSizeList } from 'react-window';
 import LOGO_URL from '../../assets/logo.js';
 
@@ -74,7 +74,7 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isD
       }
     }, 10);
     return () => clearTimeout(id);
-  }, [messages, disabled, useVirtual, messageCount]);
+  }, [messageCount, disabled, useVirtual]);
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -422,4 +422,4 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isD
   );
 }
 
-export default ChatPanel;
+export default memo(ChatPanel);

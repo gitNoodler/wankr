@@ -2,7 +2,7 @@
  * Conversation storage — current chat + archived list (localStorage).
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 const STORAGE_CURRENT_ID = 'wankr_current_id';
 const STORAGE_CURRENT_MESSAGES = 'wankr_current_messages';
@@ -54,8 +54,12 @@ export function useConversationStorage() {
     });
   }, []);
 
+  // Debounce localStorage writes to avoid blocking main thread on every keystroke
+  const saveTimer = useRef(null);
   useEffect(() => {
-    saveCurrent(currentId, conversation);
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => saveCurrent(currentId, conversation), 500);
+    return () => clearTimeout(saveTimer.current);
   }, [currentId, conversation, saveCurrent]);
 
   // Update an archived chat's messages if it exists in the archive

@@ -9,7 +9,7 @@ const HamburgerIcon = () => (
   </svg>
 );
 
-function Header({ isMobile, onMenuToggle, onLogout, volume, muted, onVolumeChange, onToggleMute }) {
+function Header({ isMobile, onMenuToggle, onLogout, volume, muted, onVolumeChange, onToggleMute, onDevMaster, devMasterOpen }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [screen, setScreen] = useState('main');
   const menuRef = useRef(null);
@@ -141,6 +141,35 @@ function Header({ isMobile, onMenuToggle, onLogout, volume, muted, onVolumeChang
             }}
           />
           {!isMobile && <span style={{ color: 'var(--accent)', fontSize: 'calc(20px * var(--scale))' }}>Online</span>}
+
+          {/* DevMaster button */}
+          {onDevMaster && (
+            <button
+              type="button"
+              onClick={onDevMaster}
+              aria-label="DevMaster"
+              title="DevMaster"
+              style={{
+                width: btnSize,
+                height: btnSize,
+                borderRadius: '50%',
+                border: `1.5px solid ${devMasterOpen ? '#00ff41' : 'rgba(0,255,65,0.35)'}`,
+                background: devMasterOpen ? 'rgba(0,255,65,0.10)' : 'transparent',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                transition: 'all 0.2s ease',
+                boxShadow: devMasterOpen ? '0 0 14px rgba(0,255,65,0.25)' : 'none',
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={devMasterOpen ? '#00ff41' : 'rgba(0,255,65,0.6)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+            </button>
+          )}
 
           {/* Mute button */}
           <button

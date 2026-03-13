@@ -99,36 +99,44 @@ export function setAgentStatus(agentId, status) {
 // ── Circuit Map ──
 export function getCircuitNodes() {
   return [
-    { id: 'frontend',     label: 'Frontend',       sublabel: ':5174',       x: 50,  y: 50,  w: 110, h: 50, type: 'service',  color: '#00ff41' },
-    { id: 'localstorage', label: 'localStorage',    sublabel: 'Browser',    x: 50,  y: 140, w: 110, h: 50, type: 'data',     color: '#a78bfa' },
-    { id: 'backend',      label: 'Backend',         sublabel: ':5000',       x: 230, y: 50,  w: 110, h: 50, type: 'service',  color: '#00ff41' },
-    { id: 'railway',      label: 'Railway',         sublabel: 'Deploy',      x: 410, y: 50,  w: 110, h: 50, type: 'infra',    color: '#c084fc' },
-    { id: 'cloudflare',   label: 'Cloudflare',      sublabel: 'Tunnel/CDN',  x: 570, y: 50,  w: 110, h: 50, type: 'infra',    color: '#f97316' },
-    { id: 'wankrbot',     label: 'wankrbot.com',    sublabel: 'Production',  x: 570, y: 140, w: 110, h: 50, type: 'external', color: '#fbbf24' },
-    { id: 'github',       label: 'GitHub',          sublabel: 'Repo',        x: 410, y: 140, w: 110, h: 50, type: 'infra',    color: '#e5e5e5' },
-    { id: 'xai',          label: 'xAI / Grok',      sublabel: 'API',         x: 230, y: 140, w: 110, h: 50, type: 'external', color: '#ffd700' },
-    { id: 'infisical',    label: 'Infisical',       sublabel: 'Secrets',     x: 230, y: 230, w: 110, h: 50, type: 'external', color: '#ffd700' },
-    { id: 'agent',        label: 'GrokBot',         sublabel: 'Agent',       x: 50,  y: 230, w: 110, h: 50, type: 'agent',    color: '#00ffff' },
-    { id: 'training',     label: 'Training Data',   sublabel: '.json',       x: 410, y: 230, w: 110, h: 50, type: 'data',     color: '#a78bfa' },
-    { id: 'koldb',        label: 'KOL Database',    sublabel: '.csv',        x: 50,  y: 310, w: 110, h: 50, type: 'data',     color: '#a78bfa' },
-    { id: 'backup_node',  label: 'Chat Backup',     sublabel: '.json',       x: 570, y: 230, w: 110, h: 50, type: 'data',     color: '#a78bfa' },
+    // Row 1 — Request path (straight horizontal line)
+    { id: 'browser',      label: 'User Browser',    sublabel: 'wankrbot.com', x: 40,  y: 40,  w: 120, h: 50, type: 'service',  color: '#fbbf24' },
+    { id: 'cloudflare',   label: 'Cloudflare',      sublabel: 'CDN/Proxy',    x: 200, y: 40,  w: 120, h: 50, type: 'infra',    color: '#f97316' },
+    { id: 'tunnel',       label: 'CF Tunnel',       sublabel: 'cloudflared',  x: 360, y: 40,  w: 120, h: 50, type: 'infra',    color: '#f97316' },
+    { id: 'railway',      label: 'Railway',         sublabel: 'Platform',     x: 520, y: 40,  w: 120, h: 50, type: 'infra',    color: '#c084fc' },
+    // Row 2 — Backend (below Railway) + deploy source + local dev
+    { id: 'vite',         label: ':5174',           sublabel: 'Vite',         x: 140, y: 140, w: 40,  h: 40, type: 'service',  color: '#a855f7', shape: 'circle' },
+    { id: 'github',       label: 'GitHub',          sublabel: 'Repo',         x: 360, y: 140, w: 120, h: 50, type: 'infra',    color: '#e5e5e5' },
+    { id: 'backend',      label: 'Backend',         sublabel: ':5000 + UI',   x: 520, y: 140, w: 120, h: 50, type: 'service',  color: '#00ff41' },
+    // Row 3 — External APIs (called by backend)
+    { id: 'xai',          label: 'xAI / Grok',      sublabel: 'Chat API',     x: 360, y: 240, w: 120, h: 50, type: 'external', color: '#ffd700' },
+    { id: 'infisical',    label: 'Infisical',       sublabel: 'Secrets',      x: 520, y: 240, w: 120, h: 50, type: 'external', color: '#ffd700' },
+    // Row 4 — Local files (backend filesystem)
+    { id: 'training',     label: 'Training Data',   sublabel: 'local .json',  x: 360, y: 340, w: 120, h: 50, type: 'data',     color: '#a78bfa' },
+    { id: 'backup_node',  label: 'Chat Backup',     sublabel: 'local .json',  x: 520, y: 340, w: 120, h: 50, type: 'data',     color: '#a78bfa' },
+    { id: 'koldb',        label: 'KOL Database',    sublabel: 'local .csv',   x: 200, y: 340, w: 120, h: 50, type: 'data',     color: '#a78bfa' },
   ];
 }
 
 export function getCircuitEdges() {
   return [
-    { from: 'frontend', to: 'backend', label: 'API', active: true },
-    { from: 'frontend', to: 'localstorage', label: 'Persist', active: true },
-    { from: 'backend', to: 'railway', label: 'Deploy', active: false },
-    { from: 'railway', to: 'cloudflare', label: 'Tunnel', active: false },
-    { from: 'cloudflare', to: 'wankrbot', label: 'Route', active: false },
-    { from: 'github', to: 'railway', label: 'CI/CD', active: false },
-    { from: 'backend', to: 'xai', label: 'Chat', active: false },
-    { from: 'backend', to: 'infisical', label: 'Secrets', active: false },
-    { from: 'backend', to: 'training', label: 'Train', active: false },
-    { from: 'backend', to: 'backup_node', label: 'Backup', active: false },
-    { from: 'backend', to: 'agent', label: 'Route', active: false },
-    { from: 'agent', to: 'koldb', label: 'Read', active: false },
+    // === REQUEST PATH (horizontal row 1, then down to backend) ===
+    { from: 'browser',    to: 'cloudflare',   label: 'HTTPS',    active: false, bidir: true },
+    { from: 'cloudflare', to: 'tunnel',       label: 'Tunnel',   active: false, bidir: true },
+    { from: 'tunnel',     to: 'railway',      label: 'Internal', active: false, bidir: true },
+    { from: 'railway',    to: 'backend',      label: 'Route',    active: false, bidir: true },
+    // === LOCAL DEV: Vite serves frontend + proxies /api to backend ===
+    { from: 'browser',    to: 'vite',        label: 'Dev',      active: false, bidir: true },
+    { from: 'vite',       to: 'backend',     label: 'Proxy',    active: false, bidir: true },
+    // === DEPLOY ===
+    { from: 'github',     to: 'railway',      label: 'CI/CD',    active: false },
+    // === EXTERNAL API CALLS (backend → internet) ===
+    { from: 'backend',    to: 'xai',          label: 'HTTPS',    active: false, bidir: true },
+    { from: 'backend',    to: 'infisical',    label: 'Boot',     active: false },
+    // === LOCAL FILESYSTEM (same container) ===
+    { from: 'backend',    to: 'training',     label: 'fs R/W',   active: false, bidir: true },
+    { from: 'backend',    to: 'backup_node',  label: 'fs R/W',   active: false, bidir: true },
+    { from: 'backend',    to: 'koldb',        label: 'fs Read',  active: false },
   ];
 }
 

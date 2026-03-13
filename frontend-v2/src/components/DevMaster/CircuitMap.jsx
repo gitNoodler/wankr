@@ -105,60 +105,68 @@ export default function CircuitMap({ agents = [], activityLog = [], stackStatus 
     const edges = edgesRef.current;
     edges.forEach(e => { e.active = false; e.pulseColor = null; });
 
-    // Always-on connections
-    const fb = edges.find(e => e.from === 'frontend' && e.to === 'backend');
-    const fl = edges.find(e => e.from === 'frontend' && e.to === 'localstorage');
-    if (fb) fb.active = true;
-    if (fl) fl.active = true;
-
-    // Stack status drives infra edges + node statuses
+    // Stack status drives all edges + node statuses
     const ss = stackStatus;
     const ns = nodeStatusRef.current;
-    // Reset node statuses
     nodesRef.current.forEach(n => { ns[n.id] = 'unknown'; });
+
     if (ss && !ss.error) {
-      ns.frontend = 'ok';
+      // Node statuses
+      ns.browser = 'ok';
       ns.backend = ss.backend?.ok ? 'ok' : 'down';
-      ns.railway = ss.railway?.detected ? 'ok' : 'inactive';
+      ns.railway = (ss.railway?.detected || ss.cloudflare?.ok) ? 'ok' : 'inactive';
       ns.cloudflare = ss.cloudflare?.ok ? 'ok' : 'down';
-      ns.wankrbot = ss.cloudflare?.ok ? 'ok' : 'down';
+      ns.tunnel = ss.cloudflare?.ok ? 'ok' : 'down';
       ns.github = ss.github?.ok ? 'ok' : 'inactive';
       ns.xai = ss.xai?.ok ? 'ok' : 'inactive';
       ns.infisical = ss.infisical?.ok ? 'ok' : 'inactive';
-      ns.agent = ss.grokBot?.active ? 'ok' : ss.grokBot?.ok ? 'ready' : 'inactive';
-      ns.localstorage = 'ok';
       ns.training = 'ok';
       ns.koldb = 'ok';
       ns.backup_node = 'ok';
-    }
-    if (ss && !ss.error) {
-      // Railway
-      const railEdge = edges.find(e => e.from === 'backend' && e.to === 'railway');
-      if (railEdge && ss.railway?.ok) { railEdge.active = true; railEdge.pulseColor = '#c084fc'; }
 
-      // Cloudflare
-      const cfEdge = edges.find(e => e.from === 'railway' && e.to === 'cloudflare');
-      if (cfEdge && ss.cloudflare?.ok) { cfEdge.active = true; cfEdge.pulseColor = '#f97316'; }
+      // Request path: Browser → Cloudflare → Tunnel → Railway → Backend
+      const siteUp = ss.cloudflare?.ok;
 
-      // wankrbot.com
-      const wbEdge = edges.find(e => e.from === 'cloudflare' && e.to === 'wankrbot');
-      if (wbEdge && ss.cloudflare?.ok) { wbEdge.active = true; wbEdge.pulseColor = '#fbbf24'; }
+      const brCf = edges.find(e => e.from === 'browser' && e.to === 'cloudflare');
+      if (brCf && siteUp) { brCf.active = true; brCf.pulseColor = '#f97316'; }
 
-      // GitHub → Railway CI/CD
-      const ghEdge = edges.find(e => e.from === 'github' && e.to === 'railway');
-      if (ghEdge && ss.github?.ok) { ghEdge.active = true; ghEdge.pulseColor = '#e5e5e5'; }
+      const cfTn = edges.find(e => e.from === 'cloudflare' && e.to === 'tunnel');
+      if (cfTn && siteUp) { cfTn.active = true; cfTn.pulseColor = '#f97316'; }
 
-      // xAI
+      const tnRw = edges.find(e => e.from === 'tunnel' && e.to === 'railway');
+      if (tnRw && siteUp) { tnRw.active = true; tnRw.pulseColor = '#c084fc'; }
+
+      const rwBe = edges.find(e => e.from === 'railway' && e.to === 'backend');
+      if (rwBe && siteUp) { rwBe.active = true; rwBe.pulseColor = '#c084fc'; }
+
+      // Local dev: Vite (:5174) — active when NOT on Railway (local dev)
+      const isLocal = !ss.railway?.detected;
+      ns.vite = isLocal && ss.backend?.ok ? 'ok' : 'inactive';
+      const brVite = edges.find(e => e.from === 'browser' && e.to === 'vite');
+      if (brVite && isLocal && ss.backend?.ok) { brVite.active = true; brVite.pulseColor = '#a855f7'; }
+      const viBe = edges.find(e => e.from === 'vite' && e.to === 'backend');
+      if (viBe && isLocal && ss.backend?.ok) { viBe.active = true; viBe.pulseColor = '#a855f7'; }
+
+      // Deploy: GitHub → Railway
+      const ghRw = edges.find(e => e.from === 'github' && e.to === 'railway');
+      if (ghRw && ss.github?.ok) { ghRw.active = true; ghRw.pulseColor = '#e5e5e5'; }
+
+      // External HTTPS calls from backend
       const xaiEdge = edges.find(e => e.from === 'backend' && e.to === 'xai');
       if (xaiEdge && ss.xai?.ok) { xaiEdge.active = true; xaiEdge.pulseColor = '#ffd700'; }
 
-      // Infisical
       const infEdge = edges.find(e => e.from === 'backend' && e.to === 'infisical');
       if (infEdge && ss.infisical?.ok) { infEdge.active = true; infEdge.pulseColor = '#ffd700'; }
 
-      // GrokBot agent
-      const agentEdge = edges.find(e => e.from === 'backend' && e.to === 'agent');
-      if (agentEdge && ss.grokBot?.active) { agentEdge.active = true; agentEdge.pulseColor = '#00ffff'; }
+      // Local filesystem (always available when backend runs)
+      const trainEdge = edges.find(e => e.from === 'backend' && e.to === 'training');
+      if (trainEdge && ss.backend?.ok) { trainEdge.active = true; trainEdge.pulseColor = '#a78bfa'; }
+
+      const backupEdge = edges.find(e => e.from === 'backend' && e.to === 'backup_node');
+      if (backupEdge && ss.backend?.ok) { backupEdge.active = true; backupEdge.pulseColor = '#a78bfa'; }
+
+      const kolEdge = edges.find(e => e.from === 'backend' && e.to === 'koldb');
+      if (kolEdge && ss.backend?.ok) { kolEdge.active = true; kolEdge.pulseColor = '#a78bfa'; }
     }
 
     // Recent activity pulses
@@ -167,8 +175,6 @@ export default function CircuitMap({ agents = [], activityLog = [], stackStatus 
         const bk = edges.find(e => e.from === 'backend' && e.to === 'backup_node');
         if (bk) { bk.active = true; bk.pulseColor = '#00ffff'; }
       }
-      if (entry.type === 'edit' || entry.type === 'create') { if (fb) fb.pulseColor = '#00ff41'; }
-      if (entry.type === 'delete') { if (fb) fb.pulseColor = '#ff0044'; }
     });
 
     const grok = agents.find(a => a.id === 'grok');
@@ -185,12 +191,22 @@ export default function CircuitMap({ agents = [], activityLog = [], stackStatus 
       if (!edge.active || Math.random() > 0.03) return;
       const f = nodeMap[edge.from], t = nodeMap[edge.to];
       if (!f || !t) return;
+      const fcx = f.x + f.w / 2, fcy = f.y + f.h / 2;
+      const tcx = t.x + t.w / 2, tcy = t.y + t.h / 2;
+      // Forward particle (output = red)
       particlesRef.current.push({
-        fx: f.x + f.w / 2, fy: f.y + f.h / 2,
-        tx: t.x + t.w / 2, ty: t.y + t.h / 2,
+        fx: fcx, fy: fcy, tx: tcx, ty: tcy,
         progress: 0, speed: 0.008 + Math.random() * 0.012,
-        color: edge.pulseColor || '#00ff41', size: 2 + Math.random() * 2,
+        color: '#ff3333', size: 2 + Math.random() * 2,
       });
+      // Reverse particle for bidirectional edges (input = blue)
+      if (edge.bidir && Math.random() > 0.4) {
+        particlesRef.current.push({
+          fx: tcx, fy: tcy, tx: fcx, ty: fcy,
+          progress: 0, speed: 0.008 + Math.random() * 0.012,
+          color: '#3399ff', size: 2 + Math.random() * 2,
+        });
+      }
     });
     particlesRef.current = particlesRef.current.filter(p => { p.progress += p.speed; return p.progress < 1; });
   }, []);
@@ -228,30 +244,66 @@ export default function CircuitMap({ agents = [], activityLog = [], stackStatus 
       updateEdgeStates();
       spawnParticles();
 
+      // Draw arrowhead helper
+      function drawArrow(ctx, fromX, fromY, toX, toY, size) {
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - size * Math.cos(angle - Math.PI / 6), toY - size * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(toX - size * Math.cos(angle + Math.PI / 6), toY - size * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+      }
+
       // Edges
       edgesRef.current.forEach(edge => {
         const f = nodeMap[edge.from], t = nodeMap[edge.to];
         if (!f || !t) return;
         const fx = f.x + f.w / 2, fy = f.y + f.h / 2, tx = t.x + t.w / 2, ty = t.y + t.h / 2;
+        const dx = tx - fx, dy = ty - fy;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const ux = dx / len, uy = dy / len;
+        // Shorten line to leave room for arrowheads
+        const arrowSize = 7;
+        const lfx = fx + ux * (edge.bidir ? arrowSize : 0);
+        const lfy = fy + uy * (edge.bidir ? arrowSize : 0);
+        const ltx = tx - ux * arrowSize;
+        const lty = ty - uy * arrowSize;
+
+        const color = edge.active ? (edge.pulseColor || 'rgba(0, 255, 65, 0.35)') : 'rgba(180, 40, 40, 0.5)';
+
         ctx.beginPath();
-        ctx.moveTo(fx, fy);
-        ctx.lineTo(tx, ty);
+        ctx.moveTo(lfx, lfy);
+        ctx.lineTo(ltx, lty);
         if (edge.active) {
-          ctx.strokeStyle = edge.pulseColor || 'rgba(0, 255, 65, 0.35)';
+          ctx.strokeStyle = color;
           ctx.lineWidth = 2;
           ctx.setLineDash([6, 4]);
           ctx.lineDashOffset = -timeRef.current * 0.5;
           ctx.shadowColor = edge.pulseColor || '#00ff41';
           ctx.shadowBlur = 8;
         } else {
-          ctx.strokeStyle = 'rgba(180, 40, 40, 0.5)';
+          ctx.strokeStyle = color;
           ctx.lineWidth = 1.5;
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
         }
         ctx.stroke();
         ctx.setLineDash([]);
+
+        // Arrowhead at target
+        ctx.fillStyle = color;
+        ctx.shadowColor = edge.active ? (edge.pulseColor || '#00ff41') : 'transparent';
+        ctx.shadowBlur = edge.active ? 8 : 0;
+        drawArrow(ctx, fx, fy, tx - ux * 2, ty - uy * 2, arrowSize);
+
+        // Reverse arrowhead for bidirectional
+        if (edge.bidir) {
+          drawArrow(ctx, tx, ty, fx + ux * 2, fy + uy * 2, arrowSize);
+        }
+
         ctx.shadowBlur = 0;
+
         if (edge.label) {
           ctx.font = '10px VT323';
           ctx.fillStyle = edge.active ? 'rgba(0, 255, 65, 0.5)' : 'rgba(100, 100, 100, 0.4)';
@@ -278,49 +330,94 @@ export default function CircuitMap({ agents = [], activityLog = [], stackStatus 
       const statusColors = { ok: '#00ff41', ready: '#00ffff', down: '#ff0044', inactive: '#666', unknown: '#444' };
       const ns = nodeStatusRef.current;
       nodesRef.current.forEach(n => {
-        const { x, y, w: nw, h: nh, label, sublabel, color, type, id } = n;
+        const { x, y, w: nw, h: nh, label, sublabel, color, type, id, shape } = n;
         const nStatus = ns[id] || 'unknown';
         const isDragging = dragRef.current?.nodeId === id;
-        ctx.fillStyle = isDragging ? '#111' : '#0a0a0a';
-        ctx.beginPath();
-        ctx.roundRect(x, y, nw, nh, 6);
-        ctx.fill();
-        // Left status bar color based on real status
-        ctx.fillStyle = statusColors[nStatus] || typeColors[type] || '#555';
-        ctx.fillRect(x, y + 4, 4, nh - 8);
-        ctx.strokeStyle = isDragging ? '#fff' : nStatus === 'down' ? '#ff0044' : (color || '#444');
-        ctx.lineWidth = isDragging ? 2.5 : nStatus === 'down' ? 2 : 1.5;
-        ctx.beginPath();
-        ctx.roundRect(x, y, nw, nh, 6);
-        ctx.stroke();
-        if ((type === 'service' || type === 'infra') && nStatus !== 'down') {
-          ctx.shadowColor = color || '#00ff41';
-          ctx.shadowBlur = 10;
-          ctx.strokeStyle = `${(color || '#00ff41')}33`;
+
+        if (shape === 'circle') {
+          // Circle node
+          const cx = x + nw / 2, cy = y + nh / 2, r = Math.min(nw, nh) / 2;
+          ctx.fillStyle = isDragging ? '#111' : '#0a0a0a';
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = isDragging ? '#fff' : nStatus === 'down' ? '#ff0044' : (color || '#444');
+          ctx.lineWidth = isDragging ? 2.5 : nStatus === 'down' ? 2 : 1.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.stroke();
+          if ((type === 'service' || type === 'infra') && nStatus !== 'down') {
+            ctx.shadowColor = color || '#00ff41';
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = `${(color || '#00ff41')}33`;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
+          // Status dot
+          const dotColor = statusColors[nStatus] || '#444';
+          ctx.fillStyle = dotColor;
+          ctx.shadowColor = dotColor;
+          ctx.shadowBlur = 4;
+          ctx.beginPath();
+          ctx.arc(cx + r * 0.6, cy - r * 0.6, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          // Label
+          ctx.fillStyle = '#e5e5e5';
+          ctx.font = '12px VT323';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, cx, cy - (sublabel ? 4 : 0));
+          if (sublabel) {
+            ctx.fillStyle = color || '#666';
+            ctx.font = '9px VT323';
+            ctx.fillText(sublabel, cx, cy + 8);
+          }
+        } else {
+          // Rectangle node (default)
+          ctx.fillStyle = isDragging ? '#111' : '#0a0a0a';
+          ctx.beginPath();
+          ctx.roundRect(x, y, nw, nh, 6);
+          ctx.fill();
+          // Left status bar color based on real status
+          ctx.fillStyle = statusColors[nStatus] || typeColors[type] || '#555';
+          ctx.fillRect(x, y + 4, 4, nh - 8);
+          ctx.strokeStyle = isDragging ? '#fff' : nStatus === 'down' ? '#ff0044' : (color || '#444');
+          ctx.lineWidth = isDragging ? 2.5 : nStatus === 'down' ? 2 : 1.5;
           ctx.beginPath();
           ctx.roundRect(x, y, nw, nh, 6);
           ctx.stroke();
+          if ((type === 'service' || type === 'infra') && nStatus !== 'down') {
+            ctx.shadowColor = color || '#00ff41';
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = `${(color || '#00ff41')}33`;
+            ctx.beginPath();
+            ctx.roundRect(x, y, nw, nh, 6);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
+          // Status dot in top-right corner
+          const dotColor = statusColors[nStatus] || '#444';
+          ctx.fillStyle = dotColor;
+          ctx.shadowColor = dotColor;
+          ctx.shadowBlur = 4;
+          ctx.beginPath();
+          ctx.arc(x + nw - 8, y + 8, 3, 0, Math.PI * 2);
+          ctx.fill();
           ctx.shadowBlur = 0;
-        }
-        // Status dot in top-right corner
-        const dotColor = statusColors[nStatus] || '#444';
-        ctx.fillStyle = dotColor;
-        ctx.shadowColor = dotColor;
-        ctx.shadowBlur = 4;
-        ctx.beginPath();
-        ctx.arc(x + nw - 8, y + 8, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        // Labels
-        ctx.fillStyle = '#e5e5e5';
-        ctx.font = '14px VT323';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(label, x + nw / 2, y + nh / 2 - (sublabel ? 6 : 0));
-        if (sublabel) {
-          ctx.fillStyle = color || '#666';
-          ctx.font = '11px VT323';
-          ctx.fillText(sublabel, x + nw / 2, y + nh / 2 + 10);
+          // Labels
+          ctx.fillStyle = '#e5e5e5';
+          ctx.font = '14px VT323';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, x + nw / 2, y + nh / 2 - (sublabel ? 6 : 0));
+          if (sublabel) {
+            ctx.fillStyle = color || '#666';
+            ctx.font = '11px VT323';
+            ctx.fillText(sublabel, x + nw / 2, y + nh / 2 + 10);
+          }
         }
       });
 
@@ -361,11 +458,11 @@ export default function CircuitMap({ agents = [], activityLog = [], stackStatus 
           </div>
         ))}
         <div className="devmaster-map-legend-title" style={{ marginTop: 16 }}>Stack</div>
-        <div className="devmaster-map-legend-item" style={{ color: '#00ff41' }}>:5174 Frontend</div>
-        <div className="devmaster-map-legend-item" style={{ color: '#00ff41' }}>:5000 Backend</div>
-        <div className="devmaster-map-legend-item" style={{ color: '#c084fc' }}>Railway Deploy</div>
-        <div className="devmaster-map-legend-item" style={{ color: '#f97316' }}>Cloudflare CDN</div>
-        <div className="devmaster-map-legend-item" style={{ color: '#fbbf24' }}>wankrbot.com</div>
+        <div className="devmaster-map-legend-item" style={{ color: '#fbbf24' }}>wankrbot.com (Browser)</div>
+        <div className="devmaster-map-legend-item" style={{ color: '#f97316' }}>Cloudflare + Tunnel</div>
+        <div className="devmaster-map-legend-item" style={{ color: '#c084fc' }}>Railway (hosts all)</div>
+        <div className="devmaster-map-legend-item" style={{ color: '#00ff41' }}>Backend :5000 + UI</div>
+        <div className="devmaster-map-legend-item" style={{ color: '#ffd700' }}>xAI + Infisical (ext)</div>
       </div>
     </div>
   );

@@ -13,6 +13,8 @@ import ChatPanel from './components/ChatPanel';
 import Sidebar from './components/Sidebar';
 import TrainingPanel from './components/TrainingPanel';
 import KolAnalysisPanel from './components/KolAnalysisPanel';
+import SUSProbePanel from './components/SUSProbePanel';
+import LaunchFeedPanel from './components/LaunchFeedPanel';
 import SpectatorView from './components/SpectatorView';
 import LoginPanel from './components/LoginPanel';
 import useLofiMusic from './components/Music/useLofiMusic';
@@ -73,6 +75,7 @@ export default function App() {
   // Drawer / panel state for mobile & tablet
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [devMasterOpen, setDevMasterOpen] = useState(false);
 
   // Close drawers when viewport crosses to desktop
   useEffect(() => {
@@ -214,6 +217,10 @@ export default function App() {
     getTrainCount().then(setTrainCount).catch(() => setTrainCount(0));
   }, []);
 
+  // Ref to avoid conversation in heartbeat deps (prevents re-render cascade)
+  const conversationRef = useRef(conversation);
+  conversationRef.current = conversation;
+
   // Sync training mode + heartbeat to backend (keeps user "online" for spectator)
   useEffect(() => {
     if (!currentId) return;
@@ -222,13 +229,13 @@ export default function App() {
         clientId: currentId,
         trainingMode,
         token: getStoredToken(),
-        messages: conversation,
+        messages: conversationRef.current,
       }).catch(() => {});
     };
     doSync();
     const interval = setInterval(doSync, 10000); // heartbeat every 10s
     return () => clearInterval(interval);
-  }, [trainingMode, currentId, conversation]);
+  }, [trainingMode, currentId]);
 
   const handleLoadArchived = useCallback(
     async (id) => {
@@ -329,6 +336,7 @@ export default function App() {
 
   return (
     <div
+      className={showDashboard ? 'animations-paused' : ''}
       style={{
         width: '100%',
         height: '100%',
@@ -363,17 +371,17 @@ export default function App() {
       )}
 
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {/* Login — always mounted at full opacity. z-index alone controls stacking. */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: showLogin ? 20 : -1,
-          pointerEvents: showLogin ? 'auto' : 'none',
-          transform: 'translateZ(0)',
-          ...(sessionValidating && { visibility: 'hidden' }),
-        }}>
-          <LoginPanel onLogin={handleLoginSuccess} onSpectate={handleSpectate} getAudio={groove.getAudio} />
-        </div>
+        {/* Login — only mounted when needed to prevent background animations/RAF */}
+        {showLogin && !sessionValidating && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 20,
+            transform: 'translateZ(0)',
+          }}>
+            <LoginPanel onLogin={handleLoginSuccess} onSpectate={handleSpectate} getAudio={groove.getAudio} />
+          </div>
+        )}
         {showDashboard && (
           <>
         <Header
@@ -384,6 +392,8 @@ export default function App() {
           muted={groove.muted}
           onVolumeChange={groove.setVolume}
           onToggleMute={groove.toggleMute}
+          onDevMaster={(location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? () => setDevMasterOpen((o) => !o) : undefined}
+          devMasterOpen={devMasterOpen}
         />
         <div
           className={`dashboard-body ${trainingMode ? 'with-training' : 'with-placeholder'}`}
@@ -412,7 +422,7 @@ export default function App() {
               messages={conversation}
               onSend={chat.handleSend}
               onStop={chat.handleStop}
-              disabled={chat.sending}
+              disabled={chat.sending || chat.cooldown}
               isMobile={isMobile}
               username={getStoredUsername()}
               isDev={isDev}
@@ -433,7 +443,7 @@ export default function App() {
                 onClose={!isDesktop ? () => setRightPanelOpen(false) : undefined}
               />
             ) : (
-              <KolAnalysisPanel
+              <LaunchFeedPanel
                 onClose={!isDesktop ? () => setRightPanelOpen(false) : undefined}
               />
             )}
@@ -471,15 +481,45 @@ export default function App() {
         </div>
       )}
       {showLogin && (
-        <GrooveGearMenu
-          volume={groove.volume}
-          muted={groove.muted}
-          onVolumeChange={groove.setVolume}
-          onToggleMute={groove.toggleMute}
-        />
+        <>
+          <GrooveGearMenu
+            volume={groove.volume}
+            muted={groove.muted}
+            onVolumeChange={groove.setVolume}
+            onToggleMute={groove.toggleMute}
+          />
+          {(location.hostname === 'localhost' || location.hostname === '127.0.0.1') && (
+            <button
+              type="button"
+              onClick={() => setDevMasterOpen((o) => !o)}
+              title="DevMaster"
+              style={{
+                position: 'fixed',
+                top: 14,
+                right: 90,
+                zIndex: 200,
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                border: `1.5px solid ${devMasterOpen ? '#00ff41' : 'rgba(0,255,65,0.35)'}`,
+                background: devMasterOpen ? 'rgba(0,255,65,0.10)' : 'rgba(0,0,0,0.5)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                boxShadow: devMasterOpen ? '0 0 14px rgba(0,255,65,0.25)' : 'none',
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={devMasterOpen ? '#00ff41' : 'rgba(0,255,65,0.6)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+            </button>
+          )}
+        </>
       )}
-      {/* DevMaster hidden during UI rebuild */}
-      {/* <DevMasterPanel /> */}
+      {devMasterOpen && (location.hostname === 'localhost' || location.hostname === '127.0.0.1') && <DevMasterPanel />}
     </div>
   );
 }

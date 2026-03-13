@@ -12,6 +12,10 @@ export async function sendChat(message, history = [], signal, options = {}) {
     { signal }
   );
   const data = await res.json().catch(() => ({}));
+  // Rate limited — return the reply directly (it's a Wankr roast, show it in chat)
+  if (res.status === 429 && data.reply) {
+    return data.reply;
+  }
   if (!res.ok) {
     const msg = data?.error || (res.status === 503 ? 'API not configured. Check XAI_API_KEY in .env or Infisical.' : 'Chat request failed');
     const err = new Error(msg);

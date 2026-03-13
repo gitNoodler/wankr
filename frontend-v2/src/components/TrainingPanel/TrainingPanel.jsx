@@ -38,15 +38,18 @@ const TrainingPanel = ({
   useEffect(() => {
     if (!trainingMode) return;
     const interval = setInterval(() => {
-      setMetrics(prev => ({
-        loss: Math.max(0.8, parseFloat(prev.loss) - 0.009).toFixed(2),
-        perplexity: Math.max(3.0, parseFloat(prev.perplexity) - 0.06).toFixed(1),
-        entropy: (parseFloat(prev.entropy) + 0.028).toFixed(2),
-        gradientNorm: (0.9 + Math.random() * 0.8).toFixed(2),
-        steps: prev.steps + 5,
-        tokensThisSession: prev.tokensThisSession + 38,
-      }));
-    }, 900);
+      setMetrics(prev => {
+        const steps = prev.steps + 5;
+        return {
+          loss: Math.max(0.8, parseFloat(prev.loss) - 0.009).toFixed(2),
+          perplexity: Math.max(3.0, parseFloat(prev.perplexity) - 0.06).toFixed(1),
+          entropy: (parseFloat(prev.entropy) + 0.028).toFixed(2),
+          gradientNorm: (0.9 + (steps % 17) * 0.05).toFixed(2),
+          steps,
+          tokensThisSession: prev.tokensThisSession + 38,
+        };
+      });
+    }, 3000);
     return () => clearInterval(interval);
   }, [trainingMode]);
 
@@ -769,4 +772,4 @@ function TrainingDataStats() {
   );
 }
 
-export default TrainingPanel;
+export default React.memo(TrainingPanel);

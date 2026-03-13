@@ -889,8 +889,8 @@ body {
 }
 
 .training-panel {
-  width: var(--training-panel-width);
-  min-width: var(--training-panel-width);
+  width: 100%;
+  min-width: 0;
   background: var(--bg-panel);
   border-left: 2px solid var(--accent);
   box-shadow: -12px 0 40px rgba(0, 255, 65, 0.15);
@@ -924,7 +924,7 @@ body {
 
 .dashboard-body.with-training,
 .dashboard-body.with-placeholder {
-  grid-template-columns: var(--dashboard-sidebar-width) 1fr var(--training-panel-width);
+  grid-template-columns: var(--dashboard-sidebar-width) 1fr 2fr;
 }
 
 .dashboard-body.closed-training {
@@ -942,6 +942,20 @@ body {
   width: 100%;
   min-width: 0;
   height: 100%;
+  min-height: 0;
+}
+
+/* Pipeline panels stack (SUS Probe + Launch Feed) */
+.pipeline-panels-stack {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--scale, 1));
+  height: 100%;
+  min-height: 0;
+}
+
+.pipeline-panels-stack > * {
+  flex: 1;
   min-height: 0;
 }
 
@@ -1255,5 +1269,19 @@ body {
   .header-beam {
     height: 2px;
   }
+}
+
+/* ── Animation kill switch: applied to root when on chat screen ── */
+.animations-paused *,
+.animations-paused *::before,
+.animations-paused *::after {
+  animation-play-state: paused !important;
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+/* Keep typing indicator alive (only animation needed during chat) */
+.animations-paused .wankr-typing span {
+  animation-play-state: running !important;
+  animation-duration: 1.2s !important;
 }
 

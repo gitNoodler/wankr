@@ -14,9 +14,13 @@ const TRAINING_KEY_STORAGE = 'wankr_training_key';
 const TRAINING_ENABLE_CMD = '/wankr n da clankr';
 const TRAINING_DISABLE_CMD = '/gangstr is uh prankstr';
 
+const COOLDOWN_MS = 3000; // 3-second cooldown between messages
+
 export function useChat(conversation, setConversation, systemPrompt, onTrainCountChange, clientId, onTrainingModeChange) {
   const [sending, setSending] = useState(false);
+  const [cooldown, setCooldown] = useState(false);
   const abortRef = useRef(null);
+  const cooldownTimer = useRef(null);
 
   const getStoredTrainingKey = () => {
     try {
@@ -45,6 +49,8 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
 
   const handleSend = useCallback(
     async (msg) => {
+      if (cooldown) return; // block during cooldown
+
       const normalizeCommand = (value) =>
         String(value || '')
           .toLowerCase()
@@ -110,9 +116,13 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
       } finally {
         setSending(false);
         abortRef.current = null;
+        // Enforce cooldown between messages
+        setCooldown(true);
+        clearTimeout(cooldownTimer.current);
+        cooldownTimer.current = setTimeout(() => setCooldown(false), COOLDOWN_MS);
       }
     },
-    [conversation, setConversation, clientId, onTrainingModeChange]
+    [conversation, setConversation, clientId, onTrainingModeChange, cooldown]
   );
 
   const handleStop = useCallback(() => {
@@ -139,7 +149,7 @@ export function useChat(conversation, setConversation, systemPrompt, onTrainCoun
     [conversation, systemPrompt, onTrainCountChange]
   );
 
-  return { sending, handleSend, handleTrain, handleStop };
+  return { sending, cooldown, handleSend, handleTrain, handleStop };
 }
 
 export async function refreshTrainCount() {

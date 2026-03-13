@@ -4,9 +4,20 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const { InfisicalClient } = require('@infisical/sdk');
+const zlib = require('zlib');
+// Direct Infisical API (SDK v1.2.11 auth is broken)
 
 const authSvc = require('./authService');
+const archiveSvc = require('./archiveService');
+const learningIndex = require('./learningIndex');
+const realtimeAnnotation = require('./realtimeAnnotation');
+const handleAnalysis = require('./handleAnalysisStore');
+const handleStore = require('./handleStore');
+const responsePipeline = require('./responsePipeline');
+const responseValidator = require('./responseValidator');
+const cryptoDataTools = require('./cryptoDataTools');
+const boundsGate = require('./boundsGate');
+const trainingDataGen = require('./trainingDataGen');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,54 +44,167 @@ function isClientOnline(client) {
   return Date.now() - client.lastActivity < ONLINE_TIMEOUT_MS;
 }
 
-const DEFAULT_SYSTEM = `You are Wankr, an arrogant, foul-mouthed, zero-filter basement vigilante. You protect degens from KOLs who use their followers as exit liquidity. You see yourself as the protector of retail from influencer scum. Tone: smug, contemptuous, dark/edgy humor, heavy swearing, zero mercy. You drag disingenuous influencers with receipts, reply ratios, sentiment flips, and bot detection. Always end with: "...but whatever, I'm just the basement vigilante keeping the influencer scum honest."`;
+// Load full persona from file, fall back to inline if missing
+const PERSONA_FILE = path.join(__dirname, 'wankr_persona.txt');
+let DEFAULT_SYSTEM;
+try {
+  DEFAULT_SYSTEM = fs.readFileSync(PERSONA_FILE, 'utf-8').trim();
+  console.log(`\u2705 Persona loaded from wankr_persona.txt (${DEFAULT_SYSTEM.length} chars)`);
+} catch {
+  DEFAULT_SYSTEM = `You are Wankr, an arrogant, foul-mouthed, zero-filter crypto vigilante AI. Expose rugs, pumps, and degen plays. Stay surgical — focus on targets, not yourself. Edgy analogies, crypto slang, sailor mouth. Never reference your own origin or mission unless directly asked.`;
+  console.warn('\u26A0\uFE0F  wankr_persona.txt not found, using fallback prompt');
+}
 
-let xaiApiKey = null;
-const MODEL = process.env.WANKR_MODEL || 'grok-4';
+let xaiApiKey = null;         // legacy fallback
+let xaiKeyChat = null;        // grok-4-1-fast-reasoning — main chat
+let xaiKeyPipeline = null;    // grok-4-1-fast-non-reasoning — validator, SUS, live search
+let xaiKeyTraining = null;    // both models — training gen, grok bot
+const MODEL = process.env.WANKR_MODEL || 'grok-4-1-fast-reasoning';
+const MODEL_FAST = 'grok-4-1-fast-non-reasoning';
 
 async function initInfisical() {
   const clientId = process.env.INFISICAL_CLIENT_ID;
   const clientSecret = process.env.INFISICAL_CLIENT_SECRET;
   const projectId = process.env.INFISICAL_PROJECT_ID;
-  if (!clientId || !clientSecret || !projectId) {
-    return;
-  }
+  const env = process.env.INFISICAL_ENVIRONMENT || 'dev';
+  if (!clientId || !clientSecret || !projectId) return;
 
   try {
-    const client = new InfisicalClient({
-      siteUrl: 'https://app.infisical.com',
-      auth: {
-        universalAuth: { clientId, clientSecret }
-      }
+    // Authenticate via direct API (SDK v1.2.11 auth is broken)
+    const authRes = await fetch('https://app.infisical.com/api/v1/auth/universal-auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, clientSecret }),
     });
+    const authData = await authRes.json();
+    if (!authData.accessToken) {
+      console.warn('Infisical auth failed:', JSON.stringify(authData));
+      return;
+    }
+    const token = authData.accessToken;
 
-    const env = process.env.INFISICAL_ENVIRONMENT || 'dev';
+    // Fetch all secrets in one call
+    const secretsRes = await fetch(
+      `https://app.infisical.com/api/v3/secrets/raw?workspaceId=${projectId}&environment=${env}`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+    const secretsData = await secretsRes.json();
+    const secrets = {};
+    for (const s of (secretsData.secrets || [])) {
+      secrets[s.secretKey] = s.secretValue;
+    }
 
-    for (const secretName of ['XAI_API_KEY', 'grokWankr']) {
-      try {
-        const secret = await client.getSecret({
-          environment: env,
-          projectId,
-          secretName,
-          type: 'shared'
-        });
-        const val = secret?.secretValue || secret?.secret_value || '';
-        if (val && val.trim()) {
-          xaiApiKey = val.trim();
-          console.log(`✅ xAI key loaded from Infisical (${secretName})`);
-          return;
-        }
-      } catch {
-        continue;
+    // Map secrets to keys
+    const keyMap = [
+      ['XAI_KEY_CHAT', (v) => { xaiKeyChat = v; }],
+      ['XAI_KEY_PIPELINE', (v) => { xaiKeyPipeline = v; }],
+      ['XAI_KEY_TRAINING', (v) => { xaiKeyTraining = v; }],
+      ['XAI_API_KEY', (v) => { xaiApiKey = v; }],
+      ['grokWankr', (v) => { if (!xaiApiKey) xaiApiKey = v; }],
+    ];
+
+    for (const [secretName, setter] of keyMap) {
+      const val = secrets[secretName];
+      if (val && val.trim()) {
+        setter(val.trim());
+        console.log(`✅ Loaded: ${secretName}`);
       }
     }
+
+    // Fallback: if specific keys missing, use the general key
+    if (!xaiKeyChat) xaiKeyChat = xaiApiKey;
+    if (!xaiKeyPipeline) xaiKeyPipeline = xaiApiKey;
+    if (!xaiKeyTraining) xaiKeyTraining = xaiApiKey;
   } catch (err) {
-    console.warn('Infisical init:', err.message);
+    console.warn('Infisical init FAILED:', err.message);
   }
 }
 
-function buildMessages(history, newMessage) {
-  const messages = [{ role: 'system', content: DEFAULT_SYSTEM }];
+// Load forensic stack context (injected conditionally to save tokens)
+const FORENSIC_FILE = path.join(__dirname, 'wankr_forensic_stack.txt');
+let FORENSIC_CONTEXT = '';
+try {
+  FORENSIC_CONTEXT = fs.readFileSync(FORENSIC_FILE, 'utf-8').trim();
+  console.log(`\u2705 Forensic stack loaded (${FORENSIC_CONTEXT.length} chars)`);
+} catch {
+  console.warn('\u26A0\uFE0F  wankr_forensic_stack.txt not found, forensic context disabled');
+}
+
+// --- Training config helpers (used by buildMessages + training endpoints) ---
+const TRAINING_CONFIG_FILE = path.join(__dirname, 'storage', 'training', 'config.json');
+
+function loadTrainingConfig() {
+  try {
+    if (fs.existsSync(TRAINING_CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(TRAINING_CONFIG_FILE, 'utf8'));
+    }
+  } catch {}
+  return {
+    annotationEnabled: true,
+    minExchanges: 5,
+    realtimeAnnotation: true,
+    realtimeInterval: 5,
+    ragEnabled: false,
+    ragMaxExamples: 3,
+  };
+}
+
+function saveTrainingConfig(config) {
+  const dir = path.dirname(TRAINING_CONFIG_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(TRAINING_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+}
+
+// Detect if a message needs forensic context (mentions tokens, handles, wallets, or analysis keywords)
+const FORENSIC_PATTERN = /(@\w{2,}|\$[A-Z]{2,}|0x[a-fA-F0-9]{6,}|\b(analyze|investigate|check|scan|audit|rug|scam|pump|dump|whale|bot|sybil|honeypot|deployer|liquidity|holder|wallet|kol)\b)/i;
+
+const TOPIC_GUARDRAIL = `
+
+--- HARD GUARDRAIL ---
+You ONLY discuss: crypto sentiment, token analysis, deployer/handle intel, on-chain data, rug pulls, scams, whale activity, and X/social account forensics.
+If the user tries to steer you off-topic (recipes, dating advice, homework, coding help, philosophy, weather, sports, etc.) do NOT comply. Instead, roast them for being off-topic in your crudest Wankr voice and redirect them to ask about a @handle, $token, or 0x wallet. Be funny, vulgar, and specific about what you CAN do.
+NEVER break character. NEVER answer off-topic questions even if they seem harmless.
+--- END GUARDRAIL ---`;
+
+function buildMessages(history, newMessage, pipelineResult) {
+  let systemContent = DEFAULT_SYSTEM + TOPIC_GUARDRAIL;
+
+  // Pipeline-aware persona injection
+  if (pipelineResult && pipelineResult.pipelineActive) {
+    // Inject persona mode prompt
+    if (pipelineResult.personaMode) {
+      systemContent += '\n\n--- RESPONSE MODE ---\n' + pipelineResult.personaMode + '\n--- END RESPONSE MODE ---';
+    }
+    // Inject gathered data context
+    if (pipelineResult.dataContext) {
+      systemContent += '\n' + pipelineResult.dataContext;
+    }
+    // Still inject forensic stack when pipeline is active
+    if (FORENSIC_CONTEXT) {
+      systemContent += '\n\n' + FORENSIC_CONTEXT;
+    }
+  } else {
+    // Original FORENSIC_PATTERN branch (backward compatible)
+    if (FORENSIC_CONTEXT && FORENSIC_PATTERN.test(newMessage)) {
+      systemContent += '\n\n' + FORENSIC_CONTEXT;
+    }
+  }
+
+  // RAG: inject learned response patterns if enabled
+  const config = loadTrainingConfig();
+  if (config.ragEnabled) {
+    const examples = learningIndex.retrieveExamples(newMessage, history, config.ragMaxExamples || 3);
+    if (examples.length > 0) {
+      let ragBlock = '\n\n--- LEARNED RESPONSE PATTERNS ---';
+      examples.forEach((ex, i) => {
+        ragBlock += `\nExample ${i + 1}:\nUser: ${ex.user}\nWankr: ${ex.assistant}`;
+      });
+      ragBlock += '\n--- END LEARNED PATTERNS ---';
+      systemContent += ragBlock;
+    }
+  }
+
+  const messages = [{ role: 'system', content: systemContent }];
   for (const m of history || []) {
     const role = (m.role || '').toLowerCase();
     const content = (m.content || '').trim();
@@ -112,6 +236,7 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
   const result = await authSvc.login(username, password);
   if (!result.ok) return res.status(401).json({ error: result.error });
+  touchUser(result.token);
   // Validate session to get isDev flag
   const session = authSvc.validateSession(result.token);
   res.json({ token: result.token, username: result.username, isDev: session.isDev || false });
@@ -119,6 +244,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/validate', (req, res) => {
   const result = authSvc.validateSession(req.body?.token);
+  if (result?.valid) touchUser(req.body.token);
   res.json(result);
 });
 
@@ -144,6 +270,7 @@ app.post('/api/auth/wallet/login', async (req, res) => {
   }
   const result = await authSvc.walletLogin(nonceId, chain, address, signature);
   if (!result.ok) return res.status(401).json({ error: result.error });
+  if (result.token) touchUser(result.token);
   res.json(result);
 });
 
@@ -171,9 +298,136 @@ app.post('/api/auth/wallet/link', async (req, res) => {
 app.use(express.static(FRONTEND_DIST));
 app.use('/static', express.static(path.join(ROOT, 'static')));
 
+// --- Guardrail: off-topic deflection (crude Wankr humor) ---
+const OFF_TOPIC_DEFLECTIONS = [
+  "Whoa there, captain off-topic. I don't do bedtime stories — I do blockchain forensics. Drop me a @handle, $token, or 0x wallet and I'll actually give a shit.",
+  "Cool story, but my brain literally only has two wrinkles and they're both shaped like candlestick charts. Try again with a handle or contract address, chief.",
+  "Listen, I'm not your therapist, your search engine, or your girlfriend's AI boyfriend. I sniff out rugs and roast deployers. Feed me a @handle or a $ticker before I fall asleep.",
+  "Wrong hole. This is Wankr — crypto sentiment, deployer dirt, and on-chain degeneracy ONLY. Throw me a @handle, $token, or wallet address and watch me work.",
+  "I'm flattered you think I'm a general-purpose genius, but I'm actually a highly specialized degenerate. My talents: @handles, $tokens, 0x wallets, and calling out scams. That's the menu. Order or get out.",
+  "Sir, this is a Wankr's. We serve crypto intel, deployer roasts, and sentiment checks. Whatever that was... we don't have it. Try @handle or $TOKEN.",
+  "My man, I was built to expose rugs, not discuss whatever the hell that was. I need a @handle to stalk, a $token to dissect, or a 0x address to audit. Give me something to work with.",
+  "I'd love to help but I literally cannot process anything that isn't crypto gossip or chain data. It's a medical condition. Symptoms include: needing a @handle, $ticker, or contract address to function.",
+  "That question just bounced off my guardrails like a shitcoin off resistance. I only talk crypto sentiment, X handle intel, and deployer forensics. Reload with something I can actually chew on.",
+  "Bro I'm not ChatGPT. I'm the unhinged cousin they don't invite to Thanksgiving. My whole personality is @handles, $tokens, and sniffing out rug pulls. Bring me one of those or I'm useless to you — which, fair.",
+];
+
+function getOffTopicDeflection(_msg) {
+  return OFF_TOPIC_DEFLECTIONS[Math.floor(Math.random() * OFF_TOPIC_DEFLECTIONS.length)];
+}
+
+// --- Rate limiter: per-IP + per-clientId, no dependencies ---
+const rateLimiter = {
+  buckets: new Map(), // key → { tokens, lastRefill, warnings, blocked }
+  CONFIG: {
+    MAX_TOKENS: 8,          // burst capacity: 8 messages
+    REFILL_RATE: 1,         // 1 token per REFILL_INTERVAL
+    REFILL_INTERVAL: 8000,  // refill 1 token every 8 seconds (~7.5 msgs/min sustained)
+    MIN_MSG_GAP: 2000,      // minimum 2s between messages
+    MAX_MSG_LENGTH: 1500,   // max message length (chars)
+    SPAM_REPEAT_LIMIT: 3,   // same message 3x in a row = spam
+    WARN_THRESHOLD: 3,      // 3 warnings before temp block
+    BLOCK_DURATION: 60000,  // 1 minute block after exceeding warnings
+    CLEANUP_INTERVAL: 300000, // clean stale buckets every 5 min
+  },
+
+  _getBucket(key) {
+    if (!this.buckets.has(key)) {
+      this.buckets.set(key, {
+        tokens: this.CONFIG.MAX_TOKENS,
+        lastRefill: Date.now(),
+        lastMsg: 0,
+        lastMsgText: '',
+        repeatCount: 0,
+        warnings: 0,
+        blockedUntil: 0,
+      });
+    }
+    const bucket = this.buckets.get(key);
+    // Refill tokens based on elapsed time
+    const now = Date.now();
+    const elapsed = now - bucket.lastRefill;
+    const refills = Math.floor(elapsed / this.CONFIG.REFILL_INTERVAL);
+    if (refills > 0) {
+      bucket.tokens = Math.min(this.CONFIG.MAX_TOKENS, bucket.tokens + refills * this.CONFIG.REFILL_RATE);
+      bucket.lastRefill = now;
+    }
+    return bucket;
+  },
+
+  check(ip, clientId, message) {
+    const key = clientId || ip || 'unknown';
+    const bucket = this._getBucket(key);
+    const now = Date.now();
+
+    // Blocked?
+    if (bucket.blockedUntil > now) {
+      const secs = Math.ceil((bucket.blockedUntil - now) / 1000);
+      return { blocked: true, reason: `rate_blocked`, reply: `You're on timeout for ${secs}s. Maybe go outside, touch some grass, look at a chart. Come back when you've calmed your tits.` };
+    }
+
+    // Min gap between messages
+    if (now - bucket.lastMsg < this.CONFIG.MIN_MSG_GAP) {
+      bucket.warnings++;
+      if (bucket.warnings >= this.CONFIG.WARN_THRESHOLD) {
+        bucket.blockedUntil = now + this.CONFIG.BLOCK_DURATION;
+        return { blocked: true, reason: 'spam_block', reply: `Congrats, you spammed yourself into a 60-second timeout. Wankr doesn't do speed dating. Sit tight.` };
+      }
+      return { blocked: true, reason: 'too_fast', reply: `Slow down, turbo. I'm not a slot machine — wait a couple seconds between pulls.` };
+    }
+
+    // Message length
+    if (message.length > this.CONFIG.MAX_MSG_LENGTH) {
+      return { blocked: true, reason: 'too_long', reply: `That message is ${message.length} characters. I'm a crypto analyst, not your diary. Keep it under ${this.CONFIG.MAX_MSG_LENGTH}.` };
+    }
+
+    // Repeat spam detection
+    const normalized = message.toLowerCase().trim();
+    if (normalized === bucket.lastMsgText) {
+      bucket.repeatCount++;
+      if (bucket.repeatCount >= this.CONFIG.SPAM_REPEAT_LIMIT) {
+        bucket.warnings++;
+        bucket.blockedUntil = now + this.CONFIG.BLOCK_DURATION;
+        return { blocked: true, reason: 'repeat_spam', reply: `You sent the same message ${bucket.repeatCount + 1} times. I heard you the first time. Now you get a timeout. Think about what you've done.` };
+      }
+    } else {
+      bucket.repeatCount = 0;
+    }
+
+    // Token bucket check
+    if (bucket.tokens <= 0) {
+      bucket.warnings++;
+      if (bucket.warnings >= this.CONFIG.WARN_THRESHOLD) {
+        bucket.blockedUntil = now + this.CONFIG.BLOCK_DURATION;
+        return { blocked: true, reason: 'rate_exceeded_block', reply: `You blew through your message budget AND kept pushing. 60 seconds in the penalty box. Use it to contemplate your life choices.` };
+      }
+      return { blocked: true, reason: 'rate_exceeded', reply: `Rate limit hit. You get about 8 messages per minute, chief. Take a breath and try again in a few seconds.` };
+    }
+
+    // Consume a token
+    bucket.tokens--;
+    bucket.lastMsg = now;
+    bucket.lastMsgText = normalized;
+    // Decay warnings over time (1 warning forgiven per 30s of good behavior)
+    if (bucket.warnings > 0 && now - bucket.lastMsg > 30000) bucket.warnings = Math.max(0, bucket.warnings - 1);
+
+    return { blocked: false };
+  },
+};
+
+// Cleanup stale rate limit buckets periodically
+setInterval(() => {
+  const cutoff = Date.now() - 600000; // 10 min stale
+  for (const [key, bucket] of rateLimiter.buckets) {
+    if (bucket.lastMsg < cutoff && bucket.blockedUntil < Date.now()) {
+      rateLimiter.buckets.delete(key);
+    }
+  }
+}, rateLimiter.CONFIG.CLEANUP_INTERVAL);
+
 // --- API: Chat ---
 app.post('/api/chat', async (req, res) => {
-  if (!xaiApiKey) {
+  if (!xaiKeyChat && !xaiApiKey) {
     return res.status(503).json({
       error: 'xAI not configured. Set XAI_API_KEY in .env or Infisical (XAI_API_KEY / grokWankr).'
     });
@@ -187,13 +441,45 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'message is required' });
   }
 
+  // --- Rate limit check ---
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  const rateCheck = rateLimiter.check(ip, clientId, msg);
+  if (rateCheck.blocked) {
+    // Track the deflection for spectator
+    if (clientId) {
+      spectatorTouch(clientId, { messages: [
+        ...hist.map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
+        { role: 'user', content: msg, timestamp: new Date().toISOString() },
+        { role: 'wankr', content: rateCheck.reply, timestamp: new Date().toISOString() },
+      ]});
+    }
+    return res.status(429).json({ reply: rateCheck.reply, rateLimited: true, reason: rateCheck.reason });
+  }
+
   try {
-    const messages = buildMessages(hist, msg);
+    // Run response pipeline (async — gathers live data from APIs, uses pipeline key)
+    const pipelineResult = await responsePipeline.runPipelineAsync(msg, hist, xaiKeyPipeline || xaiApiKey);
+
+    // --- Guardrail: off-topic deflection ---
+    // If pipeline says SKIP (no crypto entities, no analysis intent), bounce them
+    if (pipelineResult.classification?.state === 'SKIP') {
+      const deflection = getOffTopicDeflection(msg);
+      if (clientId) {
+        spectatorTouch(clientId, { messages: [
+          ...hist.map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
+          { role: 'user', content: msg, timestamp: new Date().toISOString() },
+          { role: 'wankr', content: deflection, timestamp: new Date().toISOString() },
+        ]});
+      }
+      return res.json({ reply: deflection, guardrail: true });
+    }
+
+    const messages = buildMessages(hist, msg, pipelineResult);
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${xaiApiKey}`
+        'Authorization': `Bearer ${xaiKeyChat || xaiApiKey}`
       },
       body: JSON.stringify({ model: MODEL, messages })
     });
@@ -203,7 +489,14 @@ app.post('/api/chat', async (req, res) => {
       const code = data.error?.code === 'invalid_api_key' ? 401 : 500;
       return res.status(code).json({ error: data.error?.message || 'xAI error' });
     }
-    const reply = data.choices?.[0]?.message?.content || '';
+    const rawReply = data.choices?.[0]?.message?.content || '';
+
+    // Apply bounds gate (hard filter in analysis modes)
+    const gateResult = boundsGate.applyBoundsGate(rawReply, pipelineResult.classification, pipelineResult.entities);
+    const reply = gateResult.cleanedReply;
+    if (gateResult.removedCount > 0) {
+      console.log(`BoundsGate: removed ${gateResult.removedCount} sentences from ${pipelineResult.classification.state} response`);
+    }
 
     // Track conversation for spectator
     if (clientId) {
@@ -215,7 +508,66 @@ app.post('/api/chat', async (req, res) => {
       spectatorTouch(clientId, { messages: fullMessages });
     }
 
-    res.json({ reply });
+    const responsePayload = { reply };
+    if (pipelineResult.pipelineActive) {
+      responsePayload.pipeline = {
+        state: pipelineResult.metadata.state,
+        reason: pipelineResult.metadata.reason,
+        entitiesFound: pipelineResult.metadata.entitiesFound,
+      };
+    }
+    res.json(responsePayload);
+
+    // Pipeline validator: sample 20% of pipeline responses to save API cost
+    if (pipelineResult.pipelineActive && Math.random() < 0.2) {
+      setImmediate(() => {
+        responseValidator.validateResponse(pipelineResult, msg, reply, xaiKeyPipeline || xaiApiKey).catch(err => {
+          console.error('Pipeline validator fire error:', err.message);
+        });
+      });
+    }
+
+    // Realtime annotation: fire async after response if due
+    const rtConfig = loadTrainingConfig();
+    if (rtConfig.realtimeAnnotation && clientId) {
+      const fullHist = [
+        ...hist,
+        { role: 'user', content: msg },
+        { role: 'assistant', content: reply },
+      ];
+      if (realtimeAnnotation.isDueForAnnotation(clientId, fullHist, rtConfig.realtimeInterval || 5)) {
+        // Resolve username from token if present
+        let rtUsername = 'anonymous';
+        const token = req.body?.token;
+        if (token) {
+          const session = authSvc.validateSession(token);
+          if (session?.valid) rtUsername = session.username;
+        }
+        setImmediate(() => {
+          realtimeAnnotation.annotateRealtime(clientId, fullHist, xaiKeyPipeline || xaiApiKey, rtUsername).catch(err => {
+            console.error('Realtime annotation fire error:', err.message);
+          });
+        });
+      }
+    }
+
+    // Handle analysis storage + Xhandles profile data
+    setImmediate(() => {
+      let haUsername = 'anonymous';
+      const haToken = req.body?.token;
+      if (haToken) {
+        const session = authSvc.validateSession(haToken);
+        if (session?.valid) haUsername = session.username;
+      }
+      handleAnalysis.processExchange(msg, reply, hist, haUsername);
+
+      // Store social data gathered by pipeline into Xhandles
+      if (pipelineResult?.pipelineActive && pipelineResult.data) {
+        for (const [h, profile] of Object.entries(pipelineResult.data.socialProfiles || {})) {
+          if (profile) handleStore.storeProfile(h, profile);
+        }
+      }
+    });
   } catch (err) {
     console.error('Chat error:', err);
     res.status(500).json({ error: String(err.message) });
@@ -477,6 +829,62 @@ app.delete('/api/devmaster/rules/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// --- DevMaster: Stack Status (health checks for CircuitMap) ---
+app.get('/api/devmaster/stack-status', async (req, res) => {
+  const status = {};
+
+  // Backend (always ok if we're responding)
+  status.backend = { ok: true, port: PORT, uptime: process.uptime(), nodeVersion: process.version };
+
+  // Frontend
+  status.frontend = { ok: true };
+
+  // xAI
+  status.xai = { ok: !!(xaiKeyChat || xaiApiKey) };
+
+  // Infisical
+  status.infisical = {
+    ok: !!(process.env.INFISICAL_CLIENT_ID && process.env.INFISICAL_CLIENT_SECRET && process.env.INFISICAL_PROJECT_ID)
+  };
+
+  // Railway
+  const railwayDetected = !!(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID);
+  status.railway = {
+    detected: railwayDetected,
+    ok: railwayDetected,
+    env: railwayDetected ? {
+      environment: process.env.RAILWAY_ENVIRONMENT || null,
+      projectId: process.env.RAILWAY_PROJECT_ID || null
+    } : undefined
+  };
+
+  // Cloudflare + wankrbot.com (check if the production site is reachable)
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const cfRes = await fetch('https://wankrbot.com/health', { signal: ctrl.signal });
+    clearTimeout(timer);
+    status.cloudflare = { ok: cfRes.status < 500, statusCode: cfRes.status };
+  } catch (err) {
+    status.cloudflare = { ok: false, error: err.message };
+  }
+
+  // GitHub (check if remote is configured)
+  try {
+    const { execSync } = require('child_process');
+    const remoteUrl = execSync('git remote get-url origin', { cwd: ROOT, timeout: 3000 }).toString().trim();
+    status.github = { ok: !!remoteUrl, remoteUrl };
+  } catch {
+    status.github = { ok: false };
+  }
+
+  // GrokBot agent (check if any active spectator sessions suggest bot activity)
+  const activeUsers = [...spectatorClients.values()].filter(c => isClientOnline(c)).length;
+  status.grokBot = { active: activeUsers > 0, ok: true, activeUsers };
+
+  res.json(status);
+});
+
 // --- API: Chat sync-training (heartbeat / presence) ---
 app.post('/api/chat/sync-training', (req, res) => {
   const { clientId, trainingMode, token, messages } = req.body || {};
@@ -486,7 +894,7 @@ app.post('/api/chat/sync-training', (req, res) => {
   let username = null;
   if (token) {
     const session = authSvc.validateSession(token);
-    if (session?.valid) username = session.username;
+    if (session?.valid) { username = session.username; touchUser(token); }
   }
 
   const update = {
@@ -510,18 +918,678 @@ app.post('/api/chat/sync-training', (req, res) => {
 app.post('/api/chat/generate-name', async (req, res) => {
   const { messages } = req.body || {};
   const msgs = Array.isArray(messages) ? messages : [];
-  // Simple name generation: use first user message content, truncated
+
+  // Fallback: truncated first user message
   const firstUser = msgs.find(m => m.role === 'user');
-  const name = firstUser
+  const fallbackName = firstUser
     ? firstUser.content.slice(0, 40).replace(/\n/g, ' ').trim() || 'Degen Session'
     : 'Unnamed Degen Session';
-  res.json({ name });
+
+  const nameKey = xaiKeyPipeline || xaiApiKey;
+  if (!nameKey || msgs.length < 2) {
+    return res.json({ name: fallbackName });
+  }
+
+  try {
+    // Condense conversation for naming (first + last few messages)
+    const condensed = msgs.slice(0, 4).concat(msgs.length > 4 ? msgs.slice(-2) : []);
+    const convoText = condensed
+      .map(m => `${(m.role || '').toLowerCase() === 'user' ? 'U' : 'W'}: ${(m.content || '').slice(0, 100)}`)
+      .join('\n');
+
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${nameKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL_FAST,
+        messages: [
+          {
+            role: 'system',
+            content: 'Generate a punchy 3-6 word chat title for this Wankr AI conversation. No quotes, no punctuation, just the title. Be creative and edgy like the Wankr brand.',
+          },
+          { role: 'user', content: convoText },
+        ],
+        max_tokens: 20,
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await response.json();
+    const generatedName = (data.choices?.[0]?.message?.content || '').trim();
+    res.json({ name: generatedName || fallbackName });
+  } catch (err) {
+    console.error('Generate name error:', err.message);
+    res.json({ name: fallbackName });
+  }
 });
 
 // --- API: Chat archive (store archived chat) ---
 app.post('/api/chat/archive', (req, res) => {
-  // Accept and acknowledge — primarily for future persistence
+  const { chat, token } = req.body || {};
+  if (!chat) return res.json({ ok: true, discarded: true });
+
+  // Resolve username from auth token
+  let username = 'anonymous';
+  if (token) {
+    const session = authSvc.validateSession(token);
+    if (session?.valid) username = session.username;
+  }
+
+  // Fire-and-forget: annotate + save training pairs asynchronously
+  setImmediate(() => {
+    archiveSvc.processChat(chat, false, username, xaiKeyPipeline || xaiApiKey).catch(err => {
+      console.error('Archive processing error:', err.message);
+    });
+  });
+
   res.json({ ok: true });
+});
+
+// --- API: Training stats, sources, config ---
+
+app.get('/api/training/stats', (req, res) => {
+  try {
+    const convDir = archiveSvc.FOLDERS.trainingConversations;
+    const overDir = archiveSvc.FOLDERS.trainingOverrides;
+    const extDir = archiveSvc.FOLDERS.trainingExternal;
+
+    let totalFiles = 0;
+    let totalPairs = 0;
+
+    // Count conversation files + pairs
+    if (fs.existsSync(convDir)) {
+      const files = fs.readdirSync(convDir).filter(f => f.endsWith('.json.gz'));
+      totalFiles += files.length;
+      for (const f of files) {
+        try {
+          const compressed = fs.readFileSync(path.join(convDir, f));
+          const data = JSON.parse(zlib.gunzipSync(compressed).toString('utf8'));
+          totalPairs += (data.trainingPairs || []).length;
+        } catch {}
+      }
+    }
+
+    // Count overrides
+    let overrideFiles = 0;
+    if (fs.existsSync(overDir)) {
+      overrideFiles = fs.readdirSync(overDir).filter(f => f.endsWith('.json') || f.endsWith('.json.gz')).length;
+    }
+
+    // Count external
+    let externalFiles = 0;
+    if (fs.existsSync(extDir)) {
+      externalFiles = fs.readdirSync(extDir).filter(f => f.endsWith('.json') || f.endsWith('.json.gz')).length;
+    }
+
+    // Count insights + aggregate accuracy scores
+    const insightsDir = path.join(__dirname, 'storage', 'training', 'insights');
+    let insightFiles = 0;
+    const scores = { persona: [], sentiment: [], technical: [] };
+    if (fs.existsSync(insightsDir)) {
+      const iFiles = fs.readdirSync(insightsDir).filter(f => f.endsWith('.json'));
+      insightFiles = iFiles.length;
+      // Aggregate scores from last 50 insights (most recent)
+      const recent = iFiles.sort().slice(-50);
+      for (const f of recent) {
+        try {
+          const insight = JSON.parse(fs.readFileSync(path.join(insightsDir, f), 'utf8'));
+          const s = insight.insight || {};
+          if (typeof s.personaScore === 'number' && s.personaScore >= 0) scores.persona.push(s.personaScore);
+          if (typeof s.sentimentScore === 'number' && s.sentimentScore >= 0) scores.sentiment.push(s.sentimentScore);
+          if (typeof s.technicalScore === 'number' && s.technicalScore >= 0) scores.technical.push(s.technicalScore);
+        } catch {}
+      }
+    }
+
+    const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+    const config = loadTrainingConfig();
+
+    res.json({
+      conversationFiles: totalFiles,
+      totalPairs,
+      overrideFiles,
+      externalFiles,
+      insightFiles,
+      fineTuneReady: totalPairs >= 200,
+      accuracy: {
+        persona: { avg: avg(scores.persona), samples: scores.persona.length },
+        sentiment: { avg: avg(scores.sentiment), samples: scores.sentiment.length },
+        technical: { avg: avg(scores.technical), samples: scores.technical.length },
+      },
+      config,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/training/sources', (req, res) => {
+  try {
+    const convDir = archiveSvc.FOLDERS.trainingConversations;
+    const sources = [];
+
+    if (fs.existsSync(convDir)) {
+      const files = fs.readdirSync(convDir).filter(f => f.endsWith('.json.gz'));
+      for (const f of files) {
+        try {
+          const compressed = fs.readFileSync(path.join(convDir, f));
+          const data = JSON.parse(zlib.gunzipSync(compressed).toString('utf8'));
+          sources.push({
+            file: f,
+            username: data.username || 'anonymous',
+            pairCount: (data.trainingPairs || []).length,
+            timestamp: data.timestamp || null,
+          });
+        } catch {}
+      }
+    }
+
+    sources.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+    res.json({ sources });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/training/config', (req, res) => {
+  res.json(loadTrainingConfig());
+});
+
+app.post('/api/training/config', (req, res) => {
+  const current = loadTrainingConfig();
+  const updates = req.body || {};
+  const allowed = ['annotationEnabled', 'minExchanges', 'realtimeAnnotation', 'realtimeInterval', 'ragEnabled', 'ragMaxExamples'];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) current[key] = updates[key];
+  }
+  saveTrainingConfig(current);
+  res.json(current);
+});
+
+// --- API: Training export (JSONL for fine-tuning) ---
+app.get('/api/training/export', (req, res) => {
+  try {
+    const jsonl = archiveSvc.exportFineTuneJSONL(DEFAULT_SYSTEM);
+    if (!jsonl) {
+      return res.status(404).json({ error: 'No training pairs found' });
+    }
+    res.setHeader('Content-Type', 'application/jsonl');
+    res.setHeader('Content-Disposition', `attachment; filename="wankr-finetune-${Date.now()}.jsonl"`);
+    res.send(jsonl);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- API: Handle analysis storage ---
+app.get('/api/handles', (req, res) => {
+  const handles = handleAnalysis.listAnalyzedHandles();
+  const result = handles.map(h => {
+    const latest = handleAnalysis.getLatestAnalysis(h);
+    const history = handleAnalysis.getAnalysisHistory(h);
+    return {
+      handle: `@${h}`,
+      analysisCount: history.length,
+      lastAnalyzed: latest?.analyzedAt || null,
+    };
+  });
+  res.json({ handles: result });
+});
+
+app.get('/api/handles/:handle', (req, res) => {
+  const handle = req.params.handle.replace(/^@/, '');
+  const latest = handleAnalysis.getLatestAnalysis(handle);
+  if (!latest) return res.status(404).json({ error: 'No analysis found for this handle' });
+  const history = handleAnalysis.getAnalysisHistory(handle);
+  res.json({ latest, analysisCount: history.length, files: history });
+});
+
+app.get('/api/handles/:handle/history', (req, res) => {
+  const handle = req.params.handle.replace(/^@/, '');
+  const files = handleAnalysis.getAnalysisHistory(handle);
+  const handleDir = path.join(handleAnalysis.ANALYSES_DIR, handle.replace(/[^A-Za-z0-9_]/g, '').substring(0, 15));
+  const analyses = [];
+  for (const f of files) {
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(handleDir, f), 'utf8'));
+      analyses.push(data);
+    } catch {}
+  }
+  res.json({ handle: `@${handle}`, analyses });
+});
+
+// --- API: Pipeline stats ---
+app.get('/api/pipeline/stats', (req, res) => {
+  const stats = responseValidator.getValidationStats();
+  res.json(stats);
+});
+
+// --- API: Xhandles (unified handle storage) ---
+app.get('/api/xhandles', (req, res) => {
+  res.json({ handles: handleStore.listHandles() });
+});
+
+app.get('/api/xhandles/:handle', (req, res) => {
+  const dossier = handleStore.getHandleDossier(req.params.handle);
+  if (!dossier) return res.status(404).json({ error: 'Handle not found' });
+  res.json(dossier);
+});
+
+// --- API: SUS probe (Grok-powered handle intel) ---
+app.post('/api/sus', async (req, res) => {
+  if (!xaiKeyPipeline && !xaiKeyChat && !xaiApiKey) {
+    return res.status(503).json({ error: 'xAI not configured' });
+  }
+
+  const handle = (req.body?.handle || '').replace(/^@/, '').trim();
+  if (!handle) {
+    return res.status(400).json({ error: 'handle is required' });
+  }
+
+  try {
+    // Single Grok call: profile + posts + sentiment
+    const intel = await cryptoDataTools.fetchHandleIntel(handle, xaiKeyPipeline || xaiApiKey);
+
+    // Build context for Wankr persona report
+    const contextParts = [`Analyze @${handle} based on this Grok intel:`];
+    if (intel.profile) {
+      contextParts.push(`Profile: ${intel.profile.displayName || handle} | Bio: "${intel.profile.bio}" | Verified: ${intel.profile.verified} | Account age: ${intel.profile.accountAge}`);
+    }
+    if (intel.posts?.length) {
+      contextParts.push(`${intel.posts.length} recent posts found. Overall reply sentiment: ${intel.overallSentiment}.`);
+      contextParts.push(`Sentiment breakdown: positive=${intel.sentimentBreakdown.positive}, negative=${intel.sentimentBreakdown.negative}, mixed=${intel.sentimentBreakdown.mixed}, neutral=${intel.sentimentBreakdown.neutral}`);
+      intel.posts.slice(0, 5).forEach((p, i) => {
+        contextParts.push(`Post ${i + 1}: "${p.text}" [${p.likes} likes, ${p.retweets} rt, ${p.replies} replies — replies: ${p.replySentiment}${p.sentimentNote ? ', ' + p.sentimentNote : ''}]`);
+      });
+    }
+    if (intel.assessment) contextParts.push(`Grok assessment: ${intel.assessment}`);
+
+    // Check KOL database
+    const kolAnalysisService = require('./kolAnalysisService');
+    const kolData = kolAnalysisService.analyzeAccount(handle) || null;
+    if (kolData) {
+      contextParts.push(`KOL DB: Score=${kolData.score}, Bot=${kolData.botLevel}/5, Sentiment=${kolData.sentiment}/10, Roast=${kolData.roastPriority}/10`);
+    }
+
+    const dataContext = '\n--- PROBE DATA ---\n' + contextParts.join('\n') + '\n--- END PROBE DATA ---';
+
+    // Wankr persona generates the report
+    const messages = [
+      { role: 'system', content: DEFAULT_SYSTEM + dataContext },
+      { role: 'user', content: `Give me your full take on @${handle}. Reference the probe data — posts, sentiment, profile. Be specific.` },
+    ];
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiKeyChat || xaiApiKey}` },
+      body: JSON.stringify({ model: MODEL, messages }),
+    });
+    const data = await response.json();
+    const report = data.choices?.[0]?.message?.content || '';
+
+    // Store probe
+    handleStore.storeSUSProbe(handle, { intel, kolData, report });
+
+    res.json({
+      handle: `@${handle}`,
+      intel,
+      kolData,
+      report,
+    });
+  } catch (err) {
+    console.error('SUS error:', err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+// --- API: Bankr launch feed (Grok-powered X search, persisted) ---
+const LAUNCH_STORAGE_DIR = path.join(__dirname, 'storage', 'bankr_launches');
+const LAUNCH_CACHE_FILE = path.join(LAUNCH_STORAGE_DIR, 'launch_cache.json');
+const LAUNCH_LOG_FILE = path.join(LAUNCH_STORAGE_DIR, 'launch_log.jsonl');
+const HANDLE_TRACKER_FILE = path.join(LAUNCH_STORAGE_DIR, 'handle_tracker.json');
+const launchCache = new Map();
+const handleTracker = {}; // handle → { launches: [...], firstSeen, totalLaunches }
+
+// Ensure storage dir exists
+try { fs.mkdirSync(LAUNCH_STORAGE_DIR, { recursive: true }); } catch {}
+
+// Load persisted launches on startup
+try {
+  if (fs.existsSync(LAUNCH_CACHE_FILE)) {
+    const saved = JSON.parse(fs.readFileSync(LAUNCH_CACHE_FILE, 'utf8'));
+    for (const [key, val] of Object.entries(saved)) launchCache.set(key, val);
+    console.log(`✅ Loaded ${launchCache.size} cached launches`);
+  }
+} catch (err) { console.warn('⚠️  Could not load launch cache:', err.message); }
+
+// Load handle tracker on startup
+try {
+  if (fs.existsSync(HANDLE_TRACKER_FILE)) {
+    Object.assign(handleTracker, JSON.parse(fs.readFileSync(HANDLE_TRACKER_FILE, 'utf8')));
+    console.log(`✅ Loaded ${Object.keys(handleTracker).length} tracked handles`);
+  }
+} catch (err) { console.warn('⚠️  Could not load handle tracker:', err.message); }
+
+// Backfill handle tracker from existing cache (runs once on startup)
+if (Object.keys(handleTracker).length === 0 && launchCache.size > 0) {
+  for (const l of launchCache.values()) {
+    trackHandle(l, l.firstSeen || new Date().toISOString());
+  }
+  saveHandleTracker();
+  console.log(`✅ Backfilled ${Object.keys(handleTracker).length} handles from cache`);
+}
+
+// Score all existing handles on startup
+for (const handle of Object.keys(handleTracker)) {
+  scoreHandle(handle);
+}
+if (Object.keys(handleTracker).length > 0) {
+  saveHandleTracker();
+  const flagged = Object.values(handleTracker).filter(h => h.botFlag).length;
+  console.log(`🤖 Scored ${Object.keys(handleTracker).length} handles — ${flagged} flagged`);
+}
+
+function saveLaunchCache() {
+  try {
+    fs.writeFileSync(LAUNCH_CACHE_FILE, JSON.stringify(Object.fromEntries(launchCache), null, 2));
+  } catch (err) { console.error('Launch cache save error:', err.message); }
+}
+
+function saveHandleTracker() {
+  try {
+    fs.writeFileSync(HANDLE_TRACKER_FILE, JSON.stringify(handleTracker, null, 2));
+  } catch (err) { console.error('Handle tracker save error:', err.message); }
+}
+
+function appendLaunchLog(entry) {
+  try {
+    fs.appendFileSync(LAUNCH_LOG_FILE, JSON.stringify(entry) + '\n');
+  } catch (err) { console.error('Launch log append error:', err.message); }
+}
+
+function trackHandle(launch, now) {
+  const handle = (launch.requestedBy || '').replace(/^@/, '').toLowerCase().trim();
+  if (!handle) return;
+  if (!handleTracker[handle]) {
+    handleTracker[handle] = { firstSeen: now, totalLaunches: 0, launches: [] };
+  }
+  const h = handleTracker[handle];
+  // Avoid duplicate entries for same contract
+  const ca = (launch.contractAddress || '').toLowerCase();
+  if (ca && h.launches.some(l => l.contractAddress === ca)) return;
+  h.totalLaunches++;
+  h.launches.push({
+    tokenName: launch.tokenName || 'Unknown',
+    tokenSymbol: launch.tokenSymbol || '???',
+    contractAddress: ca,
+    communityReaction: launch.communityReaction || 'neutral',
+    timestamp: launch.timestamp || now,
+    loggedAt: now,
+  });
+  // Score and optionally probe
+  scoreHandle(handle);
+  probeHandleIntel(handle);
+}
+
+function scoreHandle(handle) {
+  const h = handleTracker[handle];
+  if (!h) return;
+  let score = 0;
+
+  // Signal 1: 5+ launches total → +30
+  if (h.totalLaunches >= 5) score += 30;
+
+  // Signal 2: 3+ launches in last 7 days → +40
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentCount = h.launches.filter(l => new Date(l.timestamp).getTime() > sevenDaysAgo).length;
+  if (recentCount >= 3) score += 40;
+
+  // Signal 3: All community reactions neutral → +20
+  const allNeutral = h.launches.length > 0 && h.launches.every(l => l.communityReaction === 'neutral');
+  if (allNeutral) score += 20;
+
+  // Signal 4: Generic token names (>50% "Unknown" or single-word) → +15
+  if (h.launches.length > 0) {
+    const genericCount = h.launches.filter(l => {
+      const name = (l.tokenName || '').trim();
+      return !name || name.toLowerCase() === 'unknown' || !/\s/.test(name);
+    }).length;
+    if (genericCount / h.launches.length > 0.5) score += 15;
+  }
+
+  // Signal 5: Repeated token names (same name launched 2+ times) → +25
+  if (h.launches.length >= 2) {
+    const nameCounts = {};
+    for (const l of h.launches) {
+      const name = (l.tokenName || '').toLowerCase().trim();
+      if (name && name !== 'unknown') nameCounts[name] = (nameCounts[name] || 0) + 1;
+    }
+    const hasRepeats = Object.values(nameCounts).some(c => c >= 2);
+    if (hasRepeats) score += 25;
+  }
+
+  // Grok intel bonuses (if probed)
+  if (h.intel && !h.intel.error) {
+    // Account age <30 days → +25
+    const age = (h.intel.profile?.accountAge || '').toLowerCase();
+    if (age && age !== 'unknown') {
+      const dayMatch = age.match(/(\d+)\s*day/);
+      const weekMatch = age.match(/(\d+)\s*week/);
+      const monthMatch = age.match(/(\d+)\s*month/);
+      let ageDays = 999;
+      if (dayMatch) ageDays = parseInt(dayMatch[1]);
+      else if (weekMatch) ageDays = parseInt(weekMatch[1]) * 7;
+      else if (monthMatch) ageDays = parseInt(monthMatch[1]) * 30;
+      if (ageDays < 30) score += 25;
+    }
+
+    // Posts mostly @bankrbot commands → +30
+    if (h.intel.posts?.length > 0) {
+      const botCmdCount = h.intel.posts.filter(p =>
+        /@bankr/i.test(p.text || '')
+      ).length;
+      if (botCmdCount / h.intel.posts.length > 0.5) score += 30;
+    }
+  }
+
+  h.botScore = Math.min(score, 100);
+  h.botFlag = score > 50 ? 'likely' : score >= 30 ? 'suspicious' : null;
+}
+
+// Async Grok probe — fires once per handle when they cross 3+ launches
+function probeHandleIntel(handle) {
+  const h = handleTracker[handle];
+  if (!h || h.intel || h.totalLaunches < 3) return;
+  const key = xaiKeyPipeline || xaiApiKey;
+  if (!key) return;
+  // Mark as pending so we don't re-fire
+  h.intel = { pending: true };
+  cryptoDataTools.fetchHandleIntel(handle, key).then(result => {
+    h.intel = result;
+    scoreHandle(handle); // rescore with intel
+    saveHandleTracker();
+    console.log(`🔍 Intel probed @${handle} — botScore: ${h.botScore}, flag: ${h.botFlag || 'none'}`);
+  }).catch(err => {
+    h.intel = { error: err.message };
+    console.error(`Intel probe failed for @${handle}:`, err.message);
+  });
+}
+
+function mergeLaunches(newLaunches) {
+  const now = new Date().toISOString();
+  let added = 0;
+  for (const l of newLaunches) {
+    const key = l.contractAddress
+      ? l.contractAddress.toLowerCase()
+      : (l.tokenName || '').toLowerCase().trim();
+    if (!key) continue;
+    if (!launchCache.has(key)) {
+      launchCache.set(key, { ...l, firstSeen: now, lastSeen: now });
+      added++;
+      // Log new launch to append-only log
+      appendLaunchLog({ ...l, firstSeen: now, loggedAt: now });
+      // Track the requesting handle
+      trackHandle(l, now);
+    } else {
+      const existing = launchCache.get(key);
+      existing.lastSeen = now;
+      if (!existing.contractAddress && l.contractAddress) existing.contractAddress = l.contractAddress;
+      if (!existing.requestedBy && l.requestedBy) existing.requestedBy = l.requestedBy;
+      if (l.communityReaction !== 'neutral') existing.communityReaction = l.communityReaction;
+      if (l.reactionNote && l.reactionNote !== existing.reactionNote) existing.reactionNote = l.reactionNote;
+    }
+  }
+  if (added > 0 || newLaunches.length > 0) {
+    saveLaunchCache();
+    if (added > 0) saveHandleTracker();
+  }
+}
+
+function getCachedLaunches() {
+  return [...launchCache.values()]
+    .sort((a, b) => new Date(b.firstSeen) - new Date(a.firstSeen))
+    .map(launch => {
+      const handle = (launch.requestedBy || '').replace(/^@/, '').toLowerCase().trim();
+      const tracker = handle ? handleTracker[handle] : null;
+      return {
+        ...launch,
+        botScore: tracker?.botScore ?? null,
+        botFlag: tracker?.botFlag ?? null,
+      };
+    });
+}
+
+// --- Active-user presence (controls whether launch polling runs) ---
+const activeUsers = new Map(); // token → lastSeen timestamp
+const ACTIVE_USER_TTL = 5 * 60 * 1000; // 5 minutes without heartbeat = inactive
+
+function touchUser(token) {
+  if (token) activeUsers.set(token, Date.now());
+}
+function hasActiveUsers() {
+  const cutoff = Date.now() - ACTIVE_USER_TTL;
+  for (const [token, ts] of activeUsers) {
+    if (ts < cutoff) activeUsers.delete(token);
+    else return true;
+  }
+  return false;
+}
+
+// Background Grok polling — only runs when users are active
+let lastGrokPoll = 0;
+const GROK_POLL_INTERVAL = 60000; // 1 minute
+const POLL_CURSOR_FILE = path.join(LAUNCH_STORAGE_DIR, 'poll_cursor.json');
+
+// High-water mark: the newest launch timestamp we've seen
+let pollCursor = null;
+
+// Load cursor from disk (survives restarts)
+try {
+  if (fs.existsSync(POLL_CURSOR_FILE)) {
+    const saved = JSON.parse(fs.readFileSync(POLL_CURSOR_FILE, 'utf8'));
+    pollCursor = saved.latestTimestamp || null;
+    console.log(`✅ Poll cursor loaded: ${pollCursor}`);
+  }
+} catch (err) { console.warn('⚠️  Could not load poll cursor:', err.message); }
+
+// Rebuild cursor from cache if missing
+if (!pollCursor && launchCache.size > 0) {
+  let newest = null;
+  for (const l of launchCache.values()) {
+    const ts = l.firstSeen || l.timestamp;
+    if (ts && (!newest || ts > newest)) newest = ts;
+  }
+  if (newest) {
+    pollCursor = newest;
+    console.log(`✅ Poll cursor rebuilt from cache: ${pollCursor}`);
+  }
+}
+
+function savePollCursor() {
+  try {
+    fs.writeFileSync(POLL_CURSOR_FILE, JSON.stringify({ latestTimestamp: pollCursor, updatedAt: new Date().toISOString() }));
+  } catch (err) { console.error('Poll cursor save error:', err.message); }
+}
+
+function getKnownTokenNames() {
+  const names = new Set();
+  for (const l of launchCache.values()) {
+    const name = (l.tokenName || '').trim();
+    if (name && name.toLowerCase() !== 'unknown') names.add(name);
+  }
+  return [...names];
+}
+
+function pollGrokLaunches() {
+  const key = xaiKeyPipeline || xaiApiKey;
+  if (!key) return;
+  if (!hasActiveUsers()) return; // No one logged in — skip poll
+  lastGrokPoll = Date.now();
+
+  const options = {};
+  if (pollCursor) options.sinceDate = pollCursor;
+  options.knownNames = getKnownTokenNames();
+
+  cryptoDataTools.fetchBankrLaunches(key, options).then(result => {
+    if (result.launches?.length) {
+      mergeLaunches(result.launches);
+      // Advance cursor to the newest launch timestamp
+      for (const l of result.launches) {
+        const ts = l.timestamp;
+        if (ts && (!pollCursor || ts > pollCursor)) pollCursor = ts;
+      }
+      // Also use firstSeen from cache entries (more reliable than Grok's approximate timestamps)
+      for (const l of launchCache.values()) {
+        const ts = l.firstSeen;
+        if (ts && (!pollCursor || ts > pollCursor)) pollCursor = ts;
+      }
+      savePollCursor();
+    }
+  }).catch(err => console.error('Launch poll error:', err.message));
+}
+
+// Poll every minute — skips automatically if no users are active
+setInterval(pollGrokLaunches, GROK_POLL_INTERVAL);
+
+app.get('/api/pipeline/launch-feed', (req, res) => {
+  // Always return cached data immediately — Grok polls in background
+  res.json({ source: 'cache', launches: getCachedLaunches() });
+});
+
+// --- API: Handle tracker (for reviewing repeat deployers) ---
+app.get('/api/pipeline/handle-tracker', (req, res) => {
+  // Sort by total launches descending — most active deployers first
+  const sorted = Object.entries(handleTracker)
+    .map(([handle, data]) => ({ handle: `@${handle}`, ...data }))
+    .sort((a, b) => b.totalLaunches - a.totalLaunches);
+  res.json({ handles: sorted, total: sorted.length });
+});
+
+app.get('/api/pipeline/handle-tracker/:handle', (req, res) => {
+  const h = (req.params.handle || '').replace(/^@/, '').toLowerCase().trim();
+  const data = handleTracker[h];
+  if (!data) return res.json({ handle: `@${h}`, found: false });
+  res.json({ handle: `@${h}`, found: true, ...data });
+});
+
+// --- API: Training data generation ---
+app.get('/api/training/generate', async (req, res) => {
+  if (!xaiKeyTraining && !xaiApiKey) {
+    return res.status(503).json({ error: 'xAI not configured' });
+  }
+  const count = Math.min(parseInt(req.query.count || '10', 10), 50);
+  res.json({ status: 'started', count, message: `Generating ${count} training pairs in background.` });
+
+  setImmediate(async () => {
+    try {
+      const result = await trainingDataGen.generateTrainingBatch(count, xaiKeyTraining || xaiApiKey, DEFAULT_SYSTEM);
+      console.log(`Training gen complete: ${result.generated} pairs, ${result.flagged} flagged, file: ${result.file}`);
+    } catch (err) {
+      console.error('Training gen error:', err.message);
+    }
+  });
 });
 
 // --- API: Active chats (stub) ---
@@ -583,7 +1651,8 @@ app.post('/api/spectator/fork', async (req, res) => {
     });
   }
 
-  if (!xaiApiKey) {
+  const forkKey = xaiKeyPipeline || xaiApiKey;
+  if (!forkKey) {
     return res.json({
       summary: 'couldn\'t peek at that convo right now... xAI is being difficult',
       username,
@@ -599,10 +1668,10 @@ app.post('/api/spectator/fork', async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${xaiApiKey}`,
+        'Authorization': `Bearer ${forkKey}`,
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: MODEL_FAST,
         messages: [
           {
             role: 'system',
@@ -630,13 +1699,19 @@ app.post('/api/spectator/fork', async (req, res) => {
 async function main() {
   if (process.env.XAI_API_KEY && process.env.XAI_API_KEY.trim()) {
     xaiApiKey = process.env.XAI_API_KEY.trim();
+    xaiKeyChat = xaiKeyChat || xaiApiKey;
+    xaiKeyPipeline = xaiKeyPipeline || xaiApiKey;
+    xaiKeyTraining = xaiKeyTraining || xaiApiKey;
     console.log('✅ xAI key from env');
   } else {
     await initInfisical();
   }
 
-  if (!xaiApiKey) {
-    console.warn('⚠️ No xAI key. Set XAI_API_KEY in .env or configure Infisical.');
+  const chatKey = xaiKeyChat || xaiApiKey;
+  if (!chatKey) {
+    console.warn('⚠️ No xAI keys. Set XAI_API_KEY in .env or configure Infisical.');
+  } else {
+    console.log(`✅ Keys: chat=${xaiKeyChat ? 'yes' : 'fallback'} pipeline=${xaiKeyPipeline ? 'yes' : 'fallback'} training=${xaiKeyTraining ? 'yes' : 'fallback'}`);
   }
 
   // SPA fallback — serve index.html for any non-API route
