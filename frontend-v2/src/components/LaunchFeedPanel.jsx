@@ -8,6 +8,20 @@ const REACTION_COLORS = {
   neutral: '#666',
 };
 
+const ACTION_COLORS = {
+  launch: '#00ff41',
+  fee_claim: '#00bfff',
+  airdrop: '#cc66ff',
+  other: '#888',
+};
+
+const ACTION_LABELS = {
+  launch: 'Launch',
+  fee_claim: 'Fee Claim',
+  airdrop: 'Airdrop',
+  other: 'Activity',
+};
+
 const BOT_BADGE = {
   likely: { label: 'BOT', bg: '#ff3333', color: '#fff' },
   suspicious: { label: 'SUS', bg: '#ffcc00', color: '#111' },
@@ -248,7 +262,7 @@ function LaunchFeedPanel({ onClose }) {
             padding: 'calc(20px * var(--scale))',
             fontSize: 'calc(10px * var(--scale))',
           }}>
-            Searching X for Bankr launches...
+            Searching X for Bankr activity...
           </div>
         )}
 
@@ -258,7 +272,7 @@ function LaunchFeedPanel({ onClose }) {
             padding: 'calc(20px * var(--scale))',
             fontSize: 'calc(10px * var(--scale))',
           }}>
-            No recent Bankr launches found on X.
+            No recent Bankr activity found on X.
           </div>
         )}
 
@@ -330,18 +344,32 @@ function LaunchFeedPanel({ onClose }) {
                   }}>
                     {group.launches.map((entry, j) => {
                       const rc = REACTION_COLORS[entry.communityReaction] || '#666';
+                      const ac = ACTION_COLORS[entry.actionType] || '#888';
+                      const al = ACTION_LABELS[entry.actionType] || 'Activity';
+                      const isLaunch = entry.actionType === 'launch' || !entry.actionType;
                       return (
                         <div key={j} style={{
                           paddingBottom: j < group.launches.length - 1 ? 'calc(4px * var(--scale))' : 0,
                           borderBottom: j < group.launches.length - 1 ? '1px solid rgba(100,100,100,0.15)' : 'none',
+                          borderLeft: `2px solid ${ac}50`,
+                          paddingLeft: 'calc(4px * var(--scale))',
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))' }}>
-                            <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 'calc(10px * var(--scale))' }}>
-                              {entry.tokenName}
+                            <span style={{
+                              fontSize: 'calc(6px * var(--scale))', fontWeight: 800, color: '#fff', background: ac,
+                              borderRadius: 'calc(2px * var(--scale))', padding: '0 calc(3px * var(--scale))',
+                              lineHeight: 'calc(11px * var(--scale))', textTransform: 'uppercase', flexShrink: 0,
+                            }}>
+                              {al}
                             </span>
+                            <span style={{ color: isLaunch ? 'var(--accent)' : ac, fontWeight: 700, fontSize: 'calc(10px * var(--scale))' }}>
+                              {isLaunch ? entry.tokenName : (entry.tokenName || entry.announcement?.slice(0, 30) || al)}
+                            </span>
+                            {isLaunch && entry.tokenSymbol && (
                             <span style={{ color: 'var(--text-muted-content)', fontSize: 'calc(8px * var(--scale))' }}>
                               ${entry.tokenSymbol}
                             </span>
+                            )}
                             <span style={{
                               display: 'inline-block', width: 'calc(6px * var(--scale))', height: 'calc(6px * var(--scale))',
                               borderRadius: '50%', background: rc, flexShrink: 0,
@@ -385,6 +413,10 @@ function LaunchFeedPanel({ onClose }) {
           groupLaunches(launches).map((launch, i) => {
           const isExpanded = expanded === i;
           const reactionColor = REACTION_COLORS[launch.communityReaction] || '#666';
+          const actionType = launch.actionType || 'launch';
+          const actionColor = ACTION_COLORS[actionType] || '#888';
+          const actionLabel = ACTION_LABELS[actionType] || 'Activity';
+          const isLaunch = actionType === 'launch';
 
           return (
             <div
@@ -392,8 +424,9 @@ function LaunchFeedPanel({ onClose }) {
               onClick={() => setExpanded(isExpanded ? null : i)}
               style={{
                 padding: 'calc(8px * var(--scale))',
-                background: 'rgba(0, 255, 65, 0.03)',
-                border: `1px solid ${reactionColor}30`,
+                background: `${actionColor}08`,
+                border: `1px solid ${actionColor}30`,
+                borderLeft: `3px solid ${actionColor}60`,
                 borderRadius: 'calc(4px * var(--scale))',
                 cursor: 'pointer',
                 transition: 'border-color 0.15s',
@@ -406,16 +439,33 @@ function LaunchFeedPanel({ onClose }) {
               }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))' }}>
+                    {/* Action type badge */}
                     <span style={{
-                      color: 'var(--accent)', fontWeight: 700, fontSize: 'calc(11px * var(--scale))',
+                      fontSize: 'calc(7px * var(--scale))',
+                      fontWeight: 800,
+                      color: actionType === 'launch' ? '#111' : '#fff',
+                      background: actionColor,
+                      borderRadius: 'calc(3px * var(--scale))',
+                      padding: '0 calc(4px * var(--scale))',
+                      lineHeight: 'calc(13px * var(--scale))',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      flexShrink: 0,
                     }}>
-                      {launch.tokenName}
+                      {actionLabel}
                     </span>
+                    <span style={{
+                      color: isLaunch ? 'var(--accent)' : actionColor, fontWeight: 700, fontSize: 'calc(11px * var(--scale))',
+                    }}>
+                      {isLaunch ? launch.tokenName : (launch.tokenName || launch.announcement?.slice(0, 40) || actionLabel)}
+                    </span>
+                    {isLaunch && launch.tokenSymbol && (
                     <span style={{
                       color: 'var(--text-muted-content)', fontSize: 'calc(9px * var(--scale))',
                     }}>
                       ${launch.tokenSymbol}
                     </span>
+                    )}
                     {launch.count > 1 && (
                       <span style={{
                         fontSize: 'calc(8px * var(--scale))',
@@ -492,12 +542,15 @@ function LaunchFeedPanel({ onClose }) {
                         </div>
                       )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', marginTop: 'calc(2px * var(--scale))' }}>
+                        <span style={{ color: ACTION_COLORS[entry.actionType] || '#888', fontWeight: 700, textTransform: 'uppercase', fontSize: 'calc(7px * var(--scale))' }}>
+                          {ACTION_LABELS[entry.actionType] || 'Activity'}
+                        </span>
                         <span style={{ color: REACTION_COLORS[entry.communityReaction] || '#666', fontWeight: 600, textTransform: 'uppercase', fontSize: 'calc(8px * var(--scale))' }}>
-                          Community: {entry.communityReaction}
+                          {entry.communityReaction}
                         </span>
                         {(entry.requestedBy || entry.postAuthor) && (
                           <span style={{ color: entry.requestedBy ? '#ff9944' : '#888', fontSize: 'calc(8px * var(--scale))', display: 'inline-flex', alignItems: 'center' }}>
-                            — {entry.requestedBy ? `requested by ${entry.requestedBy}` : entry.postAuthor}
+                            — {entry.requestedBy || entry.postAuthor}
                             <BotBadge flag={entry.botFlag} />
                           </span>
                         )}
@@ -532,8 +585,8 @@ function LaunchFeedPanel({ onClose }) {
         fontSize: 'calc(8px * var(--scale))',
       }}>
         {viewMode === 'handle'
-          ? `${groupByHandle(launches).length} handles (${launches.length} launches)`
-          : `${groupLaunches(launches).length} tokens (${launches.length} launches)`
+          ? `${groupByHandle(launches).length} handles (${launches.length} items)`
+          : `${groupLaunches(launches).length} groups (${launches.length} items)`
         } | Powered by Grok x_search
       </div>
     </div>

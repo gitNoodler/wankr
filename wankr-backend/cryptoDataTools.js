@@ -144,29 +144,30 @@ async function fetchBankrLaunches(xaiApiKey, options = {}) {
         input: [
           {
             role: 'system',
-            content: `Search X for recent posts from or about @bankr_official token launches on Base chain. Find the most recent token deployments, launches, or announcements. For each launch, identify who REQUESTED the token creation (the @handle that replied to or tagged @bankrbot asking to deploy).${sinceClause}${knownClause} Return ONLY valid JSON:
+            content: `Search X for recent posts from or about @bankr_official activity on Base chain. This includes token launches, fee claims, airdrops, and other bankr bot interactions. Classify each result by its action type. For token launches, identify who REQUESTED the token creation (the @handle that replied to or tagged @bankrbot asking to deploy).${sinceClause}${knownClause} Return ONLY valid JSON:
 {
   "launches": [
     {
-      "tokenName": "string",
-      "tokenSymbol": "string",
+      "actionType": "launch" | "fee_claim" | "airdrop" | "other",
+      "tokenName": "string — the token name if this is a launch, otherwise a short label like 'Fee Claim' or 'Airdrop'",
+      "tokenSymbol": "string — ticker if launch, otherwise empty",
       "contractAddress": "0x... or empty if not mentioned",
-      "announcement": "brief description of the launch post",
-      "requestedBy": "@handle who asked bankr to create the token, or empty if unknown",${`
+      "announcement": "brief description of what happened",
+      "requestedBy": "@handle who initiated the action, or empty if unknown",
       "communityReaction": "positive" | "negative" | "mixed" | "neutral",
-      "reactionNote": "1 sentence summary of community sentiment",`}
+      "reactionNote": "1 sentence summary of community sentiment",
       "timestamp": "ISO date or approximate like '2 days ago'",
       "postAuthor": "@handle who posted about it"
     }
   ]
 }
-Return up to 15 most recent launches. If nothing found return {"launches": []}.`
+Return up to 15 most recent items. If nothing found return {"launches": []}.`
           },
           {
             role: 'user',
             content: sinceDate
-              ? `Search X for token launches from @bankr_official or Bankr bot on Base posted AFTER ${sinceDate}. Only new launches — skip anything before that date. For each launch, find who requested the token creation. Include community reaction and sentiment from the replies.`
-              : `Search X for the most recent token launches from @bankr_official or Bankr bot on Base. For each launch, find who requested the token creation (the user handle that asked bankr to deploy). Include community reaction and sentiment from the replies.`
+              ? `Search X for all @bankr_official or Bankr bot activity on Base posted AFTER ${sinceDate}. Include token launches, fee claims, airdrops, and other interactions. Classify each by action type (launch, fee_claim, airdrop, other). For launches, find who requested the token creation. Include community reaction and sentiment from the replies.`
+              : `Search X for the most recent @bankr_official or Bankr bot activity on Base. Include token launches, fee claims, airdrops, and other interactions. Classify each by action type (launch, fee_claim, airdrop, other). For launches, find who requested the token creation. Include community reaction and sentiment from the replies.`
           },
         ],
         tools: [{ type: 'x_search' }],
@@ -179,17 +180,22 @@ Return up to 15 most recent launches. If nothing found return {"launches": []}.`
     const parsed = parseGrokJSON(content);
     if (!parsed) return { source: 'none', launches: [] };
 
-    const launches = (parsed.launches || []).slice(0, 15).map(l => ({
-      tokenName: l.tokenName || 'Unknown',
-      tokenSymbol: l.tokenSymbol || '???',
-      contractAddress: l.contractAddress || '',
-      announcement: l.announcement || '',
-      requestedBy: l.requestedBy || '',
-      communityReaction: ['positive', 'negative', 'mixed', 'neutral'].includes(l.communityReaction) ? l.communityReaction : 'neutral',
-      reactionNote: l.reactionNote || '',
-      timestamp: l.timestamp || '',
-      postAuthor: l.postAuthor || '',
-    }));
+    const VALID_ACTIONS = ['launch', 'fee_claim', 'airdrop', 'other'];
+    const launches = (parsed.launches || []).slice(0, 15).map(l => {
+      const actionType = VALID_ACTIONS.includes(l.actionType) ? l.actionType : 'launch';
+      return {
+        actionType,
+        tokenName: actionType === 'launch' ? (l.tokenName || 'Unknown') : (l.tokenName || ''),
+        tokenSymbol: actionType === 'launch' ? (l.tokenSymbol || '???') : (l.tokenSymbol || ''),
+        contractAddress: l.contractAddress || '',
+        announcement: l.announcement || '',
+        requestedBy: l.requestedBy || '',
+        communityReaction: ['positive', 'negative', 'mixed', 'neutral'].includes(l.communityReaction) ? l.communityReaction : 'neutral',
+        reactionNote: l.reactionNote || '',
+        timestamp: l.timestamp || '',
+        postAuthor: l.postAuthor || '',
+      };
+    });
 
     return { source: 'live', launches };
   } catch (err) {
@@ -274,29 +280,30 @@ function buildLaunchMessages(options = {}) {
   return [
     {
       role: 'system',
-      content: `Search X for recent posts from or about @bankr_official token launches on Base chain. Find the most recent token deployments, launches, or announcements. For each launch, identify who REQUESTED the token creation (the @handle that replied to or tagged @bankrbot asking to deploy).${sinceClause}${knownClause} Return ONLY valid JSON:
+      content: `Search X for recent posts from or about @bankr_official activity on Base chain. This includes token launches, fee claims, airdrops, and other bankr bot interactions. Classify each result by its action type. For token launches, identify who REQUESTED the token creation (the @handle that replied to or tagged @bankrbot asking to deploy).${sinceClause}${knownClause} Return ONLY valid JSON:
 {
   "launches": [
     {
-      "tokenName": "string",
-      "tokenSymbol": "string",
+      "actionType": "launch" | "fee_claim" | "airdrop" | "other",
+      "tokenName": "string — the token name if this is a launch, otherwise a short label like 'Fee Claim' or 'Airdrop'",
+      "tokenSymbol": "string — ticker if launch, otherwise empty",
       "contractAddress": "0x... or empty if not mentioned",
-      "announcement": "brief description of the launch post",
-      "requestedBy": "@handle who asked bankr to create the token, or empty if unknown",${`
+      "announcement": "brief description of what happened",
+      "requestedBy": "@handle who initiated the action, or empty if unknown",
       "communityReaction": "positive" | "negative" | "mixed" | "neutral",
-      "reactionNote": "1 sentence summary of community sentiment",`}
+      "reactionNote": "1 sentence summary of community sentiment",
       "timestamp": "ISO date or approximate like '2 days ago'",
       "postAuthor": "@handle who posted about it"
     }
   ]
 }
-Return up to 15 most recent launches. If nothing found return {"launches": []}.`
+Return up to 15 most recent items. If nothing found return {"launches": []}.`
     },
     {
       role: 'user',
       content: sinceDate
-        ? `Search X for token launches from @bankr_official or Bankr bot on Base posted AFTER ${sinceDate}. Only new launches — skip anything before that date. For each launch, find who requested the token creation. Include community reaction and sentiment from the replies.`
-        : `Search X for the most recent token launches from @bankr_official or Bankr bot on Base. For each launch, find who requested the token creation (the user handle that asked bankr to deploy). Include community reaction and sentiment from the replies.`
+        ? `Search X for all @bankr_official or Bankr bot activity on Base posted AFTER ${sinceDate}. Include token launches, fee claims, airdrops, and other interactions. Classify each by action type (launch, fee_claim, airdrop, other). For launches, find who requested the token creation. Include community reaction and sentiment from the replies.`
+        : `Search X for the most recent @bankr_official or Bankr bot activity on Base. Include token launches, fee claims, airdrops, and other interactions. Classify each by action type (launch, fee_claim, airdrop, other). For launches, find who requested the token creation. Include community reaction and sentiment from the replies.`
     },
   ];
 }
@@ -372,17 +379,21 @@ async function collectBatchResults(xaiApiKey, options = {}) {
       const parsed = parseGrokJSON(content);
       if (!parsed?.launches) continue;
 
-      const launches = (parsed.launches || []).slice(0, 15).map(l => ({
-        tokenName: l.tokenName || 'Unknown',
-        tokenSymbol: l.tokenSymbol || '???',
+      const VALID_ACTIONS = ['launch', 'fee_claim', 'airdrop', 'other'];
+      const launches = (parsed.launches || []).slice(0, 15).map(l => {
+        const actionType = VALID_ACTIONS.includes(l.actionType) ? l.actionType : 'launch';
+        return {
+        actionType,
+        tokenName: actionType === 'launch' ? (l.tokenName || 'Unknown') : (l.tokenName || ''),
+        tokenSymbol: actionType === 'launch' ? (l.tokenSymbol || '???') : (l.tokenSymbol || ''),
         contractAddress: l.contractAddress || '',
         announcement: l.announcement || '',
         requestedBy: l.requestedBy || '',
-        communityReaction: skipSentiment ? 'neutral' : (['positive', 'negative', 'mixed', 'neutral'].includes(l.communityReaction) ? l.communityReaction : 'neutral'),
-        reactionNote: skipSentiment ? '' : (l.reactionNote || ''),
+        communityReaction: ['positive', 'negative', 'mixed', 'neutral'].includes(l.communityReaction) ? l.communityReaction : 'neutral',
+        reactionNote: l.reactionNote || '',
         timestamp: l.timestamp || '',
         postAuthor: l.postAuthor || '',
-      }));
+      };});
       allLaunches.push(...launches);
     }
 
