@@ -22,8 +22,9 @@ const RECONNECT_MAX = 600000;        // 10min max backoff
 const RECONNECT_LOG_EVERY = 5;       // only log every 5th attempt to reduce spam
 // X rate limit: 50 connections per 15min — at 60s+ per attempt we max ~15, well under limit
 
-// Rule already created in X Developer Console:
-// ID: 2032963076585304066 | value: @bankrbot | tag: bankr
+// Rules created in X Developer Console:
+// ID: 2032965417317314563 | value: @bankrbot (mentions)
+// ID: 2032965417317314564 | value: from:bankrbot (own tweets)
 
 async function init(deps) {
   getBearerToken = deps.getBearerToken;
