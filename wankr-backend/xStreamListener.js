@@ -14,8 +14,8 @@ let totalTweetsReceived = 0;
 let startedAt = null;
 let permanentlyDisabled = false; // stop retrying on 401/403
 
-const RULES_URL = 'https://api.twitter.com/2/tweets/search/stream/rules';
-const STREAM_URL = 'https://api.twitter.com/2/tweets/search/stream';
+const RULES_URL = 'https://api.x.com/2/tweets/search/stream/rules';
+const STREAM_URL = 'https://api.x.com/2/tweets/search/stream';
 const STARTUP_DELAY = 15000;         // 15s delay on boot — let old container die
 const RECONNECT_BASE = 60000;        // 60s minimum between retries
 const RECONNECT_MAX = 600000;        // 10min max backoff
