@@ -101,7 +101,9 @@ export default function StatsTab() {
       {/* Launch Detection */}
       <Section title="Launch Detection" accent="#00ff41">
         <Row label="Cache size" value={fmtNum(launches?.cacheSize)} />
-        <Row label="Pending sentiment" value={fmtNum(launches?.pendingSentiment)} warn={launches?.pendingSentiment > 0} />
+        {launches?.pendingTokens?.length > 0 && (
+          <PendingDropdown tokens={launches.pendingTokens} />
+        )}
         <Row label="Queue depth" value={fmtNum(launches?.queueDepth)} />
         <Row label="Active batches" value={fmtNum(launches?.activeBatches)} warn={launches?.activeBatches > 2} />
         <Row label="Batches" value={`${launches?.batchesFired || 0} fired / ${launches?.batchesSuccess || 0} ok / ${launches?.batchesFail || 0} fail`} />
@@ -185,6 +187,29 @@ function Row({ label, value, warn }) {
     <div style={styles.row}>
       <span style={styles.label}>{label}</span>
       <span style={{ ...styles.value, color: warn ? '#ff4444' : '#e5e5e5' }}>{value}</span>
+    </div>
+  );
+}
+
+function PendingDropdown({ tokens }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={styles.pendingWrap}>
+      <div style={styles.pendingHeader} onClick={() => setOpen(!open)}>
+        <span style={styles.pendingLabel}>Batching for sentiment</span>
+        <span style={styles.pendingCount}>{tokens.length}</span>
+        <span style={styles.pendingArrow}>{open ? '▾' : '▸'}</span>
+      </div>
+      {open && (
+        <div style={styles.pendingList}>
+          {tokens.map((t, i) => (
+            <div key={i} style={styles.pendingItem}>
+              <span style={styles.pendingName}>{t.symbol ? `$${t.symbol}` : t.name}</span>
+              {t.requestedBy && <span style={styles.pendingBy}>{t.requestedBy}</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -316,4 +341,40 @@ const styles = {
     padding: '1px 6px',
     borderRadius: 3,
   },
+  // Pending sentiment dropdown
+  pendingWrap: { margin: '4px 0' },
+  pendingHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '4px 0',
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
+  pendingLabel: { color: '#ffdf00', fontSize: 13 },
+  pendingCount: {
+    background: 'rgba(255,223,0,0.15)',
+    color: '#ffdf00',
+    fontSize: 11,
+    padding: '1px 6px',
+    borderRadius: 3,
+    fontFamily: "'VT323', monospace",
+  },
+  pendingArrow: { color: '#666', fontSize: 11 },
+  pendingList: {
+    background: 'rgba(0,0,0,0.3)',
+    borderRadius: 4,
+    padding: '4px 8px',
+    marginTop: 4,
+    maxHeight: 150,
+    overflowY: 'auto',
+  },
+  pendingItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '2px 0',
+    fontSize: 12,
+  },
+  pendingName: { color: '#e5e5e5', fontFamily: "'VT323', monospace" },
+  pendingBy: { color: '#00ffff', fontSize: 11 },
 };

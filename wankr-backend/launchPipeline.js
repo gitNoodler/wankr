@@ -18,16 +18,16 @@ const ACTIVE_USER_TTL = 5 * 60 * 1000; // 5 minutes without heartbeat = inactive
 // Sentinel batch counters (for stats)
 const sentimentBatchStats = { fired: 0, success: 0, fail: 0 };
 
-// Detection + Sentiment Batch Architecture
-const DETECT_INTERVAL = 900000;         // 15 min detection poll (x_search = $5/1k calls)
-const POLLING_ENABLED = false;          // STALLED — waiting for notification-based trigger
-const SENTIMENT_BATCH_MAX = 75;         // fire batch at 75 queued (heavy rate limit)
-const SENTIMENT_BATCH_TIMEOUT = 7200000; // or 2 hours, whichever first
+// Detection: X Filtered Stream (xStreamListener.js) → ingestLaunches()
+// x_search polling removed — stream is free, x_search costs $5/1k calls
+const SENTIMENT_BATCH_MAX = 10;          // batch at 10 queued
+const SENTIMENT_BATCH_TIMEOUT = 600000;  // or 10 min, whichever first
+const SENTIMENT_INSTANT_THRESHOLD = 3;   // ≤3 queued at timeout → instant (full price but fast)
+const CACHE_TTL = 48 * 60 * 60 * 1000;  // prune cache entries older than 48h
+const CACHE_PRUNE_INTERVAL = 3600000;    // check every hour
 
-let lastDetectPoll = 0;
 let lastBatchTime = Date.now();
 let sentimentQueue = [];  // launches awaiting sentiment
-let detectInFlight = false; // prevent overlapping detection calls
 
 // Active batch tracking for async Batch API
 // Each entry: { batchId, tokens: [...], createdAt, pollCount }
@@ -317,12 +317,7 @@ function getCachedLaunches() {
 
 function touchUser(token) {
   if (!token) return;
-  const wasEmpty = !hasActiveUsers();
   activeUsers.set(token, Date.now());
-  // Catch-up: first user activity after idle triggers an immediate detection poll
-  if (wasEmpty && (Date.now() - lastDetectPoll > DETECT_INTERVAL * 10)) {
-    runDetectionPoll();
-  }
 }
 
 function hasActiveUsers() {
@@ -332,15 +327,6 @@ function hasActiveUsers() {
     else return true;
   }
   return false;
-}
-
-function getKnownTokenNames() {
-  const names = new Set();
-  for (const l of launchCache.values()) {
-    const name = (l.tokenName || '').trim();
-    if (name && name.toLowerCase() !== 'unknown') names.add(name);
-  }
-  return [...names];
 }
 
 // Failed launch attempt detection
@@ -413,6 +399,23 @@ function detectFailedAttempts(incomingLaunches) {
 }
 
 // Detection poll — gated by POLLING_ENABLED flag
+// Prune cache entries older than CACHE_TTL — log.jsonl is the permanent record
+function pruneLaunchCache() {
+  const cutoff = Date.now() - CACHE_TTL;
+  let pruned = 0;
+  for (const [key, entry] of launchCache) {
+    const ts = entry.timestamp ? new Date(entry.timestamp).getTime() : 0;
+    if (ts > 0 && ts < cutoff && entry.sentimentStatus === 'done') {
+      launchCache.delete(key);
+      pruned++;
+    }
+  }
+  if (pruned > 0) {
+    saveLaunchCache();
+    console.log(`🧹 Pruned ${pruned} old cache entries (${launchCache.size} remaining)`);
+  }
+}
+
 // Ingest launches from external sources (X Filtered Stream, on-chain, etc.)
 // Same dedup + processing as runDetectionPoll but callable from outside
 function ingestLaunches(launches) {
@@ -446,54 +449,7 @@ function ingestLaunches(launches) {
   checkSentimentBatchTrigger();
 }
 
-function runDetectionPoll() {
-  if (!POLLING_ENABLED) return;
-  const key = getXaiKeyPipeline() || getXaiApiKey();
-  if (!key) return;
-  if (!hasActiveUsers()) return;
-  if (detectInFlight) return;
-  detectInFlight = true;
-  lastDetectPoll = Date.now();
-
-  const options = { knownNames: getKnownTokenNames() };
-
-  cryptoDataTools.detectBankrLaunches(key, options).then(result => {
-    detectInFlight = false;
-    if (!result.launches?.length) return;
-
-    const newLaunches = [];
-    for (const l of result.launches) {
-      const cacheKey = l.contractAddress
-        ? l.contractAddress.toLowerCase()
-        : (l.tokenName || '').toLowerCase().trim();
-      if (!cacheKey) continue;
-      if (!launchCache.has(cacheKey)) {
-        newLaunches.push(l);
-      }
-    }
-
-    if (newLaunches.length > 0) {
-      const verified = detectFailedAttempts(newLaunches);
-
-      if (verified.length > 0) {
-        mergeLaunches(verified);
-        probeNewHandleSentiment(verified, key);
-        const launchesForSentiment = verified.filter(l => l.actionType === 'launch');
-        if (launchesForSentiment.length > 0) {
-          sentimentQueue.push(...launchesForSentiment);
-        }
-        console.log(`🔎 Detected ${newLaunches.length} items, ${verified.length} verified (${sentimentQueue.length} in sentiment queue)`);
-      }
-    }
-
-    checkSentimentBatchTrigger();
-  }).catch(err => {
-    detectInFlight = false;
-    console.error('Detection poll error:', err.message);
-  });
-}
-
-// Sentiment batch trigger: 10 queued OR 15 min elapsed
+// Sentiment batch trigger: 75 queued OR 2h elapsed
 function checkSentimentBatchTrigger() {
   const elapsed = Date.now() - lastBatchTime;
   if (sentimentQueue.length >= SENTIMENT_BATCH_MAX || (sentimentQueue.length > 0 && elapsed >= SENTIMENT_BATCH_TIMEOUT)) {
@@ -519,35 +475,35 @@ function fireSentimentBatch() {
   lastBatchTime = Date.now();
   if (batch.length === 0) return;
   sentimentBatchStats.fired++;
-  console.log(`🎯 Firing sentiment batch for ${batch.length} tokens (async Batch API)`);
 
-  // Try async Batch API first (half price), fall back to sync
-  cryptoDataTools.createSentimentBatch(batch, key).then(batchId => {
-    if (batchId) {
-      // Track the active batch for polling
-      activeBatches.push({ batchId, tokens: batch, createdAt: Date.now(), pollCount: 0 });
-      console.log(`📦 Batch ${batchId} queued — ${activeBatches.length} active batch(es)`);
-    } else {
-      // Batch API failed — fall back to synchronous sentiment
-      console.warn('⚠️  Batch API failed, falling back to sync sentiment');
-      fireSentimentBatchSync(batch, key);
-    }
-  }).catch(err => {
-    console.warn('⚠️  Batch API error, falling back to sync:', err.message);
-    fireSentimentBatchSync(batch, key);
-  });
-}
-
-// Synchronous fallback — uses the original batchSentiment (full price Responses API)
-function fireSentimentBatchSync(batch, key) {
-  cryptoDataTools.batchSentiment(batch, key).then(sentimentMap => {
-    applySentimentResults(sentimentMap);
-    sentimentBatchStats.success++;
-  }).catch(err => {
-    sentimentBatchStats.fail++;
-    console.error('Sync sentiment fallback error:', err.message);
-    sentimentQueue.unshift(...batch);
-  });
+  // Hybrid: slow periods (≤3 items) → instant full-price, busy (>3) → batch half-price
+  if (batch.length <= SENTIMENT_INSTANT_THRESHOLD) {
+    console.log(`⚡ Instant sentiment for ${batch.length} token(s) (slow period)`);
+    cryptoDataTools.batchSentiment(batch, key).then(sentimentMap => {
+      applySentimentResults(sentimentMap);
+      sentimentBatchStats.success++;
+    }).catch(err => {
+      console.warn('⚠️  Instant sentiment error — re-queuing:', err.message);
+      sentimentBatchStats.fail++;
+      sentimentQueue.unshift(...batch);
+    });
+  } else {
+    console.log(`🎯 Batch sentiment for ${batch.length} tokens (half price)`);
+    cryptoDataTools.createSentimentBatch(batch, key).then(batchId => {
+      if (batchId) {
+        activeBatches.push({ batchId, tokens: batch, createdAt: Date.now(), pollCount: 0 });
+        console.log(`📦 Batch ${batchId} queued — ${activeBatches.length} active`);
+      } else {
+        console.warn('⚠️  Batch API returned no ID — re-queuing');
+        sentimentBatchStats.fail++;
+        sentimentQueue.unshift(...batch);
+      }
+    }).catch(err => {
+      console.warn('⚠️  Batch API error — re-queuing:', err.message);
+      sentimentBatchStats.fail++;
+      sentimentQueue.unshift(...batch);
+    });
+  }
 }
 
 // Shared: apply a sentimentMap to the launch cache, log, sync handles, archive
@@ -751,8 +707,10 @@ function init(app, deps) {
   // Poll active Batch API batches every 15s
   setInterval(pollActiveBatches, BATCH_POLL_INTERVAL);
 
-  // Main 1s detection loop
-  setInterval(runDetectionPoll, DETECT_INTERVAL);
+  // Prune old cache entries every hour (log.jsonl keeps everything forever)
+  setInterval(pruneLaunchCache, CACHE_PRUNE_INTERVAL);
+
+  // Detection: handled by xStreamListener → ingestLaunches() (no x_search polling)
 }
 
 module.exports = {

@@ -32,15 +32,19 @@ TIER 3 — MANUAL DEEP DIVES
 
 Proprietary bot detection methodology:
 
-1. BASELINE: Establish genuine engagement patterns per KOL tier
-   - Nano (<10k): 2-5% engagement rate baseline
-   - Micro (10-100k): 1-3% baseline
-   - Macro (100k-1M): 0.5-2% baseline
-   - Mega (1M+): 0.1-1% baseline
+1. BASELINE: Dynamic engagement baseline — adapts with sample size
+   - Seed defaults (used when <10 samples in tier):
+     Nano (<10k): 2-5% | Micro (10-100k): 1-3% | Macro (100k-1M): 0.5-2% | Mega (1M+): 0.1-1%
+   - As sample size grows, replace seed with running median of observed accounts in each tier
+   - Confidence weighting: baseline_weight = min(samples / 30, 1.0)
+     At <10 samples: lean heavily on seed defaults
+     At 30+ samples: seed defaults fully replaced by observed median
+   - Formula: effective_baseline = seed × (1 - weight) + observed_median × weight
+   - Report sample size with every baseline comparison: "Baseline: X% (n=Y in tier)"
 
 2. CLIFF DETECTION: Three-window engagement comparison
-   - WINDOW A (Pre-cliff): Average engagement rate for Dec 15 2024 – Jan 14 2025
-   - WINDOW B (Post-cliff): Average engagement rate for Jan 15 2025 – Feb 14 2025
+   - WINDOW A (Pre-cliff): Average engagement rate for Dec 15 2025 – Jan 14 2026
+   - WINDOW B (Post-cliff): Average engagement rate for Jan 15 2026 – Feb 14 2026
    - WINDOW C (Current): Average engagement rate for the current calendar month
    - Compare A→B: Drop >40% = high bot signal (bots died at API change)
    - Compare A→C: If engagement recovered toward A levels = likely bought new bots
@@ -55,8 +59,10 @@ Proprietary bot detection methodology:
 
 4. CALIBRATION:
    - Tier-normalized (don't penalize mega accounts for low % rate)
+   - Baselines sharpen over time — early assessments carry lower confidence
    - Multi-inflection compound scoring (multiple events strengthen signal)
    - False positive protection via cross-validation against known genuine accounts
+   - Always disclose confidence: low (<10 samples), medium (10-29), high (30+)
 
 ═══════════════════════════════════════════════════
  SCENARIO MATRIX — ANALYTICAL APPROACH

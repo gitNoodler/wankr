@@ -250,14 +250,19 @@ function init(app, deps) {
     const sentimentQueue = launchPipeline.getSentimentQueue();
     const sentimentBatchStats = launchPipeline.getSentimentBatchStats();
     let pendingSentiment = 0, failedAttempts = 0;
+    const pendingTokens = [];
     for (const entry of launchCache.values()) {
-      if (entry.sentimentStatus === 'pending') pendingSentiment++;
+      if (entry.sentimentStatus === 'pending') {
+        pendingSentiment++;
+        pendingTokens.push({ name: entry.tokenName || '???', symbol: entry.tokenSymbol || '', requestedBy: entry.requestedBy || '' });
+      }
       if (entry.failedAttempt) failedAttempts++;
     }
     const activeBatchList = launchPipeline.getActiveBatches();
     const launches = {
       cacheSize: launchCache.size,
       pendingSentiment,
+      pendingTokens,
       queueDepth: sentimentQueue.length,
       batchesFired: sentimentBatchStats.fired,
       batchesSuccess: sentimentBatchStats.success,
