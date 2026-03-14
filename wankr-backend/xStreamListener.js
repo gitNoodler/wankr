@@ -3,7 +3,7 @@
 const https = require('https');
 const { URL } = require('url');
 
-let bearerToken = null;
+let getBearerToken = null;
 let onLaunchDetected = null;
 let streamReq = null;
 let reconnectTimer = null;
@@ -22,12 +22,14 @@ const RECONNECT_INTERVAL = 60000; // 60s between retries (safe under 50/15min li
 // ID: 2032833501901533184 | value: @bankr_official | tag: bankr
 
 async function init(deps) {
-  bearerToken = deps.getBearerToken();
+  getBearerToken = deps.getBearerToken;
   onLaunchDetected = deps.onLaunchDetected;
 
-  if (!bearerToken) {
-    console.warn('⚠️ X Stream: no bearer token — stream disabled');
-    permanentlyDisabled = true;
+  const token = getBearerToken();
+  if (!token) {
+    console.warn('⚠️ X Stream: no bearer token at init — will retry on reconnect');
+    startedAt = Date.now();
+    scheduleReconnect();
     return;
   }
 
@@ -44,8 +46,10 @@ async function init(deps) {
 
 // Verify streaming rule exists (created manually in X Developer Console)
 async function verifyRules() {
+  const token = getBearerToken();
+  if (!token) return;
   const res = await fetch(RULES_URL, {
-    headers: { Authorization: `Bearer ${bearerToken}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (res.status === 403) {
@@ -79,6 +83,14 @@ function cleanupConnection() {
 function connect() {
   // Guard: never open two connections
   if (connected || connecting || permanentlyDisabled) return;
+
+  const token = getBearerToken();
+  if (!token) {
+    console.warn('⚠️ X Stream: no bearer token — retrying later');
+    scheduleReconnect();
+    return;
+  }
+
   connecting = true;
 
   // Always clean up before connecting
@@ -95,7 +107,7 @@ function connect() {
   const options = {
     hostname: url.hostname,
     path: url.pathname + url.search,
-    headers: { Authorization: `Bearer ${bearerToken}` },
+    headers: { Authorization: `Bearer ${token}` },
   };
 
   streamReq = https.get(options, (res) => {
