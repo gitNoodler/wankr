@@ -16,7 +16,11 @@ let permanentlyDisabled = false; // stop retrying on 401/403
 
 const RULES_URL = 'https://api.twitter.com/2/tweets/search/stream/rules';
 const STREAM_URL = 'https://api.twitter.com/2/tweets/search/stream';
-const RECONNECT_INTERVAL = 60000; // 60s between retries (safe under 50/15min limit)
+const STARTUP_DELAY = 15000;         // 15s delay on boot — let old container die
+const RECONNECT_BASE = 60000;        // 60s minimum between retries
+const RECONNECT_MAX = 600000;        // 10min max backoff
+const RECONNECT_LOG_EVERY = 5;       // only log every 5th attempt to reduce spam
+// X rate limit: 50 connections per 15min — at 60s+ per attempt we max ~15, well under limit
 
 // Rule already created in X Developer Console:
 // ID: 2032833501901533184 | value: @bankr_official | tag: bankr
@@ -37,11 +41,16 @@ async function init(deps) {
 
   try {
     await verifyRules();
-    connect();
   } catch (err) {
     console.error('X Stream init error:', err.message);
-    scheduleReconnect();
   }
+
+  // Delay first connection to let previous container's stream die
+  console.log(`X Stream: Waiting ${STARTUP_DELAY / 1000}s before connecting (letting old connections expire)...`);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connect();
+  }, STARTUP_DELAY);
 }
 
 // Verify streaming rule exists (created manually in X Developer Console)
@@ -71,7 +80,6 @@ async function verifyRules() {
 }
 
 function cleanupConnection() {
-  // Destroy any existing connection before opening a new one
   if (streamReq) {
     try { streamReq.destroy(); } catch {}
     streamReq = null;
@@ -80,8 +88,12 @@ function cleanupConnection() {
   connecting = false;
 }
 
+function getReconnectDelay() {
+  // Exponential backoff: 60s, 120s, 240s, ... capped at 10min
+  return Math.min(RECONNECT_BASE * Math.pow(2, Math.min(reconnectAttempts, 6)), RECONNECT_MAX);
+}
+
 function connect() {
-  // Guard: never open two connections
   if (connected || connecting || permanentlyDisabled) return;
 
   const token = getBearerToken();
@@ -93,7 +105,6 @@ function connect() {
 
   connecting = true;
 
-  // Always clean up before connecting
   if (streamReq) {
     try { streamReq.destroy(); } catch {}
     streamReq = null;
@@ -116,9 +127,17 @@ function connect() {
       let body = '';
       res.on('data', c => { body += c; });
       res.on('end', () => {
-        console.warn(`X Stream: 429 — ${body.slice(0, 300)}`);
+        const isTooMany = body.includes('TooManyConnections');
+        // Only log TooManyConnections every Nth attempt to reduce spam
+        if (!isTooMany || reconnectAttempts % RECONNECT_LOG_EVERY === 0) {
+          console.warn(`X Stream: 429 — ${isTooMany ? 'TooManyConnections' : body.slice(0, 200)} (attempt ${reconnectAttempts + 1})`);
+        }
         connecting = false;
-        scheduleReconnect(retryAfter ? parseInt(retryAfter) * 1000 : undefined);
+        if (retryAfter) {
+          scheduleReconnect(parseInt(retryAfter) * 1000);
+        } else {
+          scheduleReconnect();
+        }
       });
       return;
     }
@@ -194,9 +213,12 @@ function connect() {
 
 function scheduleReconnect(forceDelay) {
   if (reconnectTimer || permanentlyDisabled) return;
-  const delay = forceDelay || RECONNECT_INTERVAL;
+  const delay = forceDelay || getReconnectDelay();
   reconnectAttempts++;
-  console.log(`X Stream: Reconnecting in ${Math.round(delay / 1000)}s (attempt ${reconnectAttempts})`);
+  // Only log reconnect schedule every Nth attempt
+  if (reconnectAttempts <= 3 || reconnectAttempts % RECONNECT_LOG_EVERY === 0) {
+    console.log(`X Stream: Reconnecting in ${Math.round(delay / 1000)}s (attempt ${reconnectAttempts})`);
+  }
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     connect();
