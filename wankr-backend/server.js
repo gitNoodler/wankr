@@ -1307,6 +1307,9 @@ if (Object.keys(handleTracker).length > 0) {
   console.log(`🤖 Scored ${Object.keys(handleTracker).length} handles — ${flagged} flagged`);
 }
 
+// Wire launch cache into response pipeline so Wankr recognizes token names from the feed
+responsePipeline.setLaunchCacheProvider(getCachedLaunches);
+
 function saveLaunchCache() {
   try {
     fs.writeFileSync(LAUNCH_CACHE_FILE, JSON.stringify(Object.fromEntries(launchCache), null, 2));
@@ -1571,7 +1574,8 @@ setInterval(pollGrokLaunches, GROK_POLL_INTERVAL);
 
 app.get('/api/pipeline/launch-feed', (req, res) => {
   // Always return cached data immediately — Grok polls in background
-  res.json({ source: 'cache', launches: getCachedLaunches() });
+  const nextPollIn = Math.max(0, GROK_POLL_INTERVAL - (Date.now() - lastGrokPoll));
+  res.json({ source: 'cache', launches: getCachedLaunches(), nextPollIn });
 });
 
 // --- API: Handle tracker (for reviewing repeat deployers) ---

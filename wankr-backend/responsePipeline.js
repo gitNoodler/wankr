@@ -11,6 +11,23 @@ const handleAnalysisStore = require('./handleAnalysisStore');
 const mockDataTools = require('./mockDataTools');
 const cryptoDataTools = require('./cryptoDataTools');
 
+// ── Bankr launch cache lookup (injected from server.js) ────────────────
+let _getLaunchCache = null;
+function setLaunchCacheProvider(fn) { _getLaunchCache = fn; }
+
+function matchLaunchByName(message) {
+  if (!_getLaunchCache) return [];
+  const launches = _getLaunchCache();
+  if (!launches || launches.length === 0) return [];
+  const msgLower = message.toLowerCase();
+  return launches.filter(l => {
+    const name = (l.tokenName || '').toLowerCase().trim();
+    const symbol = (l.tokenSymbol || '').toLowerCase().trim();
+    if (!name || name === 'unknown') return false;
+    return msgLower.includes(name) || (symbol && symbol !== '???' && msgLower.includes(symbol));
+  });
+}
+
 // ── Classification states ──────────────────────────────────────────────
 const STATES = {
   FULL_CLEAN: 'FULL_CLEAN',
@@ -155,7 +172,8 @@ async function gatherDataAsync(entities, xaiApiKey) {
 
 // ── Classification ─────────────────────────────────────────────────────
 function classify(entities, data) {
-  const hasEntities = entities.handles.length > 0 || entities.tokens.length > 0 || entities.wallets.length > 0;
+  const hasLaunchMatch = (data.launchMatches || []).length > 0;
+  const hasEntities = entities.handles.length > 0 || entities.tokens.length > 0 || entities.wallets.length > 0 || hasLaunchMatch;
 
   // No entities and no analysis intent → SKIP
   if (!hasEntities && !entities.hasAnalysisIntent) {
@@ -283,6 +301,23 @@ function buildDataContext(classification, data, entities) {
 
   }
 
+  // Bankr launch feed matches
+  const launches = data.launchMatches || [];
+  if (launches.length > 0) {
+    blocks.push('[BANKR LAUNCH FEED — from X via Grok]');
+    for (const l of launches) {
+      blocks.push(
+        `  Token: ${l.tokenName} ($${l.tokenSymbol})`,
+        `  Contract: ${l.contractAddress || 'unknown'}`,
+        `  Requested by: ${l.requestedBy || 'unknown'}`,
+        `  Community: ${l.communityReaction || 'neutral'} — ${l.reactionNote || ''}`,
+        `  Bot Score: ${l.botScore ?? 'N/A'} | Bot Flag: ${l.botFlag || 'none'}`,
+        `  First seen: ${l.firstSeen || l.timestamp || 'unknown'}`,
+        ''
+      );
+    }
+  }
+
   return blocks.length > 0 ? '\n--- PIPELINE DATA CONTEXT ---\n' + blocks.join('\n') + '--- END PIPELINE DATA ---' : '';
 }
 
@@ -322,7 +357,19 @@ function runPipeline(message, history) {
 // ── Async pipeline orchestrator ────────────────────────────────────────
 async function runPipelineAsync(message, history, xaiApiKey) {
   const entities = extractEntities(message);
+  // Match token names/symbols from bankr launch cache
+  const launchMatches = matchLaunchByName(message);
+  if (launchMatches.length > 0) {
+    entities.launchMatches = launchMatches;
+    // Pull contract addresses into wallets for on-chain lookup
+    for (const l of launchMatches) {
+      if (l.contractAddress && !entities.wallets.includes(l.contractAddress)) {
+        entities.wallets.push(l.contractAddress);
+      }
+    }
+  }
   const data = await gatherDataAsync(entities, xaiApiKey);
+  data.launchMatches = launchMatches;
   const classification = classify(entities, data);
 
   const pipelineActive = classification.state !== STATES.SKIP;
@@ -362,6 +409,7 @@ module.exports = {
   buildDataContext,
   runPipeline,
   runPipelineAsync,
+  setLaunchCacheProvider,
   STATES,
   PERSONA_MODES,
 };

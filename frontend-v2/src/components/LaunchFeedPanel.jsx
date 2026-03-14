@@ -86,13 +86,18 @@ function LaunchFeedPanel({ onClose }) {
   const [launches, setLaunches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
+  const [countdown, setCountdown] = useState(null);
   const prevHashRef = useRef('');
+  const nextPollAtRef = useRef(null);
 
   const loadFeed = useCallback(async () => {
     try {
       const res = await api.get('/api/pipeline/launch-feed');
       const data = await res.json();
       const incoming = data.launches || [];
+      if (typeof data.nextPollIn === 'number') {
+        nextPollAtRef.current = Date.now() + data.nextPollIn;
+      }
       // Skip state update if data hasn't changed (prevents re-render flicker)
       const hash = incoming.map(l => `${l.contractAddress || l.tokenName}:${l.botFlag || ''}`).join('|');
       if (hash !== prevHashRef.current) {
@@ -109,6 +114,20 @@ function LaunchFeedPanel({ onClose }) {
     const interval = setInterval(loadFeed, 60000);
     return () => clearInterval(interval);
   }, [loadFeed]);
+
+  // Countdown timer
+  useEffect(() => {
+    const tick = () => {
+      if (!nextPollAtRef.current) return setCountdown(null);
+      const secs = Math.max(0, Math.round((nextPollAtRef.current - Date.now()) / 1000));
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      setCountdown(`${m}:${String(s).padStart(2, '0')}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div
@@ -133,17 +152,29 @@ function LaunchFeedPanel({ onClose }) {
         borderBottom: '1px solid rgba(100, 100, 100, 0.4)',
         flexShrink: 0,
       }}>
-        <h3 className="font-wankr" style={{
-          margin: 0,
-          fontSize: 'calc(13px * var(--scale))',
-          fontWeight: 700,
-          color: '#ff6633',
-          letterSpacing: '2px',
-          textTransform: 'uppercase',
-          textShadow: '0 0 8px rgba(255, 100, 50, 0.5)',
-        }}>
-          Bankr Launches
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(8px * var(--scale))' }}>
+          <h3 className="font-wankr" style={{
+            margin: 0,
+            fontSize: 'calc(13px * var(--scale))',
+            fontWeight: 700,
+            color: '#ff6633',
+            letterSpacing: '2px',
+            textTransform: 'uppercase',
+            textShadow: '0 0 8px rgba(255, 100, 50, 0.5)',
+          }}>
+            Bankr Launches
+          </h3>
+          {countdown && (
+            <span style={{
+              fontSize: 'calc(9px * var(--scale))',
+              color: '#888',
+              fontFamily: 'monospace',
+              letterSpacing: '1px',
+            }}>
+              {countdown}
+            </span>
+          )}
+        </div>
         {onClose && (
           <button type="button" onClick={onClose} style={{
             background: 'transparent', border: '1px solid rgba(255,100,100,0.4)',
