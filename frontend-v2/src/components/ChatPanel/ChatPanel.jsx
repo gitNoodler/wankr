@@ -6,6 +6,43 @@ const VIRTUAL_LIST_THRESHOLD = 50;
 
 const AT_BOTTOM_THRESHOLD = 80;
 
+// Format message content: convert bullet/numbered lines into <ul><li> elements
+function formatMessage(content) {
+  if (!content) return null;
+  const lines = String(content).split('\n');
+  const elements = [];
+  let listBuffer = [];
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    elements.push(
+      <ul key={`ul-${elements.length}`} style={{ margin: '4px 0', paddingLeft: '1.2em', listStyleType: 'disc' }}>
+        {listBuffer.map((text, i) => <li key={i} style={{ marginBottom: 2 }}>{text}</li>)}
+      </ul>
+    );
+    listBuffer = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const bulletMatch = line.match(/^\s*[-*•]\s+(.+)/);
+    const numMatch = line.match(/^\s*\d+[.)]\s+(.+)/);
+    if (bulletMatch || numMatch) {
+      listBuffer.push((bulletMatch || numMatch)[1]);
+    } else {
+      flushList();
+      if (line.trim() === '') {
+        if (elements.length > 0) elements.push(<br key={`br-${i}`} />);
+      } else {
+        if (elements.length > 0) elements.push(<br key={`br-${i}`} />);
+        elements.push(<span key={`t-${i}`}>{line}</span>);
+      }
+    }
+  }
+  flushList();
+  return elements;
+}
+
 function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isDev }) {
   const scrollContainerRef = useRef(null);
   const listRef = useRef(null);
@@ -122,7 +159,7 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isD
           </div>
         )}
         <div className="wankr-message-bubble">
-          {m.content}
+          {formatMessage(m.content)}
         </div>
       </div>
     );
@@ -269,7 +306,7 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isD
                   </div>
                 )}
                 <div className="wankr-message-bubble">
-                  {m.content}
+                  {formatMessage(m.content)}
                 </div>
               </div>
             ))}

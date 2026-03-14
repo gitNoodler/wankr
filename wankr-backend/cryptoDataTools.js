@@ -152,9 +152,9 @@ async function fetchBankrLaunches(xaiApiKey, options = {}) {
       "tokenSymbol": "string",
       "contractAddress": "0x... or empty if not mentioned",
       "announcement": "brief description of the launch post",
-      "requestedBy": "@handle who asked bankr to create the token, or empty if unknown",
+      "requestedBy": "@handle who asked bankr to create the token, or empty if unknown",${`
       "communityReaction": "positive" | "negative" | "mixed" | "neutral",
-      "reactionNote": "1 sentence summary of community sentiment",
+      "reactionNote": "1 sentence summary of community sentiment",`}
       "timestamp": "ISO date or approximate like '2 days ago'",
       "postAuthor": "@handle who posted about it"
     }
@@ -166,7 +166,7 @@ Return up to 15 most recent launches. If nothing found return {"launches": []}.`
             role: 'user',
             content: sinceDate
               ? `Search X for token launches from @bankr_official or Bankr bot on Base posted AFTER ${sinceDate}. Only new launches — skip anything before that date. For each launch, find who requested the token creation. Include community reaction and sentiment from the replies.`
-              : 'Search X for the most recent token launches from @bankr_official or Bankr bot on Base. For each launch, find who requested the token creation (the user handle that asked bankr to deploy). Include community reaction and sentiment from the replies.'
+              : `Search X for the most recent token launches from @bankr_official or Bankr bot on Base. For each launch, find who requested the token creation (the user handle that asked bankr to deploy). Include community reaction and sentiment from the replies.`
           },
         ],
         tools: [{ type: 'x_search' }],
@@ -259,9 +259,149 @@ async function fetchTokenInfo(address) {
   }
 }
 
+// ── xAI Batch API: submit launch poll as batch request ──────────────────
+const BATCH_ID = 'batch_e82402db-0c72-4e0d-916e-5460f751bdaa';
+
+function buildLaunchMessages(options = {}) {
+  const { sinceDate, knownNames } = options;
+  const sinceClause = sinceDate
+    ? `\nIMPORTANT: Only return launches posted AFTER ${sinceDate}. Skip anything older.`
+    : '';
+  const knownClause = knownNames && knownNames.length > 0
+    ? `\nSkip these tokens we already know about: ${knownNames.slice(0, 30).join(', ')}.`
+    : '';
+
+  return [
+    {
+      role: 'system',
+      content: `Search X for recent posts from or about @bankr_official token launches on Base chain. Find the most recent token deployments, launches, or announcements. For each launch, identify who REQUESTED the token creation (the @handle that replied to or tagged @bankrbot asking to deploy).${sinceClause}${knownClause} Return ONLY valid JSON:
+{
+  "launches": [
+    {
+      "tokenName": "string",
+      "tokenSymbol": "string",
+      "contractAddress": "0x... or empty if not mentioned",
+      "announcement": "brief description of the launch post",
+      "requestedBy": "@handle who asked bankr to create the token, or empty if unknown",${`
+      "communityReaction": "positive" | "negative" | "mixed" | "neutral",
+      "reactionNote": "1 sentence summary of community sentiment",`}
+      "timestamp": "ISO date or approximate like '2 days ago'",
+      "postAuthor": "@handle who posted about it"
+    }
+  ]
+}
+Return up to 15 most recent launches. If nothing found return {"launches": []}.`
+    },
+    {
+      role: 'user',
+      content: sinceDate
+        ? `Search X for token launches from @bankr_official or Bankr bot on Base posted AFTER ${sinceDate}. Only new launches — skip anything before that date. For each launch, find who requested the token creation. Include community reaction and sentiment from the replies.`
+        : `Search X for the most recent token launches from @bankr_official or Bankr bot on Base. For each launch, find who requested the token creation (the user handle that asked bankr to deploy). Include community reaction and sentiment from the replies.`
+    },
+  ];
+}
+
+async function submitBatchLaunchPoll(xaiApiKey, options = {}) {
+  if (!xaiApiKey) return { submitted: false, error: 'No API key' };
+
+  const requestId = `launch_poll_${Date.now()}`;
+  const messages = buildLaunchMessages(options);
+
+  try {
+    const res = await fetch(`https://api.x.ai/v1/batches/${BATCH_ID}/requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiApiKey}` },
+      body: JSON.stringify({
+        batch_requests: [{
+          batch_request_id: requestId,
+          batch_request: {
+            chat_get_completion: {
+              model: 'grok-4-1-fast-non-reasoning',
+              messages,
+              tools: [{ type: 'x_search' }],
+              max_tokens: 2500,
+              temperature: 0.1,
+            }
+          }
+        }]
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('Batch submit error:', data);
+      return { submitted: false, error: data.error || res.statusText };
+    }
+    console.log(`📦 Batch request submitted: ${requestId}`);
+    return { submitted: true, requestId };
+  } catch (err) {
+    console.error('submitBatchLaunchPoll error:', err.message);
+    return { submitted: false, error: err.message };
+  }
+}
+
+async function collectBatchResults(xaiApiKey, options = {}) {
+  if (!xaiApiKey) return { source: 'none', launches: [] };
+  const { skipSentiment } = options;
+
+  try {
+    // Check batch status
+    const statusRes = await fetch(`https://api.x.ai/v1/batches/${BATCH_ID}`, {
+      headers: { 'Authorization': `Bearer ${xaiApiKey}` },
+    });
+    const status = await statusRes.json();
+    const pending = status.state?.num_pending || 0;
+    const succeeded = status.state?.num_success || 0;
+    if (pending > 0) {
+      console.log(`📦 Batch: ${succeeded} done, ${pending} pending`);
+    }
+
+    // Fetch completed results
+    const resultsRes = await fetch(`https://api.x.ai/v1/batches/${BATCH_ID}/results?page_size=100`, {
+      headers: { 'Authorization': `Bearer ${xaiApiKey}` },
+    });
+    const resultsData = await resultsRes.json();
+
+    const allLaunches = [];
+    const processedIds = [];
+    for (const result of (resultsData.succeeded || [])) {
+      // Only process launch_poll results
+      if (!result.batch_request_id?.startsWith('launch_poll_')) continue;
+      processedIds.push(result.batch_request_id);
+
+      const content = result.result?.choices?.[0]?.message?.content || '';
+      const parsed = parseGrokJSON(content);
+      if (!parsed?.launches) continue;
+
+      const launches = (parsed.launches || []).slice(0, 15).map(l => ({
+        tokenName: l.tokenName || 'Unknown',
+        tokenSymbol: l.tokenSymbol || '???',
+        contractAddress: l.contractAddress || '',
+        announcement: l.announcement || '',
+        requestedBy: l.requestedBy || '',
+        communityReaction: skipSentiment ? 'neutral' : (['positive', 'negative', 'mixed', 'neutral'].includes(l.communityReaction) ? l.communityReaction : 'neutral'),
+        reactionNote: skipSentiment ? '' : (l.reactionNote || ''),
+        timestamp: l.timestamp || '',
+        postAuthor: l.postAuthor || '',
+      }));
+      allLaunches.push(...launches);
+    }
+
+    if (processedIds.length > 0) {
+      console.log(`📦 Collected ${allLaunches.length} launches from ${processedIds.length} batch results`);
+    }
+    return { source: processedIds.length > 0 ? 'batch' : 'none', launches: allLaunches, processedIds };
+  } catch (err) {
+    console.error('collectBatchResults error:', err.message);
+    return { source: 'error', launches: [], error: err.message };
+  }
+}
+
 module.exports = {
   fetchHandleIntel,
   fetchBankrLaunches,
   fetchContractSecurity,
   fetchTokenInfo,
+  submitBatchLaunchPoll,
+  collectBatchResults,
+  BATCH_ID,
 };

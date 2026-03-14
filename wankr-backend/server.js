@@ -1436,6 +1436,29 @@ function probeHandleIntel(handle) {
   });
 }
 
+// Sentiment probe for handles under 3 launches — runs after each poll batch
+function probeNewHandleSentiment(launches, apiKey) {
+  const seen = new Set();
+  for (const l of launches) {
+    const handle = (l.requestedBy || '').replace(/^@/, '').toLowerCase().trim();
+    if (!handle || seen.has(handle)) continue;
+    seen.add(handle);
+    const h = handleTracker[handle];
+    if (!h || h.intel || h.totalLaunches >= 3) continue; // skip if already probed or at 3+
+    // One-time intel probe for this new handle
+    h.intel = { pending: true };
+    cryptoDataTools.fetchHandleIntel(handle, apiKey).then(result => {
+      h.intel = result;
+      scoreHandle(handle);
+      saveHandleTracker();
+      console.log(`🔍 Early intel @${handle} (${h.totalLaunches} launches) — botScore: ${h.botScore}, flag: ${h.botFlag || 'none'}`);
+    }).catch(err => {
+      h.intel = { error: err.message };
+      console.error(`Early intel failed for @${handle}:`, err.message);
+    });
+  }
+}
+
 function mergeLaunches(newLaunches) {
   const now = new Date().toISOString();
   let added = 0;
@@ -1485,7 +1508,13 @@ const activeUsers = new Map(); // token → lastSeen timestamp
 const ACTIVE_USER_TTL = 5 * 60 * 1000; // 5 minutes without heartbeat = inactive
 
 function touchUser(token) {
-  if (token) activeUsers.set(token, Date.now());
+  if (!token) return;
+  const wasEmpty = !hasActiveUsers();
+  activeUsers.set(token, Date.now());
+  // Catch-up poll: first user activity after idle triggers an immediate poll
+  if (wasEmpty && (Date.now() - lastGrokPoll > GROK_POLL_INTERVAL)) {
+    pollGrokLaunches();
+  }
 }
 function hasActiveUsers() {
   const cutoff = Date.now() - ACTIVE_USER_TTL;
@@ -1541,41 +1570,84 @@ function getKnownTokenNames() {
   return [...names];
 }
 
+// Phase 1: submit a batch request for new launches
 function pollGrokLaunches() {
   const key = xaiKeyPipeline || xaiApiKey;
   if (!key) return;
-  if (!hasActiveUsers()) return; // No one logged in — skip poll
+  if (!hasActiveUsers()) return; // skip when nobody is online
   lastGrokPoll = Date.now();
 
   const options = {};
   if (pollCursor) options.sinceDate = pollCursor;
   options.knownNames = getKnownTokenNames();
 
-  cryptoDataTools.fetchBankrLaunches(key, options).then(result => {
+  // Submit to batch API (async, results collected separately)
+  cryptoDataTools.submitBatchLaunchPoll(key, options).catch(err =>
+    console.error('Batch submit error:', err.message)
+  );
+}
+
+// Phase 2: collect completed batch results and merge into cache
+function collectBatchLaunches() {
+  const key = xaiKeyPipeline || xaiApiKey;
+  if (!key) return;
+
+  cryptoDataTools.collectBatchResults(key, {}).then(result => {
     if (result.launches?.length) {
       mergeLaunches(result.launches);
-      // Advance cursor to the newest launch timestamp
       for (const l of result.launches) {
         const ts = l.timestamp;
         if (ts && (!pollCursor || ts > pollCursor)) pollCursor = ts;
       }
-      // Also use firstSeen from cache entries (more reliable than Grok's approximate timestamps)
       for (const l of launchCache.values()) {
         const ts = l.firstSeen;
         if (ts && (!pollCursor || ts > pollCursor)) pollCursor = ts;
       }
       savePollCursor();
+      probeNewHandleSentiment(result.launches, key);
     }
-  }).catch(err => console.error('Launch poll error:', err.message));
+  }).catch(err => console.error('Batch collect error:', err.message));
 }
 
-// Poll every minute — skips automatically if no users are active
+// Submit every 5 min, collect results every 2 min
 setInterval(pollGrokLaunches, GROK_POLL_INTERVAL);
+setInterval(collectBatchLaunches, 120000);
 
 app.get('/api/pipeline/launch-feed', (req, res) => {
   // Always return cached data immediately — Grok polls in background
   const nextPollIn = Math.max(0, GROK_POLL_INTERVAL - (Date.now() - lastGrokPoll));
   res.json({ source: 'cache', launches: getCachedLaunches(), nextPollIn });
+});
+
+// Panel-entry poll: full sentiment query (one-time on panel open)
+let lastSentimentPoll = 0;
+const SENTIMENT_COOLDOWN = 300000; // 5 min cooldown between sentiment polls
+app.post('/api/pipeline/launch-feed/sentiment', async (req, res) => {
+  const key = xaiKeyPipeline || xaiApiKey;
+  if (!key) return res.json({ source: 'cache', launches: getCachedLaunches() });
+  // Cooldown: don't re-run sentiment if we just did it
+  if (Date.now() - lastSentimentPoll < SENTIMENT_COOLDOWN) {
+    return res.json({ source: 'cache', launches: getCachedLaunches(), skipped: 'cooldown' });
+  }
+  lastSentimentPoll = Date.now();
+  try {
+    const options = {};
+    if (pollCursor) options.sinceDate = pollCursor;
+    options.knownNames = getKnownTokenNames();
+    const result = await cryptoDataTools.fetchBankrLaunches(key, options);
+    if (result.launches?.length) {
+      mergeLaunches(result.launches);
+      for (const l of result.launches) {
+        const ts = l.timestamp;
+        if (ts && (!pollCursor || ts > pollCursor)) pollCursor = ts;
+      }
+      savePollCursor();
+    }
+    res.json({ source: 'live', launches: getCachedLaunches() });
+  } catch (err) {
+    console.error('Sentiment poll error:', err.message);
+    res.json({ source: 'cache', launches: getCachedLaunches(), error: err.message });
+  }
 });
 
 // --- API: Handle tracker (for reviewing repeat deployers) ---

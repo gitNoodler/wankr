@@ -82,11 +82,31 @@ function groupLaunches(launches) {
   });
 }
 
+// Group launches by requesting handle for handle-view mode
+function groupByHandle(launches) {
+  const map = {};
+  for (const l of launches) {
+    const handle = (l.requestedBy || l.postAuthor || 'unknown').trim();
+    if (!map[handle]) map[handle] = { handle, launches: [], botFlag: null };
+    map[handle].launches.push(l);
+    const flag = l.botFlag;
+    if (flag === 'likely' || (flag === 'suspicious' && map[handle].botFlag !== 'likely')) {
+      map[handle].botFlag = flag;
+    }
+  }
+  // Sort: most launches first
+  return Object.values(map).sort((a, b) => b.launches.length - a.launches.length);
+}
+
+const HANDLE_3PLUS_COLOR = '#ff6633'; // orange highlight for 3+ launch handles
+const HANDLE_NORMAL_COLOR = '#ff9944';
+
 function LaunchFeedPanel({ onClose }) {
   const [launches, setLaunches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [countdown, setCountdown] = useState(null);
+  const [viewMode, setViewMode] = useState('token'); // 'token' | 'handle'
   const prevHashRef = useRef('');
   const nextPollAtRef = useRef(null);
 
@@ -111,6 +131,17 @@ function LaunchFeedPanel({ onClose }) {
 
   useEffect(() => {
     loadFeed();
+    // One-time sentiment poll on panel open — refreshes cache with full sentiment data
+    api.post('/api/pipeline/launch-feed/sentiment').then(r => r.json()).then(data => {
+      if (data.launches?.length && !data.skipped) {
+        const incoming = data.launches;
+        const hash = incoming.map(l => `${l.contractAddress || l.tokenName}:${l.botFlag || ''}`).join('|');
+        if (hash !== prevHashRef.current) {
+          prevHashRef.current = hash;
+          setLaunches(incoming);
+        }
+      }
+    }).catch(() => {});
     const interval = setInterval(loadFeed, 60000);
     return () => clearInterval(interval);
   }, [loadFeed]);
@@ -174,6 +205,25 @@ function LaunchFeedPanel({ onClose }) {
               {countdown}
             </span>
           )}
+          <button
+            type="button"
+            onClick={() => { setViewMode(v => v === 'token' ? 'handle' : 'token'); setExpanded(null); }}
+            style={{
+              background: viewMode === 'handle' ? 'rgba(255, 102, 51, 0.2)' : 'rgba(255,255,255,0.06)',
+              border: `1px solid ${viewMode === 'handle' ? 'rgba(255,102,51,0.5)' : 'rgba(100,100,100,0.4)'}`,
+              borderRadius: 'calc(4px * var(--scale))',
+              color: viewMode === 'handle' ? '#ff6633' : '#888',
+              fontSize: 'calc(8px * var(--scale))',
+              fontWeight: 700,
+              padding: 'calc(2px * var(--scale)) calc(6px * var(--scale))',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              transition: 'all 0.15s',
+            }}
+          >
+            {viewMode === 'handle' ? 'Handles' : 'Tokens'}
+          </button>
         </div>
         {onClose && (
           <button type="button" onClick={onClose} style={{
@@ -212,7 +262,127 @@ function LaunchFeedPanel({ onClose }) {
           </div>
         )}
 
-        {groupLaunches(launches).map((launch, i) => {
+        {viewMode === 'handle' ? (
+          /* ── Handle View ── */
+          groupByHandle(launches).map((group, i) => {
+            const isExpanded = expanded === i;
+            const is3Plus = group.launches.length >= 3;
+            const handleColor = is3Plus ? HANDLE_3PLUS_COLOR : HANDLE_NORMAL_COLOR;
+
+            return (
+              <div
+                key={i}
+                onClick={() => setExpanded(isExpanded ? null : i)}
+                style={{
+                  padding: 'calc(8px * var(--scale))',
+                  background: is3Plus ? 'rgba(255, 102, 51, 0.06)' : 'rgba(0, 255, 65, 0.03)',
+                  border: `1px solid ${is3Plus ? 'rgba(255, 102, 51, 0.3)' : 'rgba(100, 100, 100, 0.2)'}`,
+                  borderRadius: 'calc(4px * var(--scale))',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                {/* Handle summary */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: 'calc(6px * var(--scale))',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', minWidth: 0 }}>
+                    <span style={{
+                      color: handleColor, fontWeight: 700, fontSize: 'calc(11px * var(--scale))',
+                      textShadow: is3Plus ? '0 0 6px rgba(255, 102, 51, 0.4)' : 'none',
+                    }}>
+                      {group.handle}
+                    </span>
+                    <span style={{
+                      fontSize: 'calc(8px * var(--scale))',
+                      fontWeight: 700,
+                      color: is3Plus ? '#fff' : '#111',
+                      background: is3Plus ? '#ff3333' : '#666',
+                      borderRadius: 'calc(3px * var(--scale))',
+                      padding: '0 calc(4px * var(--scale))',
+                      lineHeight: 'calc(14px * var(--scale))',
+                      flexShrink: 0,
+                    }}>
+                      {group.launches.length} launch{group.launches.length !== 1 ? 'es' : ''}
+                    </span>
+                    <BotBadge flag={group.botFlag} />
+                  </div>
+                  <span style={{
+                    fontSize: 'calc(10px * var(--scale))',
+                    color: '#666',
+                    transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.15s',
+                  }}>
+                    ▼
+                  </span>
+                </div>
+
+                {/* Expanded: all launches for this handle */}
+                {isExpanded && (
+                  <div style={{
+                    marginTop: 'calc(6px * var(--scale))',
+                    paddingTop: 'calc(6px * var(--scale))',
+                    borderTop: `1px solid ${is3Plus ? 'rgba(255, 102, 51, 0.2)' : 'rgba(100, 100, 100, 0.3)'}`,
+                    fontSize: 'calc(9px * var(--scale))',
+                    color: 'var(--text-content)',
+                    display: 'flex', flexDirection: 'column', gap: 'calc(4px * var(--scale))',
+                  }}>
+                    {group.launches.map((entry, j) => {
+                      const rc = REACTION_COLORS[entry.communityReaction] || '#666';
+                      return (
+                        <div key={j} style={{
+                          paddingBottom: j < group.launches.length - 1 ? 'calc(4px * var(--scale))' : 0,
+                          borderBottom: j < group.launches.length - 1 ? '1px solid rgba(100,100,100,0.15)' : 'none',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))' }}>
+                            <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 'calc(10px * var(--scale))' }}>
+                              {entry.tokenName}
+                            </span>
+                            <span style={{ color: 'var(--text-muted-content)', fontSize: 'calc(8px * var(--scale))' }}>
+                              ${entry.tokenSymbol}
+                            </span>
+                            <span style={{
+                              display: 'inline-block', width: 'calc(6px * var(--scale))', height: 'calc(6px * var(--scale))',
+                              borderRadius: '50%', background: rc, flexShrink: 0,
+                            }} />
+                            <span style={{ color: rc, fontWeight: 600, textTransform: 'uppercase', fontSize: 'calc(7px * var(--scale))' }}>
+                              {entry.communityReaction}
+                            </span>
+                          </div>
+                          {entry.announcement && (
+                            <div style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.4, marginTop: 'calc(2px * var(--scale))' }}>
+                              {entry.announcement}
+                            </div>
+                          )}
+                          {entry.reactionNote && (
+                            <div style={{ color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>
+                              {entry.reactionNote}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--scale))', marginTop: 'calc(2px * var(--scale))' }}>
+                            {entry.contractAddress && (
+                              <span style={{ fontFamily: 'monospace', fontSize: 'calc(8px * var(--scale))', color: '#888' }}>
+                                {shortenAddress(entry.contractAddress)}
+                              </span>
+                            )}
+                            {entry.timestamp && (
+                              <span style={{ fontSize: 'calc(7px * var(--scale))', color: '#555' }}>
+                                {entry.timestamp}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          /* ── Token View (existing) ── */
+          groupLaunches(launches).map((launch, i) => {
           const isExpanded = expanded === i;
           const reactionColor = REACTION_COLORS[launch.communityReaction] || '#666';
 
@@ -348,7 +518,8 @@ function LaunchFeedPanel({ onClose }) {
               )}
             </div>
           );
-        })}
+        })
+        )}
       </div>
 
       {/* Footer */}
@@ -360,7 +531,10 @@ function LaunchFeedPanel({ onClose }) {
         borderTop: '1px solid rgba(100, 100, 100, 0.3)',
         fontSize: 'calc(8px * var(--scale))',
       }}>
-        {groupLaunches(launches).length} tokens ({launches.length} launches) | Powered by Grok x_search
+        {viewMode === 'handle'
+          ? `${groupByHandle(launches).length} handles (${launches.length} launches)`
+          : `${groupLaunches(launches).length} tokens (${launches.length} launches)`
+        } | Powered by Grok x_search
       </div>
     </div>
   );
