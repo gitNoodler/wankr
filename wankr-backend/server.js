@@ -247,7 +247,7 @@ app.post('/api/auth/register', async (req, res) => {
   const { username, password, email } = req.body || {};
   const result = await authSvc.register(username, password, email);
   if (!result.ok) return res.status(400).json({ error: result.error });
-  res.json({ token: result.token, username: result.username });
+  res.json({ token: result.token, username: result.username, isDev: !!result.isDev });
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -299,7 +299,7 @@ app.post('/api/auth/wallet/register', async (req, res) => {
   }
   const result = await authSvc.walletRegister(nonceId, chain, address, signature, username);
   if (!result.ok) return res.status(400).json({ error: result.error });
-  res.json({ token: result.token, username: result.username });
+  res.json({ token: result.token, username: result.username, isDev: !!result.isDev });
 });
 
 app.post('/api/auth/wallet/link', async (req, res) => {

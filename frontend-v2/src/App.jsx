@@ -457,7 +457,7 @@ export default function App() {
           muted={groove.muted}
           onVolumeChange={groove.setVolume}
           onToggleMute={groove.toggleMute}
-          onDevMaster={(location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? () => setDevMasterOpen((o) => !o) : undefined}
+          onDevMaster={isDev ? () => setDevMasterOpen((o) => !o) : undefined}
           devMasterOpen={devMasterOpen}
         />
         <div
@@ -551,7 +551,7 @@ export default function App() {
             onVolumeChange={groove.setVolume}
             onToggleMute={groove.toggleMute}
           />
-          {(location.hostname === 'localhost' || location.hostname === '127.0.0.1') && (
+          {isDev && (
             <button
               type="button"
               onClick={() => setDevMasterOpen((o) => !o)}
@@ -582,7 +582,7 @@ export default function App() {
           )}
         </>
       )}
-      {devMasterOpen && (location.hostname === 'localhost' || location.hostname === '127.0.0.1') && <DevMasterPanel />}
+      {devMasterOpen && isDev && <DevMasterPanel />}
     </div>
   );
 }

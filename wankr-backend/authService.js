@@ -120,7 +120,8 @@ async function register(username, password, email) {
   // Create session with request casing so archives are case-sensitive
   const requestUsername = String(username || '').trim();
   const token = createSession(requestUsername);
-  return { ok: true, username: requestUsername, token };
+  const isDev = DEVELOPERS.includes(name);
+  return { ok: true, username: requestUsername, token, isDev };
 }
 
 // Special bot account - always online, used for training
@@ -149,7 +150,8 @@ async function login(username, password) {
   // Create session with request casing so archives are case-sensitive
   const requestUsername = String(username || '').trim();
   const token = createSession(requestUsername);
-  return { ok: true, username: requestUsername, token };
+  const isDev = DEVELOPERS.includes(name);
+  return { ok: true, username: requestUsername, token, isDev };
 }
 
 // --- Username availability check ---
@@ -370,7 +372,8 @@ async function walletLogin(nonceId, chain, address, signature) {
     // Known address — auto-login
     const username = wallets[addrKey];
     const token = createSession(username);
-    return { ok: true, username, token };
+    const isDev = DEVELOPERS.includes(normalizeUsername(username));
+    return { ok: true, username, token, isDev };
   }
   // New wallet — frontend must show username picker
   return { ok: true, isNewWallet: true };
@@ -382,9 +385,6 @@ async function walletRegister(nonceId, chain, address, signature, username) {
   if (name.length > 20) return { ok: false, error: 'Username must be 20 characters or less' };
   if (!/^[a-z0-9_]+$/.test(name)) return { ok: false, error: 'Username can only contain letters, numbers, and underscores' };
   if (RESERVED_USERNAMES.includes(name)) return { ok: false, error: 'This username is reserved' };
-
-  const registry = loadRegistry();
-  if (registry.includes(name)) return { ok: false, error: 'Username already taken' };
 
   const nonceEntry = consumeNonce(nonceId);
   if (!nonceEntry) return { ok: false, error: 'Invalid or expired nonce' };
@@ -401,13 +401,36 @@ async function walletRegister(nonceId, chain, address, signature, username) {
   }
   if (!valid) return { ok: false, error: 'Invalid signature' };
 
-  // Create user record (no passwordHash — wallet-only account)
+  const registry = loadRegistry();
   const users = loadUsers();
+  const addrKey = address.toLowerCase();
   const addrField = chain === 'evm' ? 'evmAddresses' : 'solanaAddresses';
+
+  // If username exists, try to re-link wallet (handles lost wallet mappings)
+  if (registry.includes(name)) {
+    const existingUser = users.find(u => u.username === name);
+    if (!existingUser) return { ok: false, error: 'Username already taken' };
+    // Only allow re-link for wallet-only accounts (no password set)
+    if (existingUser.passwordHash) return { ok: false, error: 'Username already taken' };
+    // Re-link: add wallet address to existing account
+    if (!existingUser[addrField]) existingUser[addrField] = [];
+    if (!existingUser[addrField].includes(addrKey)) existingUser[addrField].push(addrKey);
+    saveUsers(users);
+    const wallets = loadWalletAddresses();
+    wallets[addrKey] = name;
+    saveWalletAddresses(wallets);
+    console.log(`🔗 Wallet re-linked to existing account: ${name}`);
+    const requestUsername = String(username || '').trim();
+    const token = createSession(requestUsername);
+    const isDev = DEVELOPERS.includes(name);
+    return { ok: true, username: requestUsername, token, isDev };
+  }
+
+  // New user — create record
   const userRecord = {
     username: name,
     createdAt: new Date().toISOString(),
-    [addrField]: [address.toLowerCase()],
+    [addrField]: [addrKey],
   };
   users.push(userRecord);
   saveUsers(users);
@@ -416,12 +439,13 @@ async function walletRegister(nonceId, chain, address, signature, username) {
 
   // Map address to username
   const wallets = loadWalletAddresses();
-  wallets[address.toLowerCase()] = name;
+  wallets[addrKey] = name;
   saveWalletAddresses(wallets);
 
   const requestUsername = String(username || '').trim();
   const token = createSession(requestUsername);
-  return { ok: true, username: requestUsername, token };
+  const isDev = DEVELOPERS.includes(name);
+  return { ok: true, username: requestUsername, token, isDev };
 }
 
 async function linkWallet(sessionToken, nonceId, chain, address, signature) {

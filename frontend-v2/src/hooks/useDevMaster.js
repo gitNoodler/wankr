@@ -42,10 +42,8 @@ export function useDevMaster() {
     return () => clearInterval(interval);
   }, [visible]);
 
-  // Ctrl+Shift+D keyboard shortcut — local only
+  // Ctrl+Shift+D keyboard shortcut — dev accounts only (gated by App.jsx isDev)
   useEffect(() => {
-    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (!isLocal) return;
     function handleKey(e) {
       if (e.ctrlKey && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
