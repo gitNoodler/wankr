@@ -74,7 +74,10 @@ async function verifyRules() {
   const data = await res.json();
   const rules = data.data || [];
   if (rules.length > 0) {
-    console.log(`✅ X Stream: ${rules.length} rule(s) active — ${rules.map(r => r.value).join(', ')}`);
+    for (const r of rules) {
+      console.log(`  📏 Rule ${r.id}: "${r.value}" ${r.tag ? `[${r.tag}]` : ''}`);
+    }
+    console.log(`✅ X Stream: ${rules.length} rule(s) active`);
   } else {
     console.warn('⚠️ X Stream: No rules found — add rules in X Developer Console');
   }
