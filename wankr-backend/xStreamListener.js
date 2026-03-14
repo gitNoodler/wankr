@@ -23,7 +23,7 @@ const RECONNECT_LOG_EVERY = 5;       // only log every 5th attempt to reduce spa
 // X rate limit: 50 connections per 15min — at 60s+ per attempt we max ~15, well under limit
 
 // Rule already created in X Developer Console:
-// ID: 2032833501901533184 | value: @bankr_official | tag: bankr
+// ID: 2032963076585304066 | value: @bankrbot | tag: bankr
 
 async function init(deps) {
   getBearerToken = deps.getBearerToken;
@@ -170,7 +170,7 @@ function connect() {
     connected = true;
     connecting = false;
     reconnectAttempts = 0;
-    console.log('🔴 X Stream: Connected — listening for @bankr_official tweets');
+    console.log('🔴 X Stream: Connected — listening for @bankrbot tweets');
 
     let buffer = '';
     res.on('data', (chunk) => {
