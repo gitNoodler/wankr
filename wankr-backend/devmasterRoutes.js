@@ -5,7 +5,7 @@ const path = require('path');
 // Dependencies injected via init()
 let ROOT, PORT, spectatorClients, isClientOnline;
 let getXaiKeyChat, getXaiApiKey;
-let launchPipeline, responseValidator, cryptoDataTools, authSvc;
+let launchPipeline, responseValidator, cryptoDataTools, authSvc, xStreamListener;
 
 function init(app, deps) {
   ROOT = deps.ROOT;
@@ -18,6 +18,7 @@ function init(app, deps) {
   responseValidator = deps.responseValidator;
   cryptoDataTools = deps.cryptoDataTools;
   authSvc = deps.authSvc;
+  xStreamListener = deps.xStreamListener;
 
   const QUARANTINE_DIR = path.join(ROOT, '__quarantine__');
   const QUARANTINE_MANIFEST = path.join(QUARANTINE_DIR, 'manifest.json');
@@ -298,7 +299,11 @@ function init(app, deps) {
       cacheEntries: launchCache.size,
     };
 
-    res.json({ xai, launches, handles, users, pipeline, system });
+    // X Stream
+    let xStream = null;
+    try { xStream = xStreamListener?.getStatus() || null; } catch {}
+
+    res.json({ xai, launches, handles, users, pipeline, system, xStream });
   });
 }
 

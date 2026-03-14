@@ -75,6 +75,7 @@ let xaiApiKey = null;         // legacy fallback
 let xaiKeyChat = null;        // grok-4-1-fast-reasoning — main chat
 let xaiKeyPipeline = null;    // grok-4-1-fast-non-reasoning — validator, SUS, live search
 let xaiKeyTraining = null;    // both models — training gen, grok bot
+let xDevConBearerToken = null; // X API Bearer Token for Filtered Stream
 const MODEL = process.env.WANKR_MODEL || 'grok-4-1-fast-reasoning';
 const MODEL_FAST = 'grok-4-1-fast-non-reasoning';
 
@@ -117,6 +118,7 @@ async function initInfisical() {
       ['XAI_KEY_TRAINING', (v) => { xaiKeyTraining = v; }],
       ['XAI_API_KEY', (v) => { xaiApiKey = v; }],
       ['grokWankr', (v) => { if (!xaiApiKey) xaiApiKey = v; }],
+      ['DEVCON_BEARER_TOKEN', (v) => { xDevConBearerToken = v; }],
     ];
 
     for (const [secretName, setter] of keyMap) {
@@ -938,6 +940,7 @@ app.post('/api/sus', async (req, res) => {
 
 // --- Launch pipeline (extracted to launchPipeline.js) ---
 const launchPipeline = require('./launchPipeline');
+const xStreamListener = require('./xStreamListener');
 
 
 // touchUser shorthand for call sites in this file
@@ -1099,6 +1102,13 @@ async function main() {
     responseValidator,
     cryptoDataTools,
     authSvc,
+    xStreamListener,
+  });
+
+  // X Filtered Stream — free real-time bankr launch detection
+  xStreamListener.init({
+    getBearerToken: () => xDevConBearerToken,
+    onLaunchDetected: launchPipeline.ingestLaunches,
   });
 
   // SPA fallback — serve index.html for any non-API route

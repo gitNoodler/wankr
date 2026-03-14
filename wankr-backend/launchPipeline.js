@@ -413,6 +413,39 @@ function detectFailedAttempts(incomingLaunches) {
 }
 
 // Detection poll — gated by POLLING_ENABLED flag
+// Ingest launches from external sources (X Filtered Stream, on-chain, etc.)
+// Same dedup + processing as runDetectionPoll but callable from outside
+function ingestLaunches(launches) {
+  if (!launches?.length) return;
+
+  const newLaunches = [];
+  for (const l of launches) {
+    const cacheKey = l.contractAddress
+      ? l.contractAddress.toLowerCase()
+      : (l.tokenName || '').toLowerCase().trim();
+    if (!cacheKey) continue;
+    if (!launchCache.has(cacheKey)) {
+      newLaunches.push(l);
+    }
+  }
+
+  if (newLaunches.length === 0) return;
+
+  const verified = detectFailedAttempts(newLaunches);
+  if (verified.length > 0) {
+    mergeLaunches(verified);
+    const key = getXaiKeyPipeline() || getXaiApiKey();
+    if (key) probeNewHandleSentiment(verified, key);
+    const launchesForSentiment = verified.filter(l => l.actionType === 'launch');
+    if (launchesForSentiment.length > 0) {
+      sentimentQueue.push(...launchesForSentiment);
+    }
+    console.log(`📡 Stream: ${newLaunches.length} items, ${verified.length} verified (${sentimentQueue.length} in queue)`);
+  }
+
+  checkSentimentBatchTrigger();
+}
+
 function runDetectionPoll() {
   if (!POLLING_ENABLED) return;
   const key = getXaiKeyPipeline() || getXaiApiKey();
@@ -733,5 +766,6 @@ module.exports = {
   getActiveBatches: () => activeBatches,
   getActiveUsers: () => activeUsers,
   getCachedLaunches,
+  ingestLaunches,
   ACTIVE_USER_TTL,
 };

@@ -39,7 +39,7 @@ export default function StatsTab() {
   if (error) return <div style={styles.error}>Stats error: {error}</div>;
   if (!stats) return <div style={styles.loading}>Loading stats...</div>;
 
-  const { xai, launches, handles, users, pipeline, system } = stats;
+  const { xai, launches, handles, users, pipeline, system, xStream } = stats;
   const totalCost = xai?.estimatedCost || 0;
   const perType = xai?.perType || [];
   const burnPerHour = xai?.burnPerHour || 0;
@@ -148,6 +148,15 @@ export default function StatsTab() {
           </>
         ) : (
           <Row label="Status" value="No validations yet" />
+        )}
+      </Section>
+
+      {/* X Stream */}
+      <Section title="X Stream" accent="#1d9bf0">
+        <Row label="Status" value={xStream?.connected ? '🔴 Connected' : '⚫ Disconnected'} warn={!xStream?.connected} />
+        <Row label="Tweets received" value={fmtNum(xStream?.totalTweetsReceived)} />
+        {xStream?.reconnectAttempts > 0 && (
+          <Row label="Reconnect attempts" value={fmtNum(xStream?.reconnectAttempts)} warn />
         )}
       </Section>
 
