@@ -18,6 +18,17 @@ const MIN_USERNAME_LENGTH = 5;
 function ensureStorageDir() {
   const dir = path.dirname(USERS_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  // Ensure all required storage files exist with proper defaults (fresh volume mount)
+  const defaults = {
+    [USERS_FILE]: '[]',
+    [SESSIONS_FILE]: '{}',
+    [WALLET_FILE]: '{}',
+    [REGISTRY_FILE]: '[]',
+    [NONCES_FILE]: '{}'
+  };
+  for (const [filePath, content] of Object.entries(defaults)) {
+    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, content);
+  }
 }
 
 function loadUsers() {

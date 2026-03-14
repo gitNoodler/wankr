@@ -7,5 +7,6 @@
   "deploy": {
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300
-  }
+  },
+  "_volumeNote": "Volume mounted at /workspace/wankr-backend/storage via Railway dashboard (1GB). User data (users, sessions, wallets) persists across deploys."
 }

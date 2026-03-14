@@ -19,6 +19,22 @@ const cryptoDataTools = require('./cryptoDataTools');
 const boundsGate = require('./boundsGate');
 const trainingDataGen = require('./trainingDataGen');
 
+// Ensure storage directory and required files exist (handles fresh Railway volume mount)
+const STORAGE_DIR = path.join(__dirname, 'storage');
+const REQUIRED_STORAGE_FILES = {
+  'users.json': '[]',
+  'sessions.json': '{}',
+  'wallet_addresses.json': '{}',
+  'username_registry.json': '[]',
+  'nonces.json': '{}'
+};
+
+if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });
+for (const [file, defaultContent] of Object.entries(REQUIRED_STORAGE_FILES)) {
+  const filePath = path.join(STORAGE_DIR, file);
+  if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, defaultContent);
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const ROOT = path.resolve(__dirname, '..');
@@ -1479,7 +1495,7 @@ function hasActiveUsers() {
 
 // Background Grok polling — only runs when users are active
 let lastGrokPoll = 0;
-const GROK_POLL_INTERVAL = 60000; // 1 minute
+const GROK_POLL_INTERVAL = 300000; // 5 minutes
 const POLL_CURSOR_FILE = path.join(LAUNCH_STORAGE_DIR, 'poll_cursor.json');
 
 // High-water mark: the newest launch timestamp we've seen
