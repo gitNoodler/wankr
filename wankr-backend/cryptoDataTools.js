@@ -3,7 +3,74 @@
  * All X data flows through Grok as the sentiment/analysis engine.
  */
 
+const fs = require('fs');
+const path = require('path');
 const handleStore = require('./handleStore');
+
+// ── xAI API call tracking ───────────────────────────────────────────────
+const API_USAGE_FILE = path.join(__dirname, 'storage', 'pipeline', 'api_usage.json');
+const COST_PER_TYPE = { detection: 0.005, sentiment: 0.005, sentimentBatch: 0.0025, chat: 0.003, handleIntel: 0.005 };
+
+const DEFAULT_CALLS = { detection: 0, sentiment: 0, sentimentBatch: 0, chat: 0, handleIntel: 0 };
+
+let apiUsage = {
+  date: new Date().toISOString().slice(0, 10),
+  calls: { ...DEFAULT_CALLS },
+  totalCalls: 0,
+  startedAt: Date.now(),
+};
+
+// Load persisted usage on startup
+try {
+  if (fs.existsSync(API_USAGE_FILE)) {
+    const saved = JSON.parse(fs.readFileSync(API_USAGE_FILE, 'utf8'));
+    if (saved.date === apiUsage.date) {
+      apiUsage = saved;
+    }
+  }
+} catch {}
+
+function trackApiCall(type) {
+  // Reset daily at midnight
+  const today = new Date().toISOString().slice(0, 10);
+  if (apiUsage.date !== today) {
+    apiUsage = { date: today, calls: { ...DEFAULT_CALLS }, totalCalls: 0, startedAt: Date.now() };
+  }
+  apiUsage.calls[type] = (apiUsage.calls[type] || 0) + 1;
+  apiUsage.totalCalls++;
+  // Persist (fire-and-forget)
+  try { fs.writeFileSync(API_USAGE_FILE, JSON.stringify(apiUsage, null, 2)); } catch {}
+}
+
+function getApiUsage() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (apiUsage.date !== today) {
+    apiUsage = { date: today, calls: { ...DEFAULT_CALLS }, totalCalls: 0, startedAt: Date.now() };
+  }
+  // Per-type cost breakdown sorted by cost descending
+  const perType = Object.entries(apiUsage.calls)
+    .map(([type, count]) => ({
+      type,
+      count,
+      costPerCall: COST_PER_TYPE[type] || 0,
+      totalCost: count * (COST_PER_TYPE[type] || 0),
+    }))
+    .sort((a, b) => b.totalCost - a.totalCost);
+  const totalCost = perType.reduce((sum, t) => sum + t.totalCost, 0);
+  // Burn rate: cost per hour based on tracking window
+  const hoursElapsed = Math.max((Date.now() - (apiUsage.startedAt || Date.now())) / 3600000, 0.01);
+  const burnPerHour = totalCost / hoursElapsed;
+  const projectedDaily = burnPerHour * 24;
+  return {
+    ...apiUsage,
+    perType,
+    estimatedCost: Math.round(totalCost * 10000) / 10000,
+    burnPerHour: Math.round(burnPerHour * 10000) / 10000,
+    projectedDaily: Math.round(projectedDaily * 10000) / 10000,
+    hoursTracked: Math.round(hoursElapsed * 100) / 100,
+    costBreakdown: COST_PER_TYPE,
+  };
+}
 
 // ── Helper: extract text from Responses API output ──────────────────────
 function extractResponseText(data) {
@@ -28,6 +95,7 @@ async function fetchHandleIntel(handle, xaiApiKey) {
   if (!xaiApiKey) return { source: 'none', handle: h, error: 'No API key' };
 
   try {
+    trackApiCall('handleIntel');
     const res = await fetch('https://api.x.ai/v1/responses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiApiKey}` },
@@ -136,6 +204,7 @@ async function fetchBankrLaunches(xaiApiKey, options = {}) {
     : '';
 
   try {
+    trackApiCall('detection');
     const res = await fetch('https://api.x.ai/v1/responses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiApiKey}` },
@@ -265,154 +334,287 @@ async function fetchTokenInfo(address) {
   }
 }
 
-// ── xAI Batch API: submit launch poll as batch request ──────────────────
-const BATCH_ID = 'batch_e82402db-0c72-4e0d-916e-5460f751bdaa';
+// ── Free xAI detection: fast 1s poll, NO x_search (free tier) ───────────
+async function detectBankrLaunches(xaiApiKey, options = {}) {
+  if (!xaiApiKey) return { source: 'none', launches: [] };
 
-function buildLaunchMessages(options = {}) {
-  const { sinceDate, knownNames } = options;
-  const sinceClause = sinceDate
-    ? `\nIMPORTANT: Only return launches posted AFTER ${sinceDate}. Skip anything older.`
-    : '';
+  const { knownNames } = options;
   const knownClause = knownNames && knownNames.length > 0
     ? `\nSkip these tokens we already know about: ${knownNames.slice(0, 30).join(', ')}.`
     : '';
 
-  return [
-    {
-      role: 'system',
-      content: `Search X for recent posts from or about @bankr_official activity on Base chain. This includes token launches, fee claims, airdrops, and other bankr bot interactions. Classify each result by its action type. For token launches, identify who REQUESTED the token creation (the @handle that replied to or tagged @bankrbot asking to deploy).${sinceClause}${knownClause} Return ONLY valid JSON:
+  try {
+    trackApiCall('detection');
+    const res = await fetch('https://api.x.ai/v1/responses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiApiKey}` },
+      body: JSON.stringify({
+        model: 'grok-4-1-fast-non-reasoning',
+        tools: [{ type: 'x_search' }],
+        input: [
+          {
+            role: 'system',
+            content: `Search X for the most recent @bankr_official or Bankr bot activity on Base chain. This includes token launches, fee claims, airdrops, and other bankr bot interactions. For token launches, identify who REQUESTED the token creation. Do NOT analyze sentiment or community reaction — just extract the raw data.${knownClause} Return ONLY valid JSON:
 {
   "launches": [
     {
       "actionType": "launch" | "fee_claim" | "airdrop" | "other",
-      "tokenName": "string — the token name if this is a launch, otherwise a short label like 'Fee Claim' or 'Airdrop'",
+      "tokenName": "string — token name for launches AND fee claims (the token fees were claimed from), short label for other types",
       "tokenSymbol": "string — ticker if launch, otherwise empty",
-      "contractAddress": "0x... or empty if not mentioned",
+      "contractAddress": "0x... or empty",
       "announcement": "brief description of what happened",
-      "requestedBy": "@handle who initiated the action, or empty if unknown",
-      "communityReaction": "positive" | "negative" | "mixed" | "neutral",
-      "reactionNote": "1 sentence summary of community sentiment",
-      "timestamp": "ISO date or approximate like '2 days ago'",
-      "postAuthor": "@handle who posted about it"
+      "requestedBy": "@handle who initiated, or empty",
+      "chain": "base",
+      "timestamp": "ISO date or approximate like '2 hours ago'",
+      "postAuthor": "@handle who posted"
     }
   ]
 }
-Return up to 15 most recent items. If nothing found return {"launches": []}.`
-    },
-    {
-      role: 'user',
-      content: sinceDate
-        ? `Search X for all @bankr_official or Bankr bot activity on Base posted AFTER ${sinceDate}. Include token launches, fee claims, airdrops, and other interactions. Classify each by action type (launch, fee_claim, airdrop, other). For launches, find who requested the token creation. Include community reaction and sentiment from the replies.`
-        : `Search X for the most recent @bankr_official or Bankr bot activity on Base. Include token launches, fee claims, airdrops, and other interactions. Classify each by action type (launch, fee_claim, airdrop, other). For launches, find who requested the token creation. Include community reaction and sentiment from the replies.`
-    },
-  ];
-}
-
-async function submitBatchLaunchPoll(xaiApiKey, options = {}) {
-  if (!xaiApiKey) return { submitted: false, error: 'No API key' };
-
-  const requestId = `launch_poll_${Date.now()}`;
-  const messages = buildLaunchMessages(options);
-
-  try {
-    const res = await fetch(`https://api.x.ai/v1/batches/${BATCH_ID}/requests`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiApiKey}` },
-      body: JSON.stringify({
-        batch_requests: [{
-          batch_request_id: requestId,
-          batch_request: {
-            chat_get_completion: {
-              model: 'grok-4-1-fast-non-reasoning',
-              messages,
-              tools: [{ type: 'x_search' }],
-              max_tokens: 2500,
-              temperature: 0.1,
-            }
-          }
-        }]
+Return up to 15 most recent. If nothing found return {"launches": []}.`
+          },
+          {
+            role: 'user',
+            content: `Search X for the latest @bankr_official or Bankr bot activity on Base. List token launches, fee claims, airdrops, other interactions. Just the raw data — token name, symbol, contract, who requested it, action type. No sentiment analysis needed.`
+          },
+        ],
+        max_output_tokens: 2000,
+        temperature: 0.1,
       }),
     });
     const data = await res.json();
-    if (!res.ok) {
-      console.error('Batch submit error:', data);
-      return { submitted: false, error: data.error || res.statusText };
-    }
-    console.log(`📦 Batch request submitted: ${requestId}`);
-    return { submitted: true, requestId };
-  } catch (err) {
-    console.error('submitBatchLaunchPoll error:', err.message);
-    return { submitted: false, error: err.message };
-  }
-}
+    const content = extractResponseText(data);
+    const parsed = parseGrokJSON(content);
+    if (!parsed) return { source: 'none', launches: [] };
 
-async function collectBatchResults(xaiApiKey, options = {}) {
-  if (!xaiApiKey) return { source: 'none', launches: [] };
-  const { skipSentiment } = options;
-
-  try {
-    // Check batch status
-    const statusRes = await fetch(`https://api.x.ai/v1/batches/${BATCH_ID}`, {
-      headers: { 'Authorization': `Bearer ${xaiApiKey}` },
-    });
-    const status = await statusRes.json();
-    const pending = status.state?.num_pending || 0;
-    const succeeded = status.state?.num_success || 0;
-    if (pending > 0) {
-      console.log(`📦 Batch: ${succeeded} done, ${pending} pending`);
-    }
-
-    // Fetch completed results
-    const resultsRes = await fetch(`https://api.x.ai/v1/batches/${BATCH_ID}/results?page_size=100`, {
-      headers: { 'Authorization': `Bearer ${xaiApiKey}` },
-    });
-    const resultsData = await resultsRes.json();
-
-    const allLaunches = [];
-    const processedIds = [];
-    for (const result of (resultsData.succeeded || [])) {
-      // Only process launch_poll results
-      if (!result.batch_request_id?.startsWith('launch_poll_')) continue;
-      processedIds.push(result.batch_request_id);
-
-      const content = result.result?.choices?.[0]?.message?.content || '';
-      const parsed = parseGrokJSON(content);
-      if (!parsed?.launches) continue;
-
-      const VALID_ACTIONS = ['launch', 'fee_claim', 'airdrop', 'other'];
-      const launches = (parsed.launches || []).slice(0, 15).map(l => {
-        const actionType = VALID_ACTIONS.includes(l.actionType) ? l.actionType : 'launch';
-        return {
+    const VALID_ACTIONS = ['launch', 'fee_claim', 'airdrop', 'other'];
+    const launches = (parsed.launches || []).slice(0, 15).map(l => {
+      const actionType = VALID_ACTIONS.includes(l.actionType) ? l.actionType : 'launch';
+      return {
         actionType,
         tokenName: actionType === 'launch' ? (l.tokenName || 'Unknown') : (l.tokenName || ''),
         tokenSymbol: actionType === 'launch' ? (l.tokenSymbol || '???') : (l.tokenSymbol || ''),
         contractAddress: l.contractAddress || '',
         announcement: l.announcement || '',
         requestedBy: l.requestedBy || '',
-        communityReaction: ['positive', 'negative', 'mixed', 'neutral'].includes(l.communityReaction) ? l.communityReaction : 'neutral',
-        reactionNote: l.reactionNote || '',
+        chain: l.chain || 'base',
         timestamp: l.timestamp || '',
         postAuthor: l.postAuthor || '',
-      };});
-      allLaunches.push(...launches);
+        sentimentStatus: 'pending',
+        communityReaction: 'neutral',
+        reactionNote: '',
+      };
+    });
+
+    return { source: 'live', launches };
+  } catch (err) {
+    console.error('detectBankrLaunches error:', err.message);
+    return { source: 'error', launches: [], error: err.message };
+  }
+}
+
+// ── Batched sentiment: single x_search call for N tokens ────────────────
+async function batchSentiment(tokens, xaiApiKey) {
+  if (!xaiApiKey || !tokens.length) return {};
+
+  // Build a compact list: "1. $TOKEN (0x1234...) 2. $TOKEN2 ..."
+  const tokenList = tokens.map((t, i) => {
+    const label = t.tokenSymbol ? `$${t.tokenSymbol}` : t.tokenName;
+    const addr = t.contractAddress ? ` (${t.contractAddress})` : '';
+    const handle = t.requestedBy ? ` by ${t.requestedBy}` : '';
+    return `${i + 1}. ${label}${addr}${handle}`;
+  }).join('\n');
+
+  try {
+    trackApiCall('sentiment');
+    const res = await fetch('https://api.x.ai/v1/responses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiApiKey}` },
+      body: JSON.stringify({
+        model: 'grok-4-1-fast-non-reasoning',
+        input: [
+          {
+            role: 'system',
+            content: `Search X for community sentiment on each of these Bankr token launches/activities. For each, check the replies and community reaction. Return ONLY valid JSON:
+{
+  "results": [
+    {
+      "index": 1,
+      "communityReaction": "positive" | "negative" | "mixed" | "neutral",
+      "reactionNote": "1 sentence summary of community sentiment"
+    }
+  ]
+}
+If you can't find sentiment for an item, return "neutral" with note "No community data found".`
+          },
+          {
+            role: 'user',
+            content: `Search X for community sentiment on these recent Bankr launches/activities:\n${tokenList}\n\nFor each one, analyze the replies and reactions. What's the community saying?`
+          },
+        ],
+        tools: [{ type: 'x_search' }],
+        max_output_tokens: 2000,
+        temperature: 0.1,
+      }),
+    });
+    const data = await res.json();
+    const content = extractResponseText(data);
+    const parsed = parseGrokJSON(content);
+    if (!parsed?.results) return {};
+
+    // Map results back by index
+    const sentimentMap = {};
+    for (const r of parsed.results) {
+      const idx = (r.index || 0) - 1; // 1-indexed → 0-indexed
+      if (idx >= 0 && idx < tokens.length) {
+        const key = tokens[idx].contractAddress?.toLowerCase() || (tokens[idx].tokenName || '').toLowerCase().trim();
+        sentimentMap[key] = {
+          communityReaction: ['positive', 'negative', 'mixed', 'neutral'].includes(r.communityReaction) ? r.communityReaction : 'neutral',
+          reactionNote: r.reactionNote || '',
+        };
+      }
+    }
+    console.log(`🎯 Batch sentiment: ${Object.keys(sentimentMap).length}/${tokens.length} results`);
+    return sentimentMap;
+  } catch (err) {
+    console.error('batchSentiment error:', err.message);
+    return {};
+  }
+}
+
+// ── Batch API: submit sentiment as async batch (half price) ─────────────
+
+// Build the sentiment prompt for a set of tokens (shared between sync and batch)
+function buildSentimentPrompt(tokens) {
+  const tokenList = tokens.map((t, i) => {
+    const label = t.tokenSymbol ? `$${t.tokenSymbol}` : t.tokenName;
+    const addr = t.contractAddress ? ` (${t.contractAddress})` : '';
+    const handle = t.requestedBy ? ` by ${t.requestedBy}` : '';
+    return `${i + 1}. ${label}${addr}${handle}`;
+  }).join('\n');
+  return {
+    system: `Search X for community sentiment on each of these Bankr token launches/activities. For each, check the replies and community reaction. Return ONLY valid JSON:
+{
+  "results": [
+    {
+      "index": 1,
+      "communityReaction": "positive" | "negative" | "mixed" | "neutral",
+      "reactionNote": "1 sentence summary of community sentiment"
+    }
+  ]
+}
+If you can't find sentiment for an item, return "neutral" with note "No community data found".`,
+    user: `Search X for community sentiment on these recent Bankr launches/activities:\n${tokenList}\n\nFor each one, analyze the replies and reactions. What's the community saying?`,
+  };
+}
+
+async function createSentimentBatch(tokens, xaiApiKey) {
+  if (!xaiApiKey || !tokens.length) return null;
+
+  try {
+    // Step 1: Create batch
+    const createRes = await fetch('https://api.x.ai/v1/batches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiApiKey}` },
+      body: JSON.stringify({ name: `sentiment_${Date.now()}` }),
+    });
+    const batch = await createRes.json();
+    const batchId = batch.id || batch.batch_id;
+    if (!batchId) {
+      console.error('Batch API: no batch_id returned', JSON.stringify(batch));
+      return null;
     }
 
-    if (processedIds.length > 0) {
-      console.log(`📦 Collected ${allLaunches.length} launches from ${processedIds.length} batch results`);
+    // Step 2: Add sentiment request to batch
+    const prompt = buildSentimentPrompt(tokens);
+    const addRes = await fetch(`https://api.x.ai/v1/batches/${batchId}/requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiApiKey}` },
+      body: JSON.stringify({
+        batch_requests: [{
+          batch_request_id: `sentiment_${Date.now()}`,
+          batch_request: {
+            chat_get_completion: {
+              model: 'grok-4-1-fast-non-reasoning',
+              messages: [
+                { role: 'system', content: prompt.system },
+                { role: 'user', content: prompt.user },
+              ],
+              max_tokens: 2000,
+              temperature: 0.1,
+            },
+          },
+        }],
+      }),
+    });
+    const addData = await addRes.json();
+    if (addData.error) {
+      console.error('Batch API: add request error', JSON.stringify(addData.error));
+      return null;
     }
-    return { source: processedIds.length > 0 ? 'batch' : 'none', launches: allLaunches, processedIds };
+
+    trackApiCall('sentimentBatch');
+    console.log(`📦 Created sentiment batch ${batchId} for ${tokens.length} tokens`);
+    return batchId;
   } catch (err) {
-    console.error('collectBatchResults error:', err.message);
-    return { source: 'error', launches: [], error: err.message };
+    console.error('createSentimentBatch error:', err.message);
+    return null;
+  }
+}
+
+async function pollBatchStatus(batchId, xaiApiKey) {
+  try {
+    const res = await fetch(`https://api.x.ai/v1/batches/${batchId}`, {
+      headers: { 'Authorization': `Bearer ${xaiApiKey}` },
+    });
+    const data = await res.json();
+    return {
+      id: batchId,
+      state: data.state || data.status || 'unknown',
+      numPending: data.num_pending ?? null,
+      numSuccess: data.num_success ?? null,
+      numError: data.num_error ?? null,
+      done: (data.num_pending === 0) || data.state === 'completed' || data.state === 'ended',
+    };
+  } catch (err) {
+    console.error(`pollBatchStatus error for ${batchId}:`, err.message);
+    return { id: batchId, state: 'error', done: false };
+  }
+}
+
+async function fetchBatchResults(batchId, xaiApiKey) {
+  try {
+    const res = await fetch(`https://api.x.ai/v1/batches/${batchId}/results`, {
+      headers: { 'Authorization': `Bearer ${xaiApiKey}` },
+    });
+    const data = await res.json();
+    // Results come as array of response objects
+    const results = data.results || data.batch_results || [];
+    for (const r of results) {
+      const content = r.response?.content || r.result?.content ||
+        r.response?.choices?.[0]?.message?.content ||
+        r.result?.choices?.[0]?.message?.content || '';
+      if (content) {
+        const parsed = parseGrokJSON(content);
+        if (parsed?.results) return parsed;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.error(`fetchBatchResults error for ${batchId}:`, err.message);
+    return null;
   }
 }
 
 module.exports = {
   fetchHandleIntel,
   fetchBankrLaunches,
+  detectBankrLaunches,
+  batchSentiment,
+  createSentimentBatch,
+  pollBatchStatus,
+  fetchBatchResults,
   fetchContractSecurity,
   fetchTokenInfo,
-  submitBatchLaunchPoll,
-  collectBatchResults,
-  BATCH_ID,
+  getApiUsage,
+  trackApiCall,
 };

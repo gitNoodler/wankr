@@ -1169,12 +1169,12 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           </div>
 
           {/* Static robot — img tags instead of canvases, rest pose */}
-          <img src="/legs_leftFoot.png" alt="" className="lp-layer" style={{ zIndex: 2 }} />
-          <img src="/legs_rightFoot.png" alt="" className="lp-layer" style={{ zIndex: 2 }} />
+          <img src="/legs_leftShin.png" alt="" className="lp-layer" style={{ zIndex: 2 }} />
+          <img src="/legs_leftFoot.png" alt="" className="lp-layer" style={{ zIndex: 1 }} />
+          <img src="/legs_rightFoot.png" alt="" className="lp-layer" style={{ zIndex: 1 }} />
           <img src="/legs_bodyConnection.png" alt="" className="lp-layer" style={{ zIndex: 3 }} />
           <img src="/legs_leftThigh.png" alt="" className="lp-layer" style={{ zIndex: 3 }} />
           <img src="/legs_rightThigh.png" alt="" className="lp-layer" style={{ zIndex: 3 }} />
-          <img src="/legs_leftShin.png" alt="" className="lp-layer" style={{ zIndex: 3 }} />
           <img src="/legs_rightShin.png" alt="" className="lp-layer" style={{ zIndex: 3 }} />
           <img src="/legs_leftKnee.png" alt="" className="lp-layer" style={{ zIndex: 3 }} />
           <img src="/legs_rightKnee.png" alt="" className="lp-layer" style={{ zIndex: 3 }} />
@@ -1360,10 +1360,10 @@ export default function LoginPanel({ onLogin, onSpectate, getAudio, sidebarOffse
           will-change: transform;
         }
         .lp-leg-feet {
-          z-index: 7;
+          z-index: 2;
         }
         .lp-leg-shins {
-          z-index: 4;
+          z-index: 5;
           transform-origin: 50% 92%;
           will-change: transform;
         }

@@ -15,12 +15,77 @@ import TrainingPanel from './components/TrainingPanel';
 import KolAnalysisPanel from './components/KolAnalysisPanel';
 import SUSProbePanel from './components/SUSProbePanel';
 import LaunchFeedPanel from './components/LaunchFeedPanel';
+import BankrLiveFeedPanel from './components/BankrLiveFeedPanel';
 import SpectatorView from './components/SpectatorView';
 import LoginPanel from './components/LoginPanel';
 import useLofiMusic from './components/Music/useLofiMusic';
 import useWankrGroove from './components/Music/useWankrGroove';
 import GrooveGearMenu from './components/Music/GrooveGearMenu';
 import DevMasterPanel from './components/DevMaster/DevMasterPanel';
+
+function RightPanelTabs({ onClose }) {
+  const [tab, setTab] = useState('xfeed'); // 'xfeed' | 'livefeed'
+  const tabs = [
+    { key: 'xfeed', label: 'X Feed', color: '#ff6633' },
+    { key: 'livefeed', label: 'Live Feed', color: '#00bfff' },
+  ];
+  const activeColor = tabs.find(t => t.key === tab)?.color || '#ff6633';
+  return (
+    <div className="wankr-panel sidebar-panel" style={{
+      height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0,
+      background: 'linear-gradient(180deg, #1c1c1c 0%, #141414 100%)',
+      overflow: 'hidden',
+    }}>
+      {/* Tab bar */}
+      <div style={{
+        display: 'flex',
+        flexShrink: 0,
+        background: 'rgba(15, 15, 15, 0.95)',
+        borderBottom: `1px solid ${activeColor}25`,
+        gap: 'calc(2px * var(--scale))',
+        padding: '0 calc(4px * var(--scale))',
+      }}>
+        {tabs.map(t => {
+          const isActive = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              className="font-wankr"
+              onClick={() => setTab(t.key)}
+              style={{
+                flex: 1,
+                background: isActive
+                  ? `linear-gradient(180deg, ${t.color}18 0%, transparent 100%)`
+                  : 'transparent',
+                border: 'none',
+                borderBottom: isActive ? `2px solid ${t.color}` : '2px solid transparent',
+                color: isActive ? t.color : '#555',
+                fontSize: 'calc(11px * var(--scale))',
+                fontWeight: 700,
+                padding: 'calc(10px * var(--scale)) 0 calc(8px * var(--scale))',
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
+                transition: 'all 0.2s ease',
+                textShadow: isActive ? `0 0 8px ${t.color}60` : 'none',
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+      {/* Panel content */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {tab === 'xfeed'
+          ? <LaunchFeedPanel onClose={onClose} />
+          : <BankrLiveFeedPanel onClose={onClose} />
+        }
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -443,9 +508,7 @@ export default function App() {
                 onClose={!isDesktop ? () => setRightPanelOpen(false) : undefined}
               />
             ) : (
-              <LaunchFeedPanel
-                onClose={!isDesktop ? () => setRightPanelOpen(false) : undefined}
-              />
+              <RightPanelTabs onClose={!isDesktop ? () => setRightPanelOpen(false) : undefined} />
             )}
           </div>
           {/* Backdrop for mobile/tablet drawers */}

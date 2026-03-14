@@ -10,7 +10,7 @@ const REACTION_COLORS = {
 
 const ACTION_COLORS = {
   launch: '#00ff41',
-  fee_claim: '#00bfff',
+  fee_claim: '#5ad8ff',
   airdrop: '#cc66ff',
   other: '#888',
 };
@@ -22,10 +22,64 @@ const ACTION_LABELS = {
   other: 'Activity',
 };
 
+const CHAIN_LOGOS = {
+  base: '🔵',
+  solana: '🟣',
+  ethereum: '⟠',
+};
+
 const BOT_BADGE = {
   likely: { label: 'BOT', bg: '#ff3333', color: '#fff' },
   suspicious: { label: 'SUS', bg: '#ffcc00', color: '#111' },
 };
+
+function SentimentIndicator({ status, reaction }) {
+  if (status === 'pending') {
+    return (
+      <span style={{
+        display: 'inline-block',
+        width: 'calc(8px * var(--scale))',
+        height: 'calc(8px * var(--scale))',
+        border: '2px solid #555',
+        borderTop: '2px solid #ff6633',
+        borderRadius: '50%',
+        animation: 'sentimentSpin 0.8s linear infinite',
+        flexShrink: 0,
+      }} />
+    );
+  }
+  if (reaction === 'positive') {
+    return (
+      <span style={{ fontSize: 'calc(10px * var(--scale))', lineHeight: 1, flexShrink: 0 }}>
+        👍
+      </span>
+    );
+  }
+  const color = REACTION_COLORS[reaction] || '#666';
+  return (
+    <span style={{
+      display: 'inline-block',
+      width: 'calc(6px * var(--scale))',
+      height: 'calc(6px * var(--scale))',
+      borderRadius: '50%',
+      background: color,
+      flexShrink: 0,
+    }} />
+  );
+}
+
+function ChainBadge({ chain }) {
+  const logo = CHAIN_LOGOS[chain] || CHAIN_LOGOS.base;
+  return (
+    <span style={{
+      fontSize: 'calc(10px * var(--scale))',
+      lineHeight: 1,
+      flexShrink: 0,
+    }} title={chain || 'base'}>
+      {logo}
+    </span>
+  );
+}
 
 function BotBadge({ flag }) {
   const badge = BOT_BADGE[flag];
@@ -46,6 +100,33 @@ function BotBadge({ flag }) {
       {badge.label}
     </span>
   );
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return '';
+  // Try parsing as a date first
+  const d = new Date(ts);
+  if (!isNaN(d.getTime())) {
+    const diff = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+  // Parse relative strings like "2 days ago", "2.5 hours ago"
+  const m = String(ts).match(/([\d.]+)\s*(second|minute|hour|day|week|month|year)s?\s*ago/i);
+  if (m) {
+    const n = Math.round(parseFloat(m[1]));
+    const u = m[2].toLowerCase();
+    if (u.startsWith('second')) return `${n}s ago`;
+    if (u.startsWith('minute')) return `${n}m ago`;
+    if (u.startsWith('hour')) return `${n}h ago`;
+    if (u.startsWith('day')) return `${n}d ago`;
+    if (u.startsWith('week')) return `${n * 7}d ago`;
+    if (u.startsWith('month')) return `${n * 30}d ago`;
+    return `${n * 365}d ago`;
+  }
+  return ts;
 }
 
 function shortenAddress(addr) {
@@ -108,12 +189,32 @@ function groupByHandle(launches) {
       map[handle].botFlag = flag;
     }
   }
-  // Sort: most launches first
-  return Object.values(map).sort((a, b) => b.launches.length - a.launches.length);
+  // Sort each handle's launches newest-first
+  for (const g of Object.values(map)) {
+    g.launches.sort((a, b) => {
+      const ta = a.firstSeen || a.timestamp || '';
+      const tb = b.firstSeen || b.timestamp || '';
+      return tb.localeCompare(ta);
+    });
+  }
+  // Sort handle groups by most recent launch (newest first)
+  return Object.values(map).sort((a, b) => {
+    const ta = a.launches[0]?.firstSeen || a.launches[0]?.timestamp || '';
+    const tb = b.launches[0]?.firstSeen || b.launches[0]?.timestamp || '';
+    return tb.localeCompare(ta);
+  });
 }
 
 const HANDLE_3PLUS_COLOR = '#ff6633'; // orange highlight for 3+ launch handles
 const HANDLE_NORMAL_COLOR = '#ff9944';
+
+// Inject spinner keyframe once
+if (typeof document !== 'undefined' && !document.getElementById('sentiment-spin-style')) {
+  const style = document.createElement('style');
+  style.id = 'sentiment-spin-style';
+  style.textContent = '@keyframes sentimentSpin { to { transform: rotate(360deg); } } @keyframes feedSlideIn { from { opacity: 0; transform: translateY(-8px); max-height: 0; } to { opacity: 1; transform: translateY(0); max-height: 200px; } }';
+  document.head.appendChild(style);
+}
 
 function LaunchFeedPanel({ onClose }) {
   const [launches, setLaunches] = useState([]);
@@ -121,6 +222,7 @@ function LaunchFeedPanel({ onClose }) {
   const [expanded, setExpanded] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [viewMode, setViewMode] = useState('token'); // 'token' | 'handle'
+  const [searchQuery, setSearchQuery] = useState('');
   const prevHashRef = useRef('');
   const nextPollAtRef = useRef(null);
 
@@ -129,11 +231,11 @@ function LaunchFeedPanel({ onClose }) {
       const res = await api.get('/api/pipeline/launch-feed');
       const data = await res.json();
       const incoming = data.launches || [];
-      if (typeof data.nextPollIn === 'number') {
-        nextPollAtRef.current = Date.now() + data.nextPollIn;
+      if (typeof data.nextBatchIn === 'number') {
+        nextPollAtRef.current = Date.now() + data.nextBatchIn;
       }
       // Skip state update if data hasn't changed (prevents re-render flicker)
-      const hash = incoming.map(l => `${l.contractAddress || l.tokenName}:${l.botFlag || ''}`).join('|');
+      const hash = incoming.map(l => `${l.contractAddress || l.tokenName}:${l.sentimentStatus || ''}:${l.botFlag || ''}`).join('|');
       if (hash !== prevHashRef.current) {
         prevHashRef.current = hash;
         setLaunches(incoming);
@@ -145,18 +247,8 @@ function LaunchFeedPanel({ onClose }) {
 
   useEffect(() => {
     loadFeed();
-    // One-time sentiment poll on panel open — refreshes cache with full sentiment data
-    api.post('/api/pipeline/launch-feed/sentiment').then(r => r.json()).then(data => {
-      if (data.launches?.length && !data.skipped) {
-        const incoming = data.launches;
-        const hash = incoming.map(l => `${l.contractAddress || l.tokenName}:${l.botFlag || ''}`).join('|');
-        if (hash !== prevHashRef.current) {
-          prevHashRef.current = hash;
-          setLaunches(incoming);
-        }
-      }
-    }).catch(() => {});
-    const interval = setInterval(loadFeed, 60000);
+    // Poll more frequently since detection is every 1s — check for new entries every 5s
+    const interval = setInterval(loadFeed, 5000);
     return () => clearInterval(interval);
   }, [loadFeed]);
 
@@ -174,16 +266,34 @@ function LaunchFeedPanel({ onClose }) {
     return () => clearInterval(id);
   }, []);
 
+  // Filter out unknown launches, failed attempts, and apply search
+  const filteredLaunches = (() => {
+    const named = launches.filter(l =>
+      !l.failedAttempt &&
+      (l.actionType !== 'launch' || ((l.tokenName || '').toLowerCase().trim() !== 'unknown' && (l.tokenName || '').trim() !== ''))
+    );
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return named;
+    return named.filter(l => {
+      if (viewMode === 'handle') {
+        return (l.requestedBy || '').toLowerCase().includes(q)
+          || (l.postAuthor || '').toLowerCase().includes(q);
+      }
+      return (l.tokenName || '').toLowerCase().includes(q)
+        || (l.tokenSymbol || '').toLowerCase().includes(q)
+        || (l.contractAddress || '').toLowerCase().includes(q);
+    });
+  })();
+
   return (
     <div
-      className="wankr-panel sidebar-panel"
       style={{
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)',
+        background: 'transparent',
       }}
     >
       {/* Header */}
@@ -250,6 +360,34 @@ function LaunchFeedPanel({ onClose }) {
         )}
       </div>
 
+      {/* Search bar */}
+      <div style={{
+        padding: 'calc(4px * var(--scale)) calc(8px * var(--scale))',
+        borderBottom: '1px solid rgba(100, 100, 100, 0.2)',
+        flexShrink: 0,
+      }}>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => { setSearchQuery(e.target.value); setExpanded(null); }}
+          placeholder={viewMode === 'handle' ? 'Search handles...' : 'Search tokens...'}
+          style={{
+            width: '100%',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(100,100,100,0.3)',
+            borderRadius: 'calc(4px * var(--scale))',
+            padding: 'calc(4px * var(--scale)) calc(8px * var(--scale))',
+            fontSize: 'calc(10px * var(--scale))',
+            color: '#ddd',
+            outline: 'none',
+            fontFamily: 'inherit',
+            boxSizing: 'border-box',
+          }}
+          onFocus={e => { e.target.style.borderColor = 'rgba(255,102,51,0.5)'; }}
+          onBlur={e => { e.target.style.borderColor = 'rgba(100,100,100,0.3)'; }}
+        />
+      </div>
+
       {/* Feed list */}
       <div style={{
         flex: 1, minHeight: 0, overflowY: 'auto',
@@ -262,7 +400,7 @@ function LaunchFeedPanel({ onClose }) {
             padding: 'calc(20px * var(--scale))',
             fontSize: 'calc(10px * var(--scale))',
           }}>
-            Searching X for Bankr activity...
+            Detecting Bankr activity...
           </div>
         )}
 
@@ -278,7 +416,7 @@ function LaunchFeedPanel({ onClose }) {
 
         {viewMode === 'handle' ? (
           /* ── Handle View ── */
-          groupByHandle(launches).map((group, i) => {
+          groupByHandle(filteredLaunches).map((group, i) => {
             const isExpanded = expanded === i;
             const is3Plus = group.launches.length >= 3;
             const handleColor = is3Plus ? HANDLE_3PLUS_COLOR : HANDLE_NORMAL_COLOR;
@@ -294,6 +432,7 @@ function LaunchFeedPanel({ onClose }) {
                   borderRadius: 'calc(4px * var(--scale))',
                   cursor: 'pointer',
                   transition: 'border-color 0.15s',
+                  animation: 'feedSlideIn 0.3s ease-out',
                 }}
               >
                 {/* Handle summary */}
@@ -347,59 +486,91 @@ function LaunchFeedPanel({ onClose }) {
                       const ac = ACTION_COLORS[entry.actionType] || '#888';
                       const al = ACTION_LABELS[entry.actionType] || 'Activity';
                       const isLaunch = entry.actionType === 'launch' || !entry.actionType;
+                      const isFee = entry.actionType === 'fee_claim';
+                      const isOtherType = entry.actionType === 'other' || entry.actionType === 'airdrop';
                       return (
                         <div key={j} style={{
                           paddingBottom: j < group.launches.length - 1 ? 'calc(4px * var(--scale))' : 0,
                           borderBottom: j < group.launches.length - 1 ? '1px solid rgba(100,100,100,0.15)' : 'none',
-                          borderLeft: `2px solid ${ac}50`,
+                          borderLeft: `2px solid ${isLaunch ? `${ac}50` : `${ac}70`}`,
                           paddingLeft: 'calc(4px * var(--scale))',
                         }}>
+                          {/* Summary row — token name only for fee claims */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))' }}>
+                            <ChainBadge chain={entry.chain} />
                             <span style={{
-                              fontSize: 'calc(6px * var(--scale))', fontWeight: 800, color: '#fff', background: ac,
+                              fontSize: 'calc(6px * var(--scale))', fontWeight: 800, color: (isLaunch || isFee) ? '#111' : '#fff', background: ac,
                               borderRadius: 'calc(2px * var(--scale))', padding: '0 calc(3px * var(--scale))',
                               lineHeight: 'calc(11px * var(--scale))', textTransform: 'uppercase', flexShrink: 0,
                             }}>
                               {al}
                             </span>
                             <span style={{ color: isLaunch ? 'var(--accent)' : ac, fontWeight: 700, fontSize: 'calc(10px * var(--scale))' }}>
-                              {isLaunch ? entry.tokenName : (entry.tokenName || entry.announcement?.slice(0, 30) || al)}
+                              {entry.tokenName || al}
                             </span>
                             {isLaunch && entry.tokenSymbol && (
                             <span style={{ color: 'var(--text-muted-content)', fontSize: 'calc(8px * var(--scale))' }}>
                               ${entry.tokenSymbol}
                             </span>
                             )}
-                            <span style={{
-                              display: 'inline-block', width: 'calc(6px * var(--scale))', height: 'calc(6px * var(--scale))',
-                              borderRadius: '50%', background: rc, flexShrink: 0,
-                            }} />
+                            <SentimentIndicator status={entry.sentimentStatus} reaction={entry.communityReaction} />
+                            {entry.sentimentStatus !== 'pending' && isLaunch && (
                             <span style={{ color: rc, fontWeight: 600, textTransform: 'uppercase', fontSize: 'calc(7px * var(--scale))' }}>
                               {entry.communityReaction}
                             </span>
-                          </div>
-                          {entry.announcement && (
-                            <div style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.4, marginTop: 'calc(2px * var(--scale))' }}>
-                              {entry.announcement}
-                            </div>
-                          )}
-                          {entry.reactionNote && (
-                            <div style={{ color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>
-                              {entry.reactionNote}
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--scale))', marginTop: 'calc(2px * var(--scale))' }}>
-                            {entry.contractAddress && (
-                              <span style={{ fontFamily: 'monospace', fontSize: 'calc(8px * var(--scale))', color: '#888' }}>
-                                {shortenAddress(entry.contractAddress)}
-                              </span>
-                            )}
-                            {entry.timestamp && (
-                              <span style={{ fontSize: 'calc(7px * var(--scale))', color: '#555' }}>
-                                {entry.timestamp}
-                              </span>
                             )}
                           </div>
+                          {/* Fee claim / non-launch: structured details */}
+                          {(isFee || isOtherType) ? (
+                            <>
+                              {entry.contractAddress && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', fontSize: 'calc(8px * var(--scale))', marginTop: 'calc(2px * var(--scale))' }}>
+                                  <span style={{ color: '#888' }}>Token:</span>
+                                  <span style={{ fontFamily: 'monospace', color: '#aaa' }}>{shortenAddress(entry.contractAddress)}</span>
+                                </div>
+                              )}
+                              {entry.announcement && (
+                                <div style={{
+                                  marginTop: 'calc(3px * var(--scale))',
+                                  padding: 'calc(3px * var(--scale)) calc(5px * var(--scale))',
+                                  borderLeft: `2px solid ${ac}40`,
+                                  background: 'rgba(255,255,255,0.02)',
+                                  color: 'rgba(255,255,255,0.72)',
+                                  fontStyle: 'italic',
+                                  fontSize: 'calc(8px * var(--scale))',
+                                  lineHeight: 1.4,
+                                }}>
+                                  {entry.announcement}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {/* Launch: show announcement + reaction */}
+                              {entry.announcement && (
+                                <div style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.4, marginTop: 'calc(2px * var(--scale))' }}>
+                                  {entry.announcement}
+                                </div>
+                              )}
+                              {entry.reactionNote && (
+                                <div style={{ color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>
+                                  {entry.reactionNote}
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--scale))', marginTop: 'calc(2px * var(--scale))' }}>
+                                {(entry.firstSeen || entry.timestamp) && (
+                                  <span style={{ fontSize: 'calc(7px * var(--scale))', color: '#555' }}>
+                                    {formatTimestamp(entry.firstSeen || entry.timestamp)}
+                                  </span>
+                                )}
+                                {entry.contractAddress && (
+                                  <span style={{ fontFamily: 'monospace', fontSize: 'calc(8px * var(--scale))', color: '#888' }}>
+                                    {shortenAddress(entry.contractAddress)}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
                       );
                     })}
@@ -410,7 +581,7 @@ function LaunchFeedPanel({ onClose }) {
           })
         ) : (
           /* ── Token View (existing) ── */
-          groupLaunches(launches).map((launch, i) => {
+          groupLaunches(filteredLaunches).map((launch, i) => {
           const isExpanded = expanded === i;
           const reactionColor = REACTION_COLORS[launch.communityReaction] || '#666';
           const actionType = launch.actionType || 'launch';
@@ -424,12 +595,13 @@ function LaunchFeedPanel({ onClose }) {
               onClick={() => setExpanded(isExpanded ? null : i)}
               style={{
                 padding: 'calc(8px * var(--scale))',
-                background: `${actionColor}08`,
-                border: `1px solid ${actionColor}30`,
-                borderLeft: `3px solid ${actionColor}60`,
+                background: isLaunch ? `${actionColor}08` : `${actionColor}14`,
+                border: `1px solid ${isLaunch ? `${actionColor}30` : `${actionColor}40`}`,
+                borderLeft: `3px solid ${isLaunch ? `${actionColor}60` : `${actionColor}80`}`,
                 borderRadius: 'calc(4px * var(--scale))',
                 cursor: 'pointer',
                 transition: 'border-color 0.15s',
+                animation: 'feedSlideIn 0.3s ease-out',
               }}
             >
               {/* Summary row */}
@@ -439,11 +611,12 @@ function LaunchFeedPanel({ onClose }) {
               }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))' }}>
+                    <ChainBadge chain={launch.chain} />
                     {/* Action type badge */}
                     <span style={{
                       fontSize: 'calc(7px * var(--scale))',
                       fontWeight: 800,
-                      color: actionType === 'launch' ? '#111' : '#fff',
+                      color: (actionType === 'launch' || actionType === 'fee_claim') ? '#111' : '#fff',
                       background: actionColor,
                       borderRadius: 'calc(3px * var(--scale))',
                       padding: '0 calc(4px * var(--scale))',
@@ -457,7 +630,7 @@ function LaunchFeedPanel({ onClose }) {
                     <span style={{
                       color: isLaunch ? 'var(--accent)' : actionColor, fontWeight: 700, fontSize: 'calc(11px * var(--scale))',
                     }}>
-                      {isLaunch ? launch.tokenName : (launch.tokenName || launch.announcement?.slice(0, 40) || actionLabel)}
+                      {launch.tokenName || actionLabel}
                     </span>
                     {isLaunch && launch.tokenSymbol && (
                     <span style={{
@@ -480,13 +653,9 @@ function LaunchFeedPanel({ onClose }) {
                         x{launch.count}
                       </span>
                     )}
-                    {/* Sentiment dot */}
-                    <span style={{
-                      display: 'inline-block', width: 'calc(6px * var(--scale))', height: 'calc(6px * var(--scale))',
-                      borderRadius: '50%', background: reactionColor, flexShrink: 0,
-                    }} />
+                    <SentimentIndicator status={launch.sentimentStatus} reaction={launch.communityReaction} />
                   </div>
-                  {launch.contractAddress && (
+                  {isLaunch && launch.contractAddress && (
                     <div style={{
                       fontFamily: 'monospace', fontSize: 'calc(9px * var(--scale))',
                       color: 'var(--text-muted-content)',
@@ -496,11 +665,6 @@ function LaunchFeedPanel({ onClose }) {
                   )}
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 0 }}>
-                  {launch.timestamp && (
-                    <div style={{ fontSize: 'calc(8px * var(--scale))', color: 'var(--text-muted-content)' }}>
-                      {launch.timestamp}
-                    </div>
-                  )}
                   {launch.handles?.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                       {launch.handles.map((h, hi) => (
@@ -518,6 +682,11 @@ function LaunchFeedPanel({ onClose }) {
                       ))}
                     </div>
                   )}
+                  {(launch.firstSeen || launch.timestamp) && (
+                    <div style={{ fontSize: 'calc(8px * var(--scale))', color: 'var(--text-muted-content)' }}>
+                      {formatTimestamp(launch.firstSeen || launch.timestamp)}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -531,42 +700,87 @@ function LaunchFeedPanel({ onClose }) {
                   color: 'var(--text-content)',
                   display: 'flex', flexDirection: 'column', gap: 'calc(4px * var(--scale))',
                 }}>
-                  {launch.entries.map((entry, j) => (
+                  {launch.entries.map((entry, j) => {
+                    const isFee = entry.actionType === 'fee_claim';
+                    const isOther = entry.actionType === 'other' || entry.actionType === 'airdrop';
+                    return (
                     <div key={j} style={{
                       paddingBottom: j < launch.entries.length - 1 ? 'calc(4px * var(--scale))' : 0,
                       borderBottom: j < launch.entries.length - 1 ? '1px solid rgba(100,100,100,0.15)' : 'none',
                     }}>
-                      {entry.announcement && (
-                        <div style={{ color: 'rgba(255,255,255,0.7)', lineHeight: 1.4 }}>
-                          {entry.announcement}
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', marginTop: 'calc(2px * var(--scale))' }}>
-                        <span style={{ color: ACTION_COLORS[entry.actionType] || '#888', fontWeight: 700, textTransform: 'uppercase', fontSize: 'calc(7px * var(--scale))' }}>
-                          {ACTION_LABELS[entry.actionType] || 'Activity'}
-                        </span>
-                        <span style={{ color: REACTION_COLORS[entry.communityReaction] || '#666', fontWeight: 600, textTransform: 'uppercase', fontSize: 'calc(8px * var(--scale))' }}>
-                          {entry.communityReaction}
-                        </span>
-                        {(entry.requestedBy || entry.postAuthor) && (
-                          <span style={{ color: entry.requestedBy ? '#ff9944' : '#888', fontSize: 'calc(8px * var(--scale))', display: 'inline-flex', alignItems: 'center' }}>
-                            — {entry.requestedBy || entry.postAuthor}
-                            <BotBadge flag={entry.botFlag} />
-                          </span>
-                        )}
-                      </div>
-                      {entry.reactionNote && (
-                        <div style={{ color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
-                          {entry.reactionNote}
-                        </div>
-                      )}
-                      {entry.contractAddress && (
-                        <div style={{ fontFamily: 'monospace', fontSize: 'calc(8px * var(--scale))', color: '#888', wordBreak: 'break-all' }}>
-                          {entry.contractAddress}
-                        </div>
+                      {(isFee || isOther) ? (
+                        <>
+                          {/* Fee claim / non-launch expanded: address, recipient, then quoted post */}
+                          {entry.contractAddress && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', fontSize: 'calc(8px * var(--scale))' }}>
+                              <span style={{ color: '#888' }}>Token:</span>
+                              <span style={{ fontFamily: 'monospace', color: '#aaa', wordBreak: 'break-all' }}>{entry.contractAddress}</span>
+                            </div>
+                          )}
+                          {(entry.requestedBy || entry.postAuthor) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', fontSize: 'calc(8px * var(--scale))', marginTop: 'calc(2px * var(--scale))' }}>
+                              <span style={{ color: '#888' }}>{isFee ? 'Recipient:' : 'By:'}</span>
+                              <span style={{ color: '#ff9944', display: 'inline-flex', alignItems: 'center' }}>
+                                {entry.requestedBy || entry.postAuthor}
+                                <BotBadge flag={entry.botFlag} />
+                              </span>
+                            </div>
+                          )}
+                          {entry.announcement && (
+                            <div style={{
+                              marginTop: 'calc(4px * var(--scale))',
+                              padding: 'calc(4px * var(--scale)) calc(6px * var(--scale))',
+                              borderLeft: `2px solid ${ACTION_COLORS[entry.actionType] || '#888'}40`,
+                              background: 'rgba(255,255,255,0.02)',
+                              color: 'rgba(255,255,255,0.6)',
+                              fontStyle: 'italic',
+                              fontSize: 'calc(8px * var(--scale))',
+                              lineHeight: 1.4,
+                            }}>
+                              {entry.announcement}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {/* Launch expanded: same as before */}
+                          {entry.announcement && (
+                            <div style={{ color: 'rgba(255,255,255,0.7)', lineHeight: 1.4 }}>
+                              {entry.announcement}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', marginTop: 'calc(2px * var(--scale))' }}>
+                            <span style={{ color: ACTION_COLORS[entry.actionType] || '#888', fontWeight: 700, textTransform: 'uppercase', fontSize: 'calc(7px * var(--scale))' }}>
+                              {ACTION_LABELS[entry.actionType] || 'Activity'}
+                            </span>
+                            <SentimentIndicator status={entry.sentimentStatus} reaction={entry.communityReaction} />
+                            {entry.sentimentStatus !== 'pending' && (
+                            <span style={{ color: REACTION_COLORS[entry.communityReaction] || '#666', fontWeight: 600, textTransform: 'uppercase', fontSize: 'calc(8px * var(--scale))' }}>
+                              {entry.communityReaction}
+                            </span>
+                            )}
+                            {(entry.requestedBy || entry.postAuthor) && (
+                              <span style={{ color: entry.requestedBy ? '#ff9944' : '#888', fontSize: 'calc(8px * var(--scale))', display: 'inline-flex', alignItems: 'center' }}>
+                                — {entry.requestedBy || entry.postAuthor}
+                                <BotBadge flag={entry.botFlag} />
+                              </span>
+                            )}
+                          </div>
+                          {entry.reactionNote && (
+                            <div style={{ color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
+                              {entry.reactionNote}
+                            </div>
+                          )}
+                          {entry.contractAddress && (
+                            <div style={{ fontFamily: 'monospace', fontSize: 'calc(8px * var(--scale))', color: '#888', wordBreak: 'break-all' }}>
+                              {entry.contractAddress}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -585,9 +799,9 @@ function LaunchFeedPanel({ onClose }) {
         fontSize: 'calc(8px * var(--scale))',
       }}>
         {viewMode === 'handle'
-          ? `${groupByHandle(launches).length} handles (${launches.length} items)`
-          : `${groupLaunches(launches).length} groups (${launches.length} items)`
-        } | Powered by Grok x_search
+          ? `${groupByHandle(filteredLaunches).length} handles (${filteredLaunches.length} items)`
+          : `${groupLaunches(filteredLaunches).length} groups (${filteredLaunches.length} items)`
+        } | Live detection
       </div>
     </div>
   );
