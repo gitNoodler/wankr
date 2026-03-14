@@ -13,6 +13,7 @@ let reconnectAttempts = 0;
 let totalTweetsReceived = 0;
 let startedAt = null;
 let permanentlyDisabled = false; // stop retrying on 401/403
+let heartbeatTimer = null;
 
 const RULES_URL = 'https://api.x.com/2/tweets/search/stream/rules';
 const STREAM_URL = 'https://api.x.com/2/tweets/search/stream';
@@ -20,6 +21,7 @@ const STARTUP_DELAY = 15000;         // 15s delay on boot — let old container 
 const RECONNECT_BASE = 60000;        // 60s minimum between retries
 const RECONNECT_MAX = 600000;        // 10min max backoff
 const RECONNECT_LOG_EVERY = 5;       // only log every 5th attempt to reduce spam
+const HEARTBEAT_TIMEOUT = 30000;     // 30s — X sends heartbeats every 20s
 // X rate limit: 50 connections per 15min — at 60s+ per attempt we max ~15, well under limit
 
 // Rules created in X Developer Console:
@@ -83,7 +85,17 @@ async function verifyRules() {
   }
 }
 
+function resetHeartbeat() {
+  if (heartbeatTimer) clearTimeout(heartbeatTimer);
+  heartbeatTimer = setTimeout(() => {
+    console.warn('X Stream: No heartbeat for 30s — connection dead, reconnecting');
+    cleanupConnection();
+    scheduleReconnect();
+  }, HEARTBEAT_TIMEOUT);
+}
+
 function cleanupConnection() {
+  if (heartbeatTimer) { clearTimeout(heartbeatTimer); heartbeatTimer = null; }
   if (streamReq) {
     try { streamReq.destroy(); } catch {}
     streamReq = null;
@@ -175,9 +187,11 @@ function connect() {
     connecting = false;
     reconnectAttempts = 0;
     console.log('🔴 X Stream: Connected — listening for @bankrbot tweets');
+    resetHeartbeat(); // start heartbeat monitoring
 
     let buffer = '';
     res.on('data', (chunk) => {
+      resetHeartbeat(); // any data (tweet or heartbeat) resets the timer
       buffer += chunk.toString();
       const lines = buffer.split('\r\n');
       buffer = lines.pop();
