@@ -5,11 +5,12 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const { ethers } = require('ethers');
 
-const USERS_FILE = path.join(__dirname, 'storage', 'users.json');
-const REGISTRY_FILE = path.join(__dirname, 'storage', 'username_registry.json');
-const SESSIONS_FILE = path.join(__dirname, 'storage', 'sessions.json');
-const WALLET_FILE = path.join(__dirname, 'storage', 'wallet_addresses.json');
-const NONCES_FILE = path.join(__dirname, 'storage', 'nonces.json');
+const STORAGE_ROOT = require('./storagePath');
+const USERS_FILE = path.join(STORAGE_ROOT, 'users.json');
+const REGISTRY_FILE = path.join(STORAGE_ROOT, 'username_registry.json');
+const SESSIONS_FILE = path.join(STORAGE_ROOT, 'sessions.json');
+const WALLET_FILE = path.join(STORAGE_ROOT, 'wallet_addresses.json');
+const NONCES_FILE = path.join(STORAGE_ROOT, 'nonces.json');
 const SALT_ROUNDS = 10;
 const NONCE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days

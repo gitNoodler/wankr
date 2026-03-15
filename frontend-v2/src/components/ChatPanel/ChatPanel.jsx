@@ -1,5 +1,6 @@
 import { memo, useRef, useLayoutEffect, useMemo, useState, useEffect, useCallback } from 'react';
 import { VariableSizeList } from 'react-window';
+import { api } from '../../utils/api';
 import LOGO_URL from '../../assets/logo.js';
 
 const VIRTUAL_LIST_THRESHOLD = 50;
@@ -297,6 +298,22 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isD
   const atBottomRef = useRef(true); // start at bottom; scroll up through history
   const [inputValue, setInputValue] = useState('');
   const [containerHeight, setContainerHeight] = useState(0);
+  const [isSpectated, setIsSpectated] = useState(false);
+
+  // Poll spectator status — check if any dev is watching
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      try {
+        const res = await api.get('/api/spectator/grok-status');
+        const data = await res.json();
+        if (active) setIsSpectated(data.spectators > 0);
+      } catch {}
+    };
+    check();
+    const id = setInterval(check, 10000);
+    return () => { active = false; clearInterval(id); };
+  }, []);
 
   const getScale = () => {
     if (typeof window === 'undefined') return 1;
@@ -445,6 +462,21 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isD
           >
             Wankr Vision
           </h2>
+          {isSpectated && (
+            <span
+              title="You are being spectated"
+              style={{
+                display: 'inline-block',
+                width: 'calc(8px * var(--scale))',
+                height: 'calc(8px * var(--scale))',
+                borderRadius: '50%',
+                background: '#ff3333',
+                boxShadow: '0 0 6px #ff3333, 0 0 12px rgba(255, 51, 51, 0.5)',
+                animation: 'blink-spectate 1.5s ease-in-out infinite',
+                flexShrink: 0,
+              }}
+            />
+          )}
           <span
             className={`training-light${trainingLightOn ? ' on' : ''}`}
             title={trainingLightOn ? 'Training mode active' : 'Training mode off'}

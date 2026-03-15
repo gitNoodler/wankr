@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const STORAGE_DIR = path.join(__dirname, 'storage');
+const STORAGE_DIR = require('./storagePath');
 const MIN_EXCHANGES = 5;
 
 const TRAINING_DIR = path.join(STORAGE_DIR, 'training');

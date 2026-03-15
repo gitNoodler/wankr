@@ -8,7 +8,8 @@ const path = require('path');
 const kolAnalysisService = require('./kolAnalysisService');
 const responsePipeline = require('./responsePipeline');
 
-const OUTPUT_DIR = path.join(__dirname, 'storage', 'training', 'pipeline_generated');
+const STORAGE_ROOT = require('./storagePath');
+const OUTPUT_DIR = path.join(STORAGE_ROOT, 'training', 'pipeline_generated');
 
 const PROMPT_TEMPLATES = [
   'What do you think about @{handle}?',

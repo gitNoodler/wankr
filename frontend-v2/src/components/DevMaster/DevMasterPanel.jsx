@@ -6,6 +6,7 @@ import StatsTab from './StatsTab';
 import DiagnosticsTab from './DiagnosticsTab';
 import QuarantineTab from './QuarantineTab';
 import RulesTab from './RulesTab';
+import RawStreamTab from './RawStreamTab';
 import './DevMasterPanel.css';
 
 const TABS = [
@@ -15,6 +16,7 @@ const TABS = [
   { key: 'diag', label: 'Diag', icon: '\u2318' },
   { key: 'quarantine', label: 'Quarantine', icon: '\u26A0' },
   { key: 'rules', label: 'Rules', icon: '\u2263' },
+  { key: 'stream', label: 'Stream', icon: '\u25C8' },
   { key: 'stats', label: 'Stats', icon: '\u2261' },
 ];
 
@@ -51,6 +53,7 @@ export default function DevMasterPanel() {
       case 'diag': return <DiagnosticsTab />;
       case 'quarantine': return <QuarantineTab />;
       case 'rules': return <RulesTab />;
+      case 'stream': return <RawStreamTab />;
       case 'stats': return <StatsTab />;
       default: return null;
     }

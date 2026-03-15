@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 // --- Storage paths ---
-const LAUNCH_STORAGE_DIR = path.join(__dirname, 'storage', 'bankr_launches');
+const STORAGE_ROOT = require('./storagePath');
+const LAUNCH_STORAGE_DIR = path.join(STORAGE_ROOT, 'bankr_launches');
 const LAUNCH_CACHE_FILE = path.join(LAUNCH_STORAGE_DIR, 'launch_cache.json');
 const LAUNCH_LOG_FILE = path.join(LAUNCH_STORAGE_DIR, 'launch_log.jsonl');
 const HANDLE_TRACKER_FILE = path.join(LAUNCH_STORAGE_DIR, 'handle_tracker.json');
@@ -20,9 +21,9 @@ const sentimentBatchStats = { fired: 0, success: 0, fail: 0 };
 
 // Detection: X Filtered Stream (xStreamListener.js) → ingestLaunches()
 // x_search polling removed — stream is free, x_search costs $5/1k calls
-const SENTIMENT_BATCH_MAX = 10;          // batch at 10 queued
+const SENTIMENT_BATCH_MAX = 5;           // batch at 5 queued
 const SENTIMENT_BATCH_TIMEOUT = 600000;  // or 10 min, whichever first
-const SENTIMENT_INSTANT_THRESHOLD = 3;   // ≤3 queued at timeout → instant (full price but fast)
+const SENTIMENT_INSTANT_THRESHOLD = 999; // always instant (batch API needs key permission upgrade)
 const CACHE_TTL = 48 * 60 * 60 * 1000;  // prune cache entries older than 48h
 const CACHE_PRUNE_INTERVAL = 3600000;    // check every hour
 
@@ -449,14 +450,33 @@ function ingestLaunches(launches) {
   checkSentimentBatchTrigger();
 }
 
-// Sentiment batch trigger: 75 queued OR 2h elapsed
+// Sentiment batch trigger: SENTIMENT_BATCH_MAX queued OR timeout elapsed
+// Queue must never exceed cap — fire as soon as cap is reached (or more)
 function checkSentimentBatchTrigger() {
+  // Fire immediately if queue >= cap
+  if (sentimentQueue.length >= SENTIMENT_BATCH_MAX) {
+    fireSentimentBatch();
+    return;
+  }
+  // Fire on timeout if anything is queued
   const elapsed = Date.now() - lastBatchTime;
-  if (sentimentQueue.length >= SENTIMENT_BATCH_MAX || (sentimentQueue.length > 0 && elapsed >= SENTIMENT_BATCH_TIMEOUT)) {
+  if (sentimentQueue.length > 0 && elapsed >= SENTIMENT_BATCH_TIMEOUT) {
     fireSentimentBatch();
   } else if (elapsed >= SENTIMENT_BATCH_TIMEOUT) {
     lastBatchTime = Date.now();
   }
+}
+
+// Re-queue failed batch items and reset their cache status to 'pending'
+function requeue(items) {
+  for (const item of items) {
+    const cacheKey = item.contractAddress?.toLowerCase() || (item.tokenName || '').toLowerCase().trim();
+    const cached = launchCache.get(cacheKey);
+    if (cached && cached.sentimentStatus === 'processing') {
+      cached.sentimentStatus = 'pending';
+    }
+  }
+  sentimentQueue.unshift(...items);
 }
 
 function fireSentimentBatch() {
@@ -476,6 +496,15 @@ function fireSentimentBatch() {
   if (batch.length === 0) return;
   sentimentBatchStats.fired++;
 
+  // Mark cache entries as 'processing' so frontend distinguishes queued vs in-flight
+  for (const item of batch) {
+    const cacheKey = item.contractAddress?.toLowerCase() || (item.tokenName || '').toLowerCase().trim();
+    const cached = launchCache.get(cacheKey);
+    if (cached && cached.sentimentStatus === 'pending') {
+      cached.sentimentStatus = 'processing';
+    }
+  }
+
   // Hybrid: slow periods (≤3 items) → instant full-price, busy (>3) → batch half-price
   if (batch.length <= SENTIMENT_INSTANT_THRESHOLD) {
     console.log(`⚡ Instant sentiment for ${batch.length} token(s) (slow period)`);
@@ -485,7 +514,7 @@ function fireSentimentBatch() {
     }).catch(err => {
       console.warn('⚠️  Instant sentiment error — re-queuing:', err.message);
       sentimentBatchStats.fail++;
-      sentimentQueue.unshift(...batch);
+      requeue(batch);
     });
   } else {
     console.log(`🎯 Batch sentiment for ${batch.length} tokens (half price)`);
@@ -496,12 +525,12 @@ function fireSentimentBatch() {
       } else {
         console.warn('⚠️  Batch API returned no ID — re-queuing');
         sentimentBatchStats.fail++;
-        sentimentQueue.unshift(...batch);
+        requeue(batch);
       }
     }).catch(err => {
       console.warn('⚠️  Batch API error — re-queuing:', err.message);
       sentimentBatchStats.fail++;
-      sentimentQueue.unshift(...batch);
+      requeue(batch);
     });
   }
 }
@@ -638,18 +667,21 @@ function init(app, deps) {
     console.log(`✅ Backfilled ${Object.keys(handleTracker).length} handles from cache`);
   }
 
-  // Re-queue launches with missing/pending sentimentStatus on startup
+  // Re-queue launches with missing/pending/processing sentimentStatus on startup
   {
     let requeued = 0;
     for (const entry of launchCache.values()) {
-      if (entry.actionType === 'launch' && (!entry.sentimentStatus || entry.sentimentStatus === 'pending') && !entry.failedAttempt) {
+      if (entry.actionType === 'launch' && (!entry.sentimentStatus || entry.sentimentStatus === 'pending' || entry.sentimentStatus === 'processing') && !entry.failedAttempt) {
         entry.sentimentStatus = 'pending';
+        sentimentQueue.push(entry);
         requeued++;
       }
     }
     if (requeued > 0) {
       saveLaunchCache();
       console.log(`🔄 Re-queued ${requeued} launches with pending/missing sentimentStatus`);
+      // Fire batch immediately if queue already exceeds cap
+      checkSentimentBatchTrigger();
     }
   }
 
@@ -669,6 +701,7 @@ function init(app, deps) {
 
   // Wire launch cache into response pipeline so Wankr recognizes token names from the feed
   responsePipeline.setLaunchCacheProvider(getCachedLaunches);
+  responsePipeline.setHandleTrackerProvider(() => handleTracker);
 
   // --- Routes ---
   app.get('/api/pipeline/launch-feed', (req, res) => {
@@ -699,10 +732,8 @@ function init(app, deps) {
   });
 
   // --- Intervals ---
-  // Also check batch timeout every 10s
-  setInterval(() => {
-    if (hasActiveUsers()) checkSentimentBatchTrigger();
-  }, 10000);
+  // Check batch timeout every 10s (runs always — feed must be unified for all users)
+  setInterval(checkSentimentBatchTrigger, 10000);
 
   // Poll active Batch API batches every 15s
   setInterval(pollActiveBatches, BATCH_POLL_INTERVAL);
@@ -711,6 +742,40 @@ function init(app, deps) {
   setInterval(pruneLaunchCache, CACHE_PRUNE_INTERVAL);
 
   // Detection: handled by xStreamListener → ingestLaunches() (no x_search polling)
+}
+
+// Import snapshot — merge incoming data without losing existing entries
+function importSnapshot(snapshot) {
+  let cacheImported = 0, trackerImported = 0;
+
+  // Merge launch cache
+  if (snapshot.launchCache) {
+    for (const [key, entry] of Object.entries(snapshot.launchCache)) {
+      if (!launchCache.has(key)) {
+        launchCache.set(key, entry);
+        cacheImported++;
+      }
+    }
+    saveLaunchCache();
+  }
+
+  // Merge handle tracker
+  if (snapshot.handleTracker) {
+    for (const [handle, data] of Object.entries(snapshot.handleTracker)) {
+      if (!handleTracker[handle]) {
+        handleTracker[handle] = data;
+        trackerImported++;
+      }
+    }
+    saveHandleTracker();
+  }
+
+  // Archive all imported handles
+  for (const handle of Object.keys(snapshot.handleTracker || {})) {
+    archiveHandle(handle);
+  }
+
+  return { cacheImported, trackerImported, cacheTotal: launchCache.size, trackerTotal: Object.keys(handleTracker).length };
 }
 
 module.exports = {
@@ -725,5 +790,6 @@ module.exports = {
   getActiveUsers: () => activeUsers,
   getCachedLaunches,
   ingestLaunches,
+  importSnapshot,
   ACTIVE_USER_TTL,
 };

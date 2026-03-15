@@ -1,5 +1,5 @@
-// xStreamListener.js — X Filtered Stream v2 for real-time bankr launch detection
-// Replaces expensive x_search polling ($5/1k calls) with free persistent stream
+// xStreamListener.js — X Filtered Stream v2 + search polling fallback
+// Primary: persistent stream (free, real-time). Fallback: search/recent polling.
 const https = require('https');
 const { URL } = require('url');
 
@@ -17,14 +17,24 @@ let heartbeatTimer = null;
 const activityBuffer = [];          // ring buffer of all raw stream tweets
 const ACTIVITY_BUFFER_MAX = 200;    // keep last 200 tweets
 
+// ── Search polling fallback state ──────────────────────────────────────
+let pollTimer = null;
+let pollSinceId = null;           // track last tweet ID to avoid duplicates
+let totalPollHits = 0;
+let pollActive = false;
+const seenTweetIds = new Set();   // dedup across stream + poll
+const SEEN_IDS_MAX = 5000;
+
 const RULES_URL = 'https://api.x.com/2/tweets/search/stream/rules';
 const STREAM_URL = 'https://api.x.com/2/tweets/search/stream';
+const SEARCH_URL = 'https://api.x.com/2/tweets/search/recent';
 const STARTUP_DELAY = 15000;         // 15s delay on boot — let old container die
 const RECONNECT_BASE = 60000;        // 60s minimum between retries
 const RECONNECT_MAX = 600000;        // 10min max backoff
 const RECONNECT_LOG_EVERY = 5;       // only log every 5th attempt to reduce spam
 const HEARTBEAT_TIMEOUT = 30000;     // 30s — X sends heartbeats every 20s
-// X rate limit: 50 connections per 15min — at 60s+ per attempt we max ~15, well under limit
+const POLL_INTERVAL = 10000;         // 10s — 6/min = 90/15min (limit: 450/15min)
+// X rate limit: 50 stream connections per 15min, 450 search requests per 15min
 
 // Rules created in X Developer Console:
 // ID: 2032965417317314563 | value: @bankrbot (mentions)
@@ -50,7 +60,10 @@ async function init(deps) {
     console.error('X Stream init error:', err.message);
   }
 
-  // Delay first connection to let previous container's stream die
+  // Start search polling immediately — catches tweets while stream connects
+  startPolling();
+
+  // Delay first stream connection to let previous container's stream die
   console.log(`X Stream: Waiting ${STARTUP_DELAY / 1000}s before connecting (letting old connections expire)...`);
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
@@ -102,8 +115,11 @@ function cleanupConnection() {
     try { streamReq.destroy(); } catch {}
     streamReq = null;
   }
+  const wasConnected = connected;
   connected = false;
   connecting = false;
+  // Resume polling fallback when stream drops
+  if (wasConnected) startPolling();
 }
 
 function getReconnectDelay() {
@@ -184,11 +200,12 @@ function connect() {
       return;
     }
 
-    // Successfully connected
+    // Successfully connected — stop polling fallback
     connected = true;
     connecting = false;
     reconnectAttempts = 0;
-    console.log('🔴 X Stream: Connected — listening for @bankrbot tweets');
+    stopPolling();
+    console.log('🔴 X Stream: Connected — listening for @bankrbot tweets (polling stopped)');
     resetHeartbeat(); // start heartbeat monitoring
 
     let buffer = '';
@@ -245,9 +262,21 @@ function scheduleReconnect(forceDelay) {
   }, delay);
 }
 
-function processTweet(data) {
+function processTweet(data, source = 'stream') {
   const tweet = data.data;
   if (!tweet) return;
+
+  // Dedup: skip if we've already processed this tweet (from stream or poll)
+  if (tweet.id && seenTweetIds.has(tweet.id)) return;
+  if (tweet.id) {
+    seenTweetIds.add(tweet.id);
+    // Trim seen set to prevent unbounded growth
+    if (seenTweetIds.size > SEEN_IDS_MAX) {
+      const excess = seenTweetIds.size - SEEN_IDS_MAX;
+      const iter = seenTweetIds.values();
+      for (let i = 0; i < excess; i++) { seenTweetIds.delete(iter.next().value); }
+    }
+  }
 
   totalTweetsReceived++;
   const text = tweet.text || '';
@@ -259,7 +288,8 @@ function processTweet(data) {
   }
 
   const postAuthor = users[tweet.author_id] ? `@${users[tweet.author_id]}` : '';
-  console.log(`📡 X Stream [${totalTweetsReceived}] from ${postAuthor}: ${text.slice(0, 140)}`);
+  const icon = source === 'poll' ? '🔍' : '📡';
+  console.log(`${icon} X ${source} [${totalTweetsReceived}] from ${postAuthor}: ${text.slice(0, 140)}`);
 
   // Store raw tweet in activity buffer
   activityBuffer.unshift({
@@ -332,6 +362,86 @@ function parseBankrTweet(text, postAuthor, tweet, users) {
   };
 }
 
+// ── Search polling fallback ────────────────────────────────────────────
+// Polls /2/tweets/search/recent for @bankrbot when stream is disconnected
+function startPolling() {
+  if (pollActive || permanentlyDisabled) return;
+  pollActive = true;
+  console.log(`🔍 X Poll: Starting search fallback (every ${POLL_INTERVAL / 1000}s)`);
+  // First poll immediately
+  searchPoll();
+  pollTimer = setInterval(searchPoll, POLL_INTERVAL);
+}
+
+function stopPolling() {
+  if (!pollActive) return;
+  pollActive = false;
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  console.log('🔍 X Poll: Stopped (stream connected)');
+}
+
+async function searchPoll() {
+  const token = getBearerToken();
+  if (!token) return;
+
+  try {
+    const url = new URL(SEARCH_URL);
+    url.searchParams.set('query', '@bankrbot OR from:bankrbot');
+    url.searchParams.set('tweet.fields', 'text,author_id,created_at,in_reply_to_user_id,referenced_tweets,entities');
+    url.searchParams.set('expansions', 'author_id,referenced_tweets.id,in_reply_to_user_id');
+    url.searchParams.set('user.fields', 'username');
+    url.searchParams.set('max_results', '10');
+    if (pollSinceId) url.searchParams.set('since_id', pollSinceId);
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('retry-after');
+      console.warn(`🔍 X Poll: 429 rate limited${retryAfter ? ` — retry in ${retryAfter}s` : ''}`);
+      return;
+    }
+    if (res.status === 401 || res.status === 403) {
+      console.error(`🔍 X Poll: ${res.status} — disabling search fallback`);
+      stopPolling();
+      return;
+    }
+    if (res.status !== 200) {
+      return; // silent fail, will retry next interval
+    }
+
+    const data = await res.json();
+    const tweets = data.data || [];
+    const meta = data.meta || {};
+    const includes = data.includes || {};
+
+    // Update since_id for next poll
+    if (meta.newest_id) pollSinceId = meta.newest_id;
+
+    if (tweets.length === 0) return;
+
+    let newCount = 0;
+    for (const tweet of tweets) {
+      // Process each tweet through the same pipeline as stream
+      const tweetData = { data: tweet, includes };
+      if (!seenTweetIds.has(tweet.id)) {
+        processTweet(tweetData, 'poll');
+        newCount++;
+      }
+    }
+    if (newCount > 0) {
+      totalPollHits += newCount;
+      console.log(`🔍 X Poll: ${newCount} new tweet(s) found (${totalPollHits} total from polls)`);
+    }
+  } catch (err) {
+    // Silent retry on network errors
+    if (err.code !== 'ECONNRESET') {
+      console.error('🔍 X Poll error:', err.message);
+    }
+  }
+}
+
 function getStatus() {
   return {
     connected,
@@ -339,12 +449,15 @@ function getStatus() {
     permanentlyDisabled,
     reconnectAttempts,
     totalTweetsReceived,
+    pollActive,
+    totalPollHits,
     uptimeMs: startedAt ? Date.now() - startedAt : 0,
   };
 }
 
 function disconnect() {
   cleanupConnection();
+  stopPolling();
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
 }
 

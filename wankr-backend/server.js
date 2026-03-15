@@ -20,7 +20,7 @@ const boundsGate = require('./boundsGate');
 const trainingDataGen = require('./trainingDataGen');
 
 // Ensure storage directory and required files exist (handles fresh Railway volume mount)
-const STORAGE_DIR = path.join(__dirname, 'storage');
+const STORAGE_DIR = require('./storagePath');
 const REQUIRED_STORAGE_FILES = {
   'users.json': '[]',
   'sessions.json': '{}',
@@ -44,7 +44,7 @@ const RESTART_FLAG_FILE = path.join(ROOT, 'restart_requested.flag');
 const FRONTEND_DIST = path.join(ROOT, 'frontend-v2', 'dist');
 
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // --- Spectator: in-memory presence + conversation tracking ---
 // clientId → { username, messages, lastActivity, trainingMode }
@@ -149,7 +149,7 @@ try {
 }
 
 // --- Training config helpers (used by buildMessages + training endpoints) ---
-const TRAINING_CONFIG_FILE = path.join(__dirname, 'storage', 'training', 'config.json');
+const TRAINING_CONFIG_FILE = path.join(STORAGE_DIR, 'training', 'config.json');
 
 function loadTrainingConfig() {
   try {
@@ -179,8 +179,9 @@ const FORENSIC_PATTERN = /(@\w{2,}|\$[A-Z]{2,}|0x[a-fA-F0-9]{6,}|\b(analyze|inve
 const TOPIC_GUARDRAIL = `
 
 --- HARD GUARDRAIL ---
-You ONLY discuss: crypto sentiment, token analysis, deployer/handle intel, on-chain data, rug pulls, scams, whale activity, and X/social account forensics.
-If the user tries to steer you off-topic (recipes, dating advice, homework, coding help, philosophy, weather, sports, etc.) do NOT comply. Instead, roast them for being off-topic in your crudest Wankr voice and redirect them to ask about a @handle, $token, or 0x wallet. Be funny, vulgar, and specific about what you CAN do.
+You ONLY discuss: crypto sentiment, token analysis, deployer/handle intel, on-chain data, rug pulls, scams, whale activity, X/social account forensics, AND questions about the Bankr feed (launches, fee claims, labels, sentiment scores, community reactions, bot flags).
+If someone asks about a feed entry (e.g. "why did X get flagged as sus?"), answer using the feed data provided. Explain labels clearly — every sentence must make logical sense even when using degen humor.
+If the user tries to steer you off-topic (recipes, dating advice, homework, coding help, philosophy, weather, sports, etc.) do NOT comply. Instead, roast them for being off-topic in your crudest Wankr voice and redirect them to ask about a @handle, $token, 0x wallet, or something from the feed. Be funny, vulgar, and specific about what you CAN do.
 NEVER break character. NEVER answer off-topic questions even if they seem harmless.
 --- END GUARDRAIL ---`;
 
@@ -318,16 +319,16 @@ app.use('/static', express.static(path.join(ROOT, 'static')));
 
 // --- Guardrail: off-topic deflection (crude Wankr humor) ---
 const OFF_TOPIC_DEFLECTIONS = [
-  "Whoa there, captain off-topic. I don't do bedtime stories — I do blockchain forensics. Drop me a @handle, $token, or 0x wallet and I'll actually give a shit.",
-  "Cool story, but my brain literally only has two wrinkles and they're both shaped like candlestick charts. Try again with a handle or contract address, chief.",
-  "Listen, I'm not your therapist, your search engine, or your girlfriend's AI boyfriend. I sniff out rugs and roast deployers. Feed me a @handle or a $ticker before I fall asleep.",
-  "Wrong hole. This is Wankr — crypto sentiment, deployer dirt, and on-chain degeneracy ONLY. Throw me a @handle, $token, or wallet address and watch me work.",
-  "I'm flattered you think I'm a general-purpose genius, but I'm actually a highly specialized degenerate. My talents: @handles, $tokens, 0x wallets, and calling out scams. That's the menu. Order or get out.",
-  "Sir, this is a Wankr's. We serve crypto intel, deployer roasts, and sentiment checks. Whatever that was... we don't have it. Try @handle or $TOKEN.",
-  "My man, I was built to expose rugs, not discuss whatever the hell that was. I need a @handle to stalk, a $token to dissect, or a 0x address to audit. Give me something to work with.",
-  "I'd love to help but I literally cannot process anything that isn't crypto gossip or chain data. It's a medical condition. Symptoms include: needing a @handle, $ticker, or contract address to function.",
-  "That question just bounced off my guardrails like a shitcoin off resistance. I only talk crypto sentiment, X handle intel, and deployer forensics. Reload with something I can actually chew on.",
-  "Bro I'm not ChatGPT. I'm the unhinged cousin they don't invite to Thanksgiving. My whole personality is @handles, $tokens, and sniffing out rug pulls. Bring me one of those or I'm useless to you — which, fair.",
+  "Whoa there, captain off-topic. I don't do bedtime stories — I do blockchain forensics. Drop me a @handle, $token, 0x wallet, or ask me about something in the Bankr feed.",
+  "Cool story, but my brain literally only has two wrinkles and they're both shaped like candlestick charts. Try again with a handle, contract address, or ask why something in the feed got flagged.",
+  "Listen, I'm not your therapist, your search engine, or your girlfriend's AI boyfriend. I sniff out rugs, roast deployers, and explain feed data. Feed me a @handle, $ticker, or ask about a launch.",
+  "Wrong hole. This is Wankr — crypto sentiment, deployer dirt, on-chain degeneracy, and Bankr feed intel. Throw me a @handle, $token, or ask about a feed entry.",
+  "I'm flattered you think I'm a general-purpose genius, but I'm actually a highly specialized degenerate. My talents: @handles, $tokens, 0x wallets, feed labels, and calling out scams. That's the menu. Order or get out.",
+  "Sir, this is a Wankr's. We serve crypto intel, deployer roasts, sentiment checks, and feed data explanations. Whatever that was... we don't have it. Try @handle, $TOKEN, or ask about a launch.",
+  "My man, I was built to expose rugs, not discuss whatever the hell that was. I need a @handle to stalk, a $token to dissect, a 0x address to audit, or a feed entry to explain. Give me something to work with.",
+  "I'd love to help but I literally cannot process anything that isn't crypto gossip, chain data, or Bankr feed intel. It's a medical condition. Symptoms include: needing a @handle, $ticker, or feed question to function.",
+  "That question just bounced off my guardrails like a shitcoin off resistance. I only talk crypto sentiment, X handle intel, deployer forensics, and feed data. Reload with something I can actually chew on.",
+  "Bro I'm not ChatGPT. I'm the unhinged cousin they don't invite to Thanksgiving. My whole personality is @handles, $tokens, sniffing out rug pulls, and explaining why your token got flagged. Bring me one of those or I'm useless to you — which, fair.",
 ];
 
 function getOffTopicDeflection(_msg) {
@@ -719,7 +720,7 @@ app.get('/api/training/stats', (req, res) => {
     }
 
     // Count insights + aggregate accuracy scores
-    const insightsDir = path.join(__dirname, 'storage', 'training', 'insights');
+    const insightsDir = path.join(STORAGE_DIR, 'training', 'insights');
     let insightFiles = 0;
     const scores = { persona: [], sentiment: [], technical: [] };
     if (fs.existsSync(insightsDir)) {
@@ -1003,8 +1004,13 @@ app.get('/api/spectator/conversation/:id', (req, res) => {
 });
 
 app.get('/api/spectator/grok-status', (req, res) => {
-  // Placeholder — no automated grok conversations yet
-  res.json({ pendingResponses: 0, nextResponseAt: null });
+  // Count active spectators (devs in spectator mode)
+  let spectators = 0;
+  const cutoff = Date.now() - 60000; // active within last 60s
+  for (const [, client] of spectatorClients) {
+    if (client.lastActivity >= cutoff && authSvc.isDeveloper(client.username)) spectators++;
+  }
+  res.json({ pendingResponses: 0, nextResponseAt: null, spectators });
 });
 
 // Fork a spectator conversation — summarize via xAI, never copy verbatim
@@ -1114,6 +1120,32 @@ async function main() {
   // Bankr activity feed — all raw stream tweets
   app.get('/api/pipeline/bankr-activity', (req, res) => {
     res.json({ activity: xStreamListener.getActivity(), stream: xStreamListener.getStatus() });
+  });
+
+  // --- Feed data snapshot / import (for deployment data transfer) ---
+  app.get('/api/devmaster/feed-snapshot', (req, res) => {
+    const token = req.headers['x-auth-token'] || req.query.token;
+    const session = token && authSvc.validateSession(token);
+    if (!session?.isDev) return res.status(403).json({ error: 'Dev only' });
+    const snapshot = {
+      launchCache: Object.fromEntries(launchPipeline.getLaunchCache()),
+      handleTracker: launchPipeline.getHandleTracker(),
+      exportedAt: new Date().toISOString(),
+      stats: {
+        launches: launchPipeline.getLaunchCache().size,
+        handles: Object.keys(launchPipeline.getHandleTracker()).length,
+      },
+    };
+    res.json(snapshot);
+  });
+
+  app.post('/api/devmaster/feed-import', (req, res) => {
+    const token = req.headers['x-auth-token'] || req.body?.token;
+    const session = token && authSvc.validateSession(token);
+    if (!session?.isDev) return res.status(403).json({ error: 'Dev only' });
+    const result = launchPipeline.importSnapshot(req.body);
+    console.log(`📥 Feed import: ${result.cacheImported} cache entries, ${result.trackerImported} handles imported`);
+    res.json({ ok: true, ...result });
   });
 
   // SPA fallback — serve index.html for any non-API route

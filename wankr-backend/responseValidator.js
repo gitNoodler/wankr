@@ -10,7 +10,8 @@ const fs = require('fs');
 const path = require('path');
 const handleStore = require('./handleStore');
 
-const VALIDATIONS_DIR = path.join(__dirname, 'storage', 'pipeline', 'validations');
+const STORAGE_ROOT = require('./storagePath');
+const VALIDATIONS_DIR = path.join(STORAGE_ROOT, 'pipeline', 'validations');
 
 // Ensure storage directory exists
 function ensureDir() {

@@ -8,8 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const { countExchanges } = require('./archiveService');
 
-const STORAGE_DIR = path.join(__dirname, 'storage');
-const ACTIVE_CHATS_DIR = path.join(STORAGE_DIR, 'activeChats');
+const STORAGE_ROOT = require('./storagePath');
+const ACTIVE_CHATS_DIR = path.join(STORAGE_ROOT, 'activeChats');
 const MAX_ACTIVE_CHATS = 20;
 const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const STALE_MIN_EXCHANGES = 5;

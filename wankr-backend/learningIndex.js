@@ -8,7 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const CONVERSATIONS_DIR = path.join(__dirname, 'storage', 'training', 'conversations');
+const STORAGE_ROOT = require('./storagePath');
+const CONVERSATIONS_DIR = path.join(STORAGE_ROOT, 'training', 'conversations');
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Crypto/finance terms get 2x scoring weight

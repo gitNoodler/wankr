@@ -8,7 +8,8 @@ const path = require('path');
 const handleStore = require('./handleStore');
 
 // ── xAI API call tracking ───────────────────────────────────────────────
-const API_USAGE_FILE = path.join(__dirname, 'storage', 'pipeline', 'api_usage.json');
+const STORAGE_ROOT = require('./storagePath');
+const API_USAGE_FILE = path.join(STORAGE_ROOT, 'pipeline', 'api_usage.json');
 const COST_PER_TYPE = { detection: 0.005, sentiment: 0.005, sentimentBatch: 0.0025, chat: 0.003, handleIntel: 0.005 };
 
 const DEFAULT_CALLS = { detection: 0, sentiment: 0, sentimentBatch: 0, chat: 0, handleIntel: 0 };

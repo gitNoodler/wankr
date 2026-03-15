@@ -17,7 +17,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const XHANDLES_DIR = path.join(__dirname, 'storage', 'Xhandles');
+const STORAGE_ROOT = require('./storagePath');
+const XHANDLES_DIR = path.join(STORAGE_ROOT, 'Xhandles');
 
 // Ensure root exists
 if (!fs.existsSync(XHANDLES_DIR)) {

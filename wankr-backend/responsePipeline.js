@@ -28,12 +28,34 @@ function matchLaunchByName(message) {
   });
 }
 
+// ── Bankr handle tracker lookup (injected from launchPipeline) ──────────
+let _getHandleTracker = null;
+function setHandleTrackerProvider(fn) { _getHandleTracker = fn; }
+
+function matchHandleByName(message) {
+  if (!_getHandleTracker) return [];
+  const tracker = _getHandleTracker();
+  if (!tracker) return [];
+  const msgLower = message.toLowerCase();
+  const matches = [];
+  for (const [handle, data] of Object.entries(tracker)) {
+    if (msgLower.includes(handle.toLowerCase())) {
+      matches.push({ handle, ...data });
+    }
+  }
+  return matches;
+}
+
+// ── Feed-question intent detection ────────────────────────────────────
+const FEED_KEYWORDS = /\b(feed|launch(?:es)?|fee\s*claim|airdrop|bankr|sentiment|label(?:ed)?|flagged|sus\b|batch|queued|detected|reaction|community|wankr\s*(?:feed|launch|data)|why\s+(?:did|does|is|was)|what\s+(?:does|is|are)\s+(?:sus|flagged|bot|suspicious))\b/i;
+
 // ── Classification states ──────────────────────────────────────────────
 const STATES = {
   FULL_CLEAN: 'FULL_CLEAN',
   FULL_RED_FLAGS: 'FULL_RED_FLAGS',
   PARTIAL: 'PARTIAL',
   NO_DATA: 'NO_DATA',
+  FEED_QUESTION: 'FEED_QUESTION',
   SKIP: 'SKIP',
 };
 
@@ -60,6 +82,19 @@ const PERSONA_MODES = {
     'Be SPECIFIC about what you need — handle, wallet address, contract address, or token name. ' +
     'Keep it short. End with actionable prompt. ' +
     'Voice: impatient push. Example opener style: "I don\'t vibe-check thin air. Need a handle, wallet, contract..."' + FORMAT_RULE,
+
+  [STATES.FEED_QUESTION]:
+    'The user is asking about Bankr feed data — launches, fee claims, labels, scores, or community sentiment. ' +
+    'Answer their specific question using the feed data provided below. Be accurate and specific. ' +
+    'IMPORTANT: Every sentence must make logical sense. Be crude and funny but NEVER sacrifice clarity for slang. ' +
+    'If a token or handle was flagged, explain the ACTUAL reason based on the scoring data. ' +
+    'Label meanings: "suspicious" = botScore 50-69 (moderate signals), "likely" bot = botScore 70+ (strong signals). ' +
+    'Scoring signals: high launch volume (8+ total = +25), burst activity (5+ in 7 days = +30), repeated token names (same name 3+ times = +20), ' +
+    'new account spam (account <14 days old + 3+ launches = +25), mostly @bankrbot commands in posts (>70% = +30). ' +
+    'Community reactions come from Grok sentiment analysis of X replies. "sus" = negative community reaction detected. ' +
+    'Fee claims are on-chain events where deployers claim accumulated trading fees. ' +
+    'Voice: knowledgeable degen explaining their dashboard. Example: "Finora got tagged because the deployer\'s account is 3 days old and already pumped out 6 launches — that\'s bot behavior 101."' +
+    '\nFORMATTING: Use [FEED DATA], [WHY THIS LABEL], [WHAT IT MEANS] headers where relevant. Keep it concise — users want a quick answer, not an essay.',
 };
 
 // ── Analysis intent keywords ───────────────────────────────────────────
@@ -67,7 +102,7 @@ const ANALYSIS_KEYWORDS = /\b(analyze|investigate|check|scan|audit|rug|scam|pump
 
 // ── Entity extraction ──────────────────────────────────────────────────
 function extractEntities(message) {
-  const entities = { handles: [], tokens: [], wallets: [], hasAnalysisIntent: false };
+  const entities = { handles: [], tokens: [], wallets: [], hasAnalysisIntent: false, hasFeedIntent: false };
 
   // @handles
   const handleMatches = message.match(/@(\w{2,15})/g);
@@ -89,6 +124,9 @@ function extractEntities(message) {
 
   // Analysis intent
   entities.hasAnalysisIntent = ANALYSIS_KEYWORDS.test(message);
+
+  // Feed data question intent
+  entities.hasFeedIntent = FEED_KEYWORDS.test(message);
 
   return entities;
 }
@@ -175,7 +213,19 @@ async function gatherDataAsync(entities, xaiApiKey) {
 // ── Classification ─────────────────────────────────────────────────────
 function classify(entities, data) {
   const hasLaunchMatch = (data.launchMatches || []).length > 0;
-  const hasEntities = entities.handles.length > 0 || entities.tokens.length > 0 || entities.wallets.length > 0 || hasLaunchMatch;
+  const hasHandleMatch = (data.handleMatches || []).length > 0;
+  const hasEntities = entities.handles.length > 0 || entities.tokens.length > 0 || entities.wallets.length > 0 || hasLaunchMatch || hasHandleMatch;
+
+  // Feed question — user asking about feed data, launches, labels, scores
+  if (entities.hasFeedIntent) {
+    const hasAnyFeedData = hasLaunchMatch || hasHandleMatch;
+    return {
+      state: STATES.FEED_QUESTION,
+      reason: hasAnyFeedData
+        ? 'Feed data question with matching entries'
+        : 'General feed data question (no specific match)',
+    };
+  }
 
   // No entities and no analysis intent → SKIP
   if (!hasEntities && !entities.hasAnalysisIntent) {
@@ -216,10 +266,87 @@ function classify(entities, data) {
   return { state: STATES.NO_DATA, reason: 'Entities found but no data available from any source' };
 }
 
+// ── Feed context builder (for FEED_QUESTION state) ────────────────────
+function buildFeedContext(data) {
+  const blocks = [];
+
+  // Matched launches from the feed
+  const launches = data.launchMatches || [];
+  if (launches.length > 0) {
+    blocks.push('[MATCHED FEED ENTRIES]');
+    for (const l of launches) {
+      const lines = [
+        `  Token: ${l.tokenName} ($${l.tokenSymbol || '???'})`,
+        `  Action: ${l.actionType || 'launch'}`,
+        `  Contract: ${l.contractAddress || 'unknown'}`,
+        `  Requested by: ${l.requestedBy || 'unknown'}`,
+        `  Community Reaction: ${l.communityReaction || 'neutral'}`,
+        `  Reaction Detail: ${l.reactionNote || 'No data yet'}`,
+        `  Sentiment Status: ${l.sentimentStatus || 'pending'}`,
+      ];
+      if (l.botScore != null) lines.push(`  Bot Score: ${l.botScore}/100`);
+      if (l.botFlag) lines.push(`  Bot Flag: ${l.botFlag}`);
+      lines.push(`  First seen: ${l.firstSeen || l.timestamp || 'unknown'}`, '');
+      blocks.push(...lines);
+    }
+  }
+
+  // Matched handles from the tracker
+  const handles = data.handleMatches || [];
+  if (handles.length > 0) {
+    blocks.push('[MATCHED HANDLE TRACKER ENTRIES]');
+    for (const h of handles) {
+      const lines = [
+        `  Handle: @${h.handle}`,
+        `  Total Launches: ${h.totalLaunches || 0}`,
+        `  Bot Score: ${h.botScore ?? 'not scored'}/100`,
+        `  Bot Flag: ${h.botFlag || 'none'}`,
+      ];
+      if (h.intel && !h.intel.pending && !h.intel.error) {
+        const age = h.intel.profile?.accountAge || 'unknown';
+        const bio = h.intel.profile?.bio || '';
+        lines.push(`  Account Age: ${age}`);
+        if (bio) lines.push(`  Bio: ${bio}`);
+        if (h.intel.posts?.length) {
+          const botCmds = h.intel.posts.filter(p => /@bankr/i.test(p.text || '')).length;
+          lines.push(`  Recent Posts: ${h.intel.posts.length} (${botCmds} are @bankrbot commands)`);
+        }
+      }
+      // Recent launches by this handle
+      if (h.launches?.length) {
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const recent = h.launches.filter(l => new Date(l.timestamp).getTime() > sevenDaysAgo);
+        lines.push(`  Launches (last 7d): ${recent.length} of ${h.launches.length} total`);
+        for (const l of h.launches.slice(-5)) {
+          lines.push(`    - ${l.tokenName || 'unknown'} (${l.timestamp || '?'})`);
+        }
+      }
+      lines.push('');
+      blocks.push(...lines);
+    }
+  }
+
+  // If no specific matches, provide a feed summary
+  if (launches.length === 0 && handles.length === 0) {
+    blocks.push('[FEED CONTEXT — no specific match found]');
+    blocks.push('  No exact token or handle match was found in the current feed.');
+    blocks.push('  The user may be asking a general question about how feed labels work.');
+    blocks.push('  Explain the labeling system and scoring criteria from the persona mode instructions.');
+    blocks.push('');
+  }
+
+  return blocks.length > 0 ? '\n--- FEED DATA CONTEXT ---\n' + blocks.join('\n') + '--- END FEED DATA ---' : '';
+}
+
 // ── Data context formatting ────────────────────────────────────────────
 function buildDataContext(classification, data, entities) {
   if (classification.state === STATES.SKIP || classification.state === STATES.NO_DATA) {
     return '';
+  }
+
+  // Feed question — build context from launch cache + handle tracker
+  if (classification.state === STATES.FEED_QUESTION) {
+    return buildFeedContext(data);
   }
 
   const blocks = [];
@@ -326,7 +453,11 @@ function buildDataContext(classification, data, entities) {
 // ── Pipeline orchestrator ──────────────────────────────────────────────
 function runPipeline(message, history) {
   const entities = extractEntities(message);
+  const launchMatches = matchLaunchByName(message);
+  const handleMatches = matchHandleByName(message);
   const data = gatherData(entities);
+  data.launchMatches = launchMatches;
+  data.handleMatches = handleMatches;
   const classification = classify(entities, data);
 
   const pipelineActive = classification.state !== STATES.SKIP;
@@ -370,8 +501,12 @@ async function runPipelineAsync(message, history, xaiApiKey) {
       }
     }
   }
+  // Match handle names from bankr handle tracker
+  const handleMatches = matchHandleByName(message);
+
   const data = await gatherDataAsync(entities, xaiApiKey);
   data.launchMatches = launchMatches;
+  data.handleMatches = handleMatches;
   const classification = classify(entities, data);
 
   const pipelineActive = classification.state !== STATES.SKIP;
@@ -412,6 +547,7 @@ module.exports = {
   runPipeline,
   runPipelineAsync,
   setLaunchCacheProvider,
+  setHandleTrackerProvider,
   STATES,
   PERSONA_MODES,
 };

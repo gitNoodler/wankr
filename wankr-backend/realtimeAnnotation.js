@@ -7,7 +7,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const INSIGHTS_DIR = path.join(__dirname, 'storage', 'training', 'insights');
+const STORAGE_ROOT = require('./storagePath');
+const INSIGHTS_DIR = path.join(STORAGE_ROOT, 'training', 'insights');
 
 // In-memory rate limiter: conversationKey → lastAnnotatedExchangeCount
 const annotationTracker = new Map();

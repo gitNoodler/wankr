@@ -34,14 +34,14 @@ const BOT_BADGE = {
 };
 
 function SentimentIndicator({ status, reaction }) {
-  if (status === 'pending') {
+  if (status === 'pending' || status === 'processing') {
     return (
       <span style={{
         display: 'inline-block',
         width: 'calc(8px * var(--scale))',
         height: 'calc(8px * var(--scale))',
         border: '2px solid #555',
-        borderTop: '2px solid #ff6633',
+        borderTop: `2px solid ${status === 'processing' ? '#ff9900' : '#ff6633'}`,
         borderRadius: '50%',
         animation: 'sentimentSpin 0.8s linear infinite',
         flexShrink: 0,
@@ -212,34 +212,275 @@ const HANDLE_NORMAL_COLOR = '#ff9944';
 if (typeof document !== 'undefined' && !document.getElementById('sentiment-spin-style')) {
   const style = document.createElement('style');
   style.id = 'sentiment-spin-style';
-  style.textContent = '@keyframes sentimentSpin { to { transform: rotate(360deg); } } @keyframes feedSlideIn { from { opacity: 0; transform: translateY(-8px); max-height: 0; } to { opacity: 1; transform: translateY(0); max-height: 200px; } }';
+  style.textContent = '@keyframes sentimentSpin { to { transform: rotate(360deg); } } @keyframes feedSlideIn { from { opacity: 0; transform: translateY(-8px); max-height: 0; } to { opacity: 1; transform: translateY(0); max-height: 200px; } } @keyframes batchPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }';
   document.head.appendChild(style);
+}
+
+function BatchQueueCard({ entries, countdown }) {
+  const [open, setOpen] = useState(false);
+  if (entries.length === 0) return null;
+  return (
+    <div style={{
+      background: 'rgba(255, 153, 0, 0.08)',
+      border: '1px solid rgba(255, 153, 0, 0.35)',
+      borderLeft: '3px solid #ff9900',
+      borderRadius: 'calc(4px * var(--scale))',
+      overflow: 'hidden',
+      flexShrink: 0,
+    }}>
+      {/* Header bar */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: 'calc(8px * var(--scale)) calc(10px * var(--scale))',
+          cursor: 'pointer', userSelect: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--scale))' }}>
+          {/* Batch icon — spinning hourglass */}
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 'calc(18px * var(--scale))', height: 'calc(18px * var(--scale))',
+            borderRadius: 'calc(3px * var(--scale))',
+            background: 'rgba(255, 153, 0, 0.2)',
+            fontSize: 'calc(11px * var(--scale))',
+            animation: 'batchPulse 2s ease-in-out infinite',
+            flexShrink: 0,
+          }}>
+            ⏳
+          </span>
+          <span style={{
+            fontSize: 'calc(10px * var(--scale))',
+            fontWeight: 700, color: '#ff9900',
+            letterSpacing: '0.5px',
+          }}>
+            Batching: Entries Queued for Sentiment Check
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--scale))' }}>
+          {countdown && (
+            <span style={{
+              fontSize: 'calc(8px * var(--scale))',
+              color: '#888', fontFamily: 'monospace',
+            }}>
+              {countdown}
+            </span>
+          )}
+          <span style={{
+            fontSize: 'calc(10px * var(--scale))',
+            fontWeight: 800, color: '#111',
+            background: '#ff9900',
+            borderRadius: 'calc(3px * var(--scale))',
+            padding: '0 calc(6px * var(--scale))',
+            lineHeight: 'calc(16px * var(--scale))',
+            minWidth: 'calc(18px * var(--scale))',
+            textAlign: 'center',
+          }}>
+            {entries.length}
+          </span>
+          <span style={{
+            fontSize: 'calc(10px * var(--scale))',
+            color: '#666',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.15s',
+          }}>
+            ▼
+          </span>
+        </div>
+      </div>
+      {/* Expanded list */}
+      {open && (
+        <div style={{
+          borderTop: '1px solid rgba(255, 153, 0, 0.2)',
+          padding: 'calc(4px * var(--scale)) calc(8px * var(--scale))',
+          display: 'flex', flexDirection: 'column', gap: 'calc(3px * var(--scale))',
+          maxHeight: 'calc(200px * var(--scale))',
+          overflowY: 'auto',
+        }}>
+          {entries.map((entry, i) => (
+            <div key={entry.contractAddress || entry.tokenName || i} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: 'calc(4px * var(--scale)) calc(4px * var(--scale))',
+              borderBottom: i < entries.length - 1 ? '1px solid rgba(100,100,100,0.15)' : 'none',
+              fontSize: 'calc(9px * var(--scale))',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', minWidth: 0, flex: 1 }}>
+                <ChainBadge chain={entry.chain} />
+                <span style={{
+                  display: 'inline-block',
+                  width: 'calc(8px * var(--scale))', height: 'calc(8px * var(--scale))',
+                  border: '2px solid #555', borderTop: '2px solid #ff9900',
+                  borderRadius: '50%',
+                  animation: 'sentimentSpin 0.8s linear infinite',
+                  flexShrink: 0,
+                }} />
+                <span style={{ color: '#00ff41', fontWeight: 700, fontSize: 'calc(10px * var(--scale))' }}>
+                  {entry.tokenName || 'Unknown'}
+                </span>
+                {entry.tokenSymbol && (
+                  <span style={{ color: '#888', fontSize: 'calc(8px * var(--scale))' }}>
+                    ${entry.tokenSymbol}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', flexShrink: 0 }}>
+                {(entry.requestedBy || entry.postAuthor) && (
+                  <span style={{ color: '#ff9944', fontSize: 'calc(8px * var(--scale))' }}>
+                    {entry.requestedBy || entry.postAuthor}
+                  </span>
+                )}
+                <span style={{ color: '#555', fontSize: 'calc(7px * var(--scale))' }}>
+                  {formatTimestamp(entry.firstSeen || entry.timestamp)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const FILTER_DEFS = [
+  { key: 'activity', label: 'Activity', color: ACTION_COLORS.other },
+  { key: 'fee_claim', label: 'Claim Fee', color: ACTION_COLORS.fee_claim },
+  { key: 'xlaunch', label: 'BankrXLaunch', color: ACTION_COLORS.launch },
+  { key: 'applaunch', label: 'BankrAppLaunch', color: ACTION_COLORS.airdrop },
+  { key: 'unknown', label: 'Unknown', color: '#555' },
+];
+
+function FilterMenu({ filters, setFilters }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const activeCount = FILTER_DEFS.filter(f => filters[f.key]).length;
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: open ? 'rgba(255,102,51,0.2)' : 'rgba(255,255,255,0.06)',
+          border: `1px solid ${open ? 'rgba(255,102,51,0.5)' : 'rgba(100,100,100,0.4)'}`,
+          borderRadius: 'calc(4px * var(--scale))',
+          color: open ? '#ff6633' : '#888',
+          fontSize: 'calc(8px * var(--scale))',
+          fontWeight: 700,
+          padding: 'calc(2px * var(--scale)) calc(6px * var(--scale))',
+          cursor: 'pointer',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          transition: 'all 0.15s',
+          display: 'flex', alignItems: 'center', gap: 'calc(3px * var(--scale))',
+        }}
+      >
+        Filter
+        {activeCount < FILTER_DEFS.length && (
+          <span style={{
+            fontSize: 'calc(7px * var(--scale))',
+            background: '#ff6633', color: '#111',
+            borderRadius: 'calc(3px * var(--scale))',
+            padding: '0 calc(3px * var(--scale))',
+            lineHeight: 'calc(12px * var(--scale))',
+            fontWeight: 800,
+          }}>
+            {activeCount}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, marginTop: 'calc(4px * var(--scale))',
+          background: '#1a1a1a', border: '1px solid rgba(100,100,100,0.5)',
+          borderRadius: 'calc(6px * var(--scale))',
+          padding: 'calc(6px * var(--scale))',
+          zIndex: 100, minWidth: 'calc(160px * var(--scale))',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+          display: 'flex', flexDirection: 'column', gap: 'calc(2px * var(--scale))',
+        }}>
+          {FILTER_DEFS.map(f => (
+            <label
+              key={f.key}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--scale))',
+                padding: 'calc(4px * var(--scale)) calc(6px * var(--scale))',
+                borderRadius: 'calc(3px * var(--scale))',
+                cursor: 'pointer',
+                background: filters[f.key] ? `${f.color}12` : 'transparent',
+                transition: 'background 0.1s',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={filters[f.key]}
+                onChange={() => setFilters(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                style={{ accentColor: f.color, cursor: 'pointer', margin: 0 }}
+              />
+              <span style={{
+                fontSize: 'calc(10px * var(--scale))',
+                color: filters[f.key] ? f.color : '#888',
+                fontWeight: 600,
+              }}>
+                {f.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function LaunchFeedPanel({ onClose }) {
   const [launches, setLaunches] = useState([]);
+  const [activity, setActivity] = useState([]);
+  const [streamStatus, setStreamStatus] = useState({});
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [viewMode, setViewMode] = useState('token'); // 'token' | 'handle'
   const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState({ activity: true, fee_claim: true, xlaunch: true, applaunch: true, unknown: true });
   const prevHashRef = useRef('');
+  const prevActivityHashRef = useRef('');
   const nextPollAtRef = useRef(null);
 
   const loadFeed = useCallback(async () => {
     try {
-      const res = await api.get('/api/pipeline/launch-feed');
-      const data = await res.json();
-      const incoming = data.launches || [];
-      if (typeof data.nextBatchIn === 'number') {
-        nextPollAtRef.current = Date.now() + data.nextBatchIn;
+      const [launchRes, activityRes] = await Promise.all([
+        api.get('/api/pipeline/launch-feed'),
+        api.get('/api/pipeline/bankr-activity'),
+      ]);
+      const launchData = await launchRes.json();
+      const activityData = await activityRes.json();
+
+      const incoming = launchData.launches || [];
+      if (typeof launchData.nextBatchIn === 'number') {
+        nextPollAtRef.current = Date.now() + launchData.nextBatchIn;
       }
-      // Skip state update if data hasn't changed (prevents re-render flicker)
       const hash = incoming.map(l => `${l.contractAddress || l.tokenName}:${l.sentimentStatus || ''}:${l.botFlag || ''}`).join('|');
       if (hash !== prevHashRef.current) {
         prevHashRef.current = hash;
         setLaunches(incoming);
       }
+
+      const actItems = activityData.activity || [];
+      const actHash = actItems.map(a => a.id).join('|');
+      if (actHash !== prevActivityHashRef.current) {
+        prevActivityHashRef.current = actHash;
+        setActivity(actItems);
+      }
+      setStreamStatus(activityData.stream || {});
     } catch {} finally {
       setLoading(false);
     }
@@ -247,7 +488,6 @@ function LaunchFeedPanel({ onClose }) {
 
   useEffect(() => {
     loadFeed();
-    // Poll more frequently since detection is every 1s — check for new entries every 5s
     const interval = setInterval(loadFeed, 5000);
     return () => clearInterval(interval);
   }, [loadFeed]);
@@ -266,15 +506,62 @@ function LaunchFeedPanel({ onClose }) {
     return () => clearInterval(id);
   }, []);
 
-  // Filter out unknown launches, failed attempts, and apply search
-  const filteredLaunches = (() => {
-    const named = launches.filter(l =>
-      !l.failedAttempt &&
-      (l.actionType !== 'launch' || ((l.tokenName || '').toLowerCase().trim() !== 'unknown' && (l.tokenName || '').trim() !== ''))
-    );
+  // Live clock for relative timestamps
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick(n => n + 1), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Classify launch entries into filter categories
+  function getFeedType(item) {
+    if (item._isActivity) return 'activity';
+    if (item.actionType === 'fee_claim') return 'fee_claim';
+    if (item.actionType === 'launch') {
+      const name = (item.tokenName || '').toLowerCase().trim();
+      if (!name || name === 'unknown') return 'unknown';
+      return 'xlaunch';
+    }
+    // airdrop / other → activity
+    return 'activity';
+  }
+
+  // Build unified feed: launches + activity stream
+  const { pendingLaunches, completedLaunches } = (() => {
+    // Pipeline launches — include all (unknowns handled by filter)
+    const named = launches.filter(l => !l.failedAttempt);
+
+    // Activity stream items — tag them and only include if not already in launches
+    const launchIds = new Set(named.map(l => l.tweetId).filter(Boolean));
+    const activityItems = activity
+      .filter(a => !launchIds.has(a.id))
+      .map(a => ({
+        _isActivity: true,
+        id: a.id,
+        tokenName: null,
+        text: a.text,
+        postAuthor: a.author,
+        timestamp: a.timestamp || a.receivedAt,
+        firstSeen: a.timestamp || a.receivedAt,
+        actionType: 'other',
+        sentimentStatus: 'done',
+      }));
+
+    const all = [...named, ...(filters.activity ? activityItems : [])];
+
+    // Apply filter categories
+    const byFilter = all.filter(item => {
+      const ft = getFeedType(item);
+      return filters[ft];
+    });
+
+    // Apply search
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return named;
-    return named.filter(l => {
+    const searched = !q ? byFilter : byFilter.filter(l => {
+      if (l._isActivity) {
+        return (l.text || '').toLowerCase().includes(q)
+          || (l.postAuthor || '').toLowerCase().includes(q);
+      }
       if (viewMode === 'handle') {
         return (l.requestedBy || '').toLowerCase().includes(q)
           || (l.postAuthor || '').toLowerCase().includes(q);
@@ -283,7 +570,18 @@ function LaunchFeedPanel({ onClose }) {
         || (l.tokenSymbol || '').toLowerCase().includes(q)
         || (l.contractAddress || '').toLowerCase().includes(q);
     });
+
+    const pending = [];
+    const completed = [];
+    for (const l of searched) {
+      if (l.sentimentStatus === 'pending') pending.push(l);
+      else completed.push(l);
+    }
+    return { pendingLaunches: pending, completedLaunches: completed };
   })();
+  // Separate activity items from groupable launch/fee items
+  const activityItems = completedLaunches.filter(l => l._isActivity);
+  const filteredLaunches = completedLaunches.filter(l => !l._isActivity);
 
   return (
     <div
@@ -300,7 +598,7 @@ function LaunchFeedPanel({ onClose }) {
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: onClose ? 'space-between' : 'center',
+        justifyContent: 'space-between',
         padding: '0 calc(12px * var(--scale))',
         height: 'calc(48px * var(--scale))',
         minHeight: 'calc(48px * var(--scale))',
@@ -317,18 +615,16 @@ function LaunchFeedPanel({ onClose }) {
             textTransform: 'uppercase',
             textShadow: '0 0 8px rgba(255, 100, 50, 0.5)',
           }}>
-            Bankr Launches
+            Bankr Feed
           </h3>
-          {countdown && (
-            <span style={{
-              fontSize: 'calc(9px * var(--scale))',
-              color: '#888',
-              fontFamily: 'monospace',
-              letterSpacing: '1px',
-            }}>
-              {countdown}
-            </span>
-          )}
+          <span title={streamStatus.connected ? 'Stream connected' : streamStatus.pollActive ? 'Search polling (stream unavailable)' : 'Disconnected'} style={{
+            fontSize: 'calc(10px * var(--scale))',
+            color: streamStatus.connected ? '#00ff41' : streamStatus.pollActive ? '#ffaa00' : '#ff3333',
+          }}>
+            {streamStatus.connected ? '●' : streamStatus.pollActive ? '◉' : '○'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--scale))' }}>
           <button
             type="button"
             onClick={() => { setViewMode(v => v === 'token' ? 'handle' : 'token'); setExpanded(null); }}
@@ -348,16 +644,17 @@ function LaunchFeedPanel({ onClose }) {
           >
             {viewMode === 'handle' ? 'Handles' : 'Tokens'}
           </button>
+          <FilterMenu filters={filters} setFilters={setFilters} />
+          {onClose && (
+            <button type="button" onClick={onClose} style={{
+              background: 'transparent', border: '1px solid rgba(255,100,100,0.4)',
+              borderRadius: 6, color: '#ff6b6b', cursor: 'pointer', fontSize: 14,
+              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              ✕
+            </button>
+          )}
         </div>
-        {onClose && (
-          <button type="button" onClick={onClose} style={{
-            background: 'transparent', border: '1px solid rgba(255,100,100,0.4)',
-            borderRadius: 6, color: '#ff6b6b', cursor: 'pointer', fontSize: 14,
-            width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            ✕
-          </button>
-        )}
       </div>
 
       {/* Search bar */}
@@ -368,6 +665,9 @@ function LaunchFeedPanel({ onClose }) {
       }}>
         <input
           type="text"
+          id="launch-feed-search"
+          name="launch-feed-search"
+          autoComplete="off"
           value={searchQuery}
           onChange={e => { setSearchQuery(e.target.value); setExpanded(null); }}
           placeholder={viewMode === 'handle' ? 'Search handles...' : 'Search tokens...'}
@@ -394,6 +694,9 @@ function LaunchFeedPanel({ onClose }) {
         padding: 'calc(6px * var(--scale))',
         display: 'flex', flexDirection: 'column', gap: 'calc(4px * var(--scale))',
       }}>
+        {/* Batch queue card — always at top */}
+        <BatchQueueCard entries={pendingLaunches} countdown={countdown} />
+
         {loading && (
           <div style={{
             textAlign: 'center', color: 'var(--text-muted-content)',
@@ -787,6 +1090,46 @@ function LaunchFeedPanel({ onClose }) {
           );
         })
         )}
+
+        {/* Activity stream items */}
+        {activityItems.map((item) => (
+          <div key={`act-${item.id}`} style={{
+            padding: 'calc(6px * var(--scale)) calc(8px * var(--scale))',
+            background: 'rgba(0, 255, 65, 0.04)',
+            border: '1px solid rgba(0, 255, 65, 0.15)',
+            borderLeft: '3px solid rgba(0, 255, 65, 0.3)',
+            borderRadius: 'calc(4px * var(--scale))',
+            animation: 'feedSlideIn 0.3s ease-out',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 'calc(4px * var(--scale))',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--scale))', minWidth: 0, flex: 1 }}>
+                <span style={{
+                  fontSize: 'calc(7px * var(--scale))', fontWeight: 800, color: '#111', background: '#00ff41',
+                  borderRadius: 'calc(3px * var(--scale))', padding: '0 calc(4px * var(--scale))',
+                  lineHeight: 'calc(13px * var(--scale))', letterSpacing: '0.5px', textTransform: 'uppercase', flexShrink: 0,
+                }}>
+                  Activity
+                </span>
+                <span style={{ color: '#00bfff', fontWeight: 600, fontSize: 'calc(10px * var(--scale))' }}>
+                  {item.postAuthor || 'unknown'}
+                </span>
+              </div>
+              <span style={{ color: '#555', fontSize: 'calc(7px * var(--scale))', flexShrink: 0 }}>
+                {formatTimestamp(item.timestamp)}
+              </span>
+            </div>
+            <div style={{
+              color: '#ccc', fontSize: 'calc(9px * var(--scale))',
+              lineHeight: 1.4, wordBreak: 'break-word',
+              marginTop: 'calc(3px * var(--scale))',
+            }}>
+              {item.text}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Footer */}
@@ -798,10 +1141,11 @@ function LaunchFeedPanel({ onClose }) {
         borderTop: '1px solid rgba(100, 100, 100, 0.3)',
         fontSize: 'calc(8px * var(--scale))',
       }}>
-        {viewMode === 'handle'
-          ? `${groupByHandle(filteredLaunches).length} handles (${filteredLaunches.length} items)`
-          : `${groupLaunches(filteredLaunches).length} groups (${filteredLaunches.length} items)`
-        } | Live detection
+        {filteredLaunches.length + activityItems.length} items
+        {pendingLaunches.length > 0 ? ` | ${pendingLaunches.length} batching` : ''}
+        {streamStatus.connected ? ' | Stream live' : streamStatus.pollActive ? ' | Poll mode' : ' | Stream offline'}
+        {streamStatus.totalTweetsReceived ? ` | ${streamStatus.totalTweetsReceived} received` : ''}
+        {streamStatus.totalPollHits ? ` | ${streamStatus.totalPollHits} polled` : ''}
       </div>
     </div>
   );
