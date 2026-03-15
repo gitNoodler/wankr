@@ -1164,3 +1164,13 @@ main().catch(err => {
   console.error('Fatal:', err);
   process.exit(1);
 });
+
+// Graceful shutdown — save all data before Railway kills the container
+['SIGTERM', 'SIGINT'].forEach(sig => {
+  process.on(sig, () => {
+    console.log(`\n⚡ ${sig} received — saving data...`);
+    launchPipeline.shutdown();
+    console.log('✅ Data saved. Exiting.');
+    process.exit(0);
+  });
+});

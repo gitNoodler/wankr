@@ -24,8 +24,8 @@ const sentimentBatchStats = { fired: 0, success: 0, fail: 0 };
 const SENTIMENT_BATCH_MAX = 5;           // batch at 5 queued
 const SENTIMENT_BATCH_TIMEOUT = 600000;  // or 10 min, whichever first
 const SENTIMENT_INSTANT_THRESHOLD = 999; // always instant (batch API needs key permission upgrade)
-const CACHE_TTL = 48 * 60 * 60 * 1000;  // prune cache entries older than 48h
-const CACHE_PRUNE_INTERVAL = 3600000;    // check every hour
+const CACHE_TTL = 0;  // 0 = never prune (launches persist forever in cache + handles)
+const CACHE_PRUNE_INTERVAL = 3600000;    // check every hour (no-op when TTL=0)
 
 let lastBatchTime = Date.now();
 let sentimentQueue = [];  // launches awaiting sentiment
@@ -399,9 +399,10 @@ function detectFailedAttempts(incomingLaunches) {
   return passed;
 }
 
-// Detection poll — gated by POLLING_ENABLED flag
-// Prune cache entries older than CACHE_TTL — log.jsonl is the permanent record
+// Prune cache entries older than CACHE_TTL (disabled when TTL=0)
+// log.jsonl + handleTracker + Xhandles are permanent records regardless
 function pruneLaunchCache() {
+  if (CACHE_TTL <= 0) return; // pruning disabled — keep everything
   const cutoff = Date.now() - CACHE_TTL;
   let pruned = 0;
   for (const [key, entry] of launchCache) {
@@ -509,8 +510,20 @@ function fireSentimentBatch() {
   if (batch.length <= SENTIMENT_INSTANT_THRESHOLD) {
     console.log(`⚡ Instant sentiment for ${batch.length} token(s) (slow period)`);
     cryptoDataTools.batchSentiment(batch, key).then(sentimentMap => {
-      applySentimentResults(sentimentMap);
-      sentimentBatchStats.success++;
+      const updated = applySentimentResults(sentimentMap);
+      // Re-queue any items still stuck in 'processing' (API returned empty/partial results)
+      const stuck = batch.filter(item => {
+        const ck = item.contractAddress?.toLowerCase() || (item.tokenName || '').toLowerCase().trim();
+        const cached = launchCache.get(ck);
+        return cached && cached.sentimentStatus === 'processing';
+      });
+      if (stuck.length > 0) {
+        console.warn(`⚠️  ${stuck.length}/${batch.length} items got no sentiment — re-queuing`);
+        requeue(stuck);
+        sentimentBatchStats.fail++;
+      } else {
+        sentimentBatchStats.success++;
+      }
     }).catch(err => {
       console.warn('⚠️  Instant sentiment error — re-queuing:', err.message);
       sentimentBatchStats.fail++;
@@ -778,6 +791,14 @@ function importSnapshot(snapshot) {
   return { cacheImported, trackerImported, cacheTotal: launchCache.size, trackerTotal: Object.keys(handleTracker).length };
 }
 
+// Graceful shutdown — flush all data to disk before container dies
+function shutdown() {
+  console.log('💾 Flushing launch cache + handle tracker to disk...');
+  saveLaunchCache();
+  saveHandleTracker();
+  console.log(`💾 Saved ${launchCache.size} launches, ${Object.keys(handleTracker).length} handles`);
+}
+
 module.exports = {
   init,
   touchUser,
@@ -791,5 +812,6 @@ module.exports = {
   getCachedLaunches,
   ingestLaunches,
   importSnapshot,
+  shutdown,
   ACTIVE_USER_TTL,
 };
