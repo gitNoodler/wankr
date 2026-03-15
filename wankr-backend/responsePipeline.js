@@ -38,7 +38,7 @@ const STATES = {
 };
 
 // ── Persona mode prompts ───────────────────────────────────────────────
-const FORMAT_RULE = '\nFORMATTING: Use bullet points (- ) for each data point or finding. One point per line. Short opener sentence, then bullets. Never output a wall of text.';
+const FORMAT_RULE = '\nFORMATTING: Use section headers in brackets like [RED FLAGS], [ON-CHAIN], [SOCIAL INTEL], [VERDICT] to organize findings. Under each header use bullet points (- ) for data points. Short crude opener, then organized sections. Never output a wall of text. Make it punchy — degens scroll fast.';
 
 const PERSONA_MODES = {
   [STATES.FULL_CLEAN]:

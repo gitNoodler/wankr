@@ -6,25 +6,176 @@ const VIRTUAL_LIST_THRESHOLD = 50;
 
 const AT_BOTTOM_THRESHOLD = 80;
 
-// Format message content: convert bullet/numbered lines into <ul><li> elements
+// Color map for data card headers
+const CARD_COLORS = {
+  'red flag': '#ff3333',
+  'warning': '#ff6633',
+  'clean': '#00ff41',
+  'verified': '#00ff41',
+  'kol': '#ff6633',
+  'contract': '#5ad8ff',
+  'token': '#cc66ff',
+  'security': '#ff3333',
+  'launch': '#00ff41',
+  'social': '#00bfff',
+  'grok': '#ffcc00',
+  'past': '#888',
+  'live': '#00ff41',
+  'mock': '#555',
+  'probe': '#ff6633',
+  'dex': '#cc66ff',
+  'goplus': '#ff3333',
+  'bankr': '#00ff41',
+};
+
+function getCardColor(header) {
+  const lower = header.toLowerCase();
+  for (const [key, color] of Object.entries(CARD_COLORS)) {
+    if (lower.includes(key)) return color;
+  }
+  return '#00ff41';
+}
+
+// Highlight inline data: $TICKERS, @handles, 0x addresses, percentages, scores
+function highlightInline(text) {
+  const parts = [];
+  let remaining = text;
+  let key = 0;
+  const rx = /(\$[A-Z]{2,10}|@\w{2,15}|0x[a-fA-F0-9]{6,42}|\d+\.?\d*%|\b\d+\/\d+\b|Score:\s*\d+|Bot Level:\s*\d+|Sentiment:\s*\d+)/g;
+  let match;
+  let lastIdx = 0;
+  const matches = [];
+  while ((match = rx.exec(remaining)) !== null) matches.push(match);
+  if (matches.length === 0) return text;
+  for (const m of matches) {
+    if (m.index > lastIdx) parts.push(remaining.slice(lastIdx, m.index));
+    const val = m[0];
+    let color = '#00ff41';
+    if (val.startsWith('$')) color = '#cc66ff';
+    else if (val.startsWith('@')) color = '#00bfff';
+    else if (val.startsWith('0x')) color = '#5ad8ff';
+    else if (val.includes('%')) {
+      const num = parseFloat(val);
+      color = num > 50 ? '#ff3333' : num > 10 ? '#ffcc00' : '#00ff41';
+    } else if (val.includes('/')) color = '#ffcc00';
+    else color = '#ffcc00';
+    parts.push(<span key={key++} style={{ color, fontWeight: 700 }}>{val}</span>);
+    lastIdx = m.index + val.length;
+  }
+  if (lastIdx < remaining.length) parts.push(remaining.slice(lastIdx));
+  return parts;
+}
+
+// Format message content: styled data cards + highlighted bullets
 function formatMessage(content) {
   if (!content) return null;
   const lines = String(content).split('\n');
   const elements = [];
   let listBuffer = [];
+  let cardLines = null; // accumulates lines inside a [HEADER] block
+  let cardHeader = '';
+  let cardColor = '#00ff41';
 
   const flushList = () => {
     if (listBuffer.length === 0) return;
     elements.push(
-      <ul key={`ul-${elements.length}`} style={{ margin: '4px 0', paddingLeft: '1.2em', listStyleType: 'disc' }}>
-        {listBuffer.map((text, i) => <li key={i} style={{ marginBottom: 2 }}>{text}</li>)}
+      <ul key={`ul-${elements.length}`} style={{
+        margin: 'calc(4px * var(--scale)) 0',
+        paddingLeft: '1.2em',
+        listStyleType: 'none',
+      }}>
+        {listBuffer.map((text, i) => (
+          <li key={i} style={{
+            marginBottom: 'calc(4px * var(--scale))',
+            position: 'relative',
+            paddingLeft: 'calc(14px * var(--scale))',
+          }}>
+            <span style={{
+              position: 'absolute',
+              left: 0,
+              color: '#00ff41',
+              fontWeight: 700,
+            }}>{'>'}</span>
+            {highlightInline(text)}
+          </li>
+        ))}
       </ul>
     );
     listBuffer = [];
   };
 
+  const flushCard = () => {
+    if (!cardLines) return;
+    const color = cardColor;
+    elements.push(
+      <div key={`card-${elements.length}`} style={{
+        margin: 'calc(8px * var(--scale)) 0',
+        border: `1px solid ${color}40`,
+        borderLeft: `3px solid ${color}`,
+        borderRadius: 'calc(6px * var(--scale))',
+        background: `linear-gradient(90deg, ${color}08 0%, transparent 100%)`,
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          padding: 'calc(6px * var(--scale)) calc(10px * var(--scale))',
+          background: `${color}15`,
+          borderBottom: `1px solid ${color}25`,
+          fontSize: 'calc(10px * var(--scale))',
+          fontWeight: 800,
+          textTransform: 'uppercase',
+          letterSpacing: '1.5px',
+          color,
+          fontFamily: 'monospace',
+        }}>
+          {cardHeader}
+        </div>
+        <div style={{
+          padding: 'calc(8px * var(--scale)) calc(10px * var(--scale))',
+          fontSize: 'calc(12px * var(--scale))',
+          lineHeight: 1.5,
+        }}>
+          {cardLines.map((line, i) => (
+            <div key={i} style={{
+              color: '#ccc',
+              padding: 'calc(1px * var(--scale)) 0',
+            }}>
+              {highlightInline(line)}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+    cardLines = null;
+    cardHeader = '';
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // Detect [HEADER] style data sections
+    const headerMatch = line.match(/^\s*\[([^\]]+)\]/);
+    if (headerMatch) {
+      flushList();
+      flushCard();
+      cardHeader = headerMatch[1];
+      cardColor = getCardColor(cardHeader);
+      cardLines = [];
+      // If there's text after the header on the same line
+      const after = line.slice(line.indexOf(']') + 1).trim();
+      if (after) cardLines.push(after);
+      continue;
+    }
+
+    // Inside a card, indented lines belong to it
+    if (cardLines !== null) {
+      if (line.match(/^\s{2,}/) || line.trim() === '') {
+        if (line.trim()) cardLines.push(line.trim());
+        continue;
+      } else {
+        flushCard();
+      }
+    }
+
     const bulletMatch = line.match(/^\s*[-*•]\s+(.+)/);
     const numMatch = line.match(/^\s*\d+[.)]\s+(.+)/);
     if (bulletMatch || numMatch) {
@@ -35,11 +186,12 @@ function formatMessage(content) {
         if (elements.length > 0) elements.push(<br key={`br-${i}`} />);
       } else {
         if (elements.length > 0) elements.push(<br key={`br-${i}`} />);
-        elements.push(<span key={`t-${i}`}>{line}</span>);
+        elements.push(<span key={`t-${i}`}>{highlightInline(line)}</span>);
       }
     }
   }
   flushList();
+  flushCard();
   return elements;
 }
 
