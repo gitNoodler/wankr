@@ -36,34 +36,128 @@ function getCardColor(header) {
   return '#00ff41';
 }
 
-// Highlight inline data: $TICKERS, @handles, 0x addresses, percentages, scores
+// Label badge colors
+const LABEL_COLORS = {
+  'FACTS': '#00ff41', 'VERIFIED': '#00ff41', 'CLEAN': '#00ff41', 'SAFE': '#00ff41',
+  'RED FLAG': '#ff3333', 'WARNING': '#ff6633', 'DANGER': '#ff3333', 'HONEYPOT': '#ff3333', 'RUG': '#ff3333',
+  'INFERENCE': '#ffcc00', 'UNVERIFIED': '#ffcc00', 'SUSPICIOUS': '#ffcc00', 'CAUTION': '#ffcc00',
+  'MISSING': '#888', 'UNKNOWN': '#888', 'N/A': '#555',
+};
+
+// Highlight inline data: $TICKERS, @handles, 0x addresses, percentages, scores, [LABELS], **bold**
 function highlightInline(text) {
+  if (typeof text !== 'string') return text;
   const parts = [];
-  let remaining = text;
   let key = 0;
-  const rx = /(\$[A-Z]{2,10}|@\w{2,15}|0x[a-fA-F0-9]{6,42}|\d+\.?\d*%|\b\d+\/\d+\b|Score:\s*\d+|Bot Level:\s*\d+|Sentiment:\s*\d+)/g;
-  let match;
+  // Combined regex: [LABEL], **bold**, $TICKER, @handle, 0xaddr, %, score patterns, key terms
+  const rx = /(\[(?:FACTS|VERIFIED|CLEAN|SAFE|RED FLAG|WARNING|DANGER|HONEYPOT|RUG|INFERENCE|UNVERIFIED|SUSPICIOUS|CAUTION|MISSING|UNKNOWN|N\/A)\]|\*\*([^*]+)\*\*|\$[A-Z]{2,10}|@\w{2,15}|0x[a-fA-F0-9]{6,42}|\d+\.?\d*%|\b\d+\/\d+\b|Score:\s*\d+|Bot Level:\s*\d+|Sentiment:\s*\d+|\b(?:honeypot|rug ?pull|sybil|whale|pump|dump|mint(?:able)?|proxy|blacklist)\b)/gi;
   let lastIdx = 0;
   const matches = [];
-  while ((match = rx.exec(remaining)) !== null) matches.push(match);
+  let match;
+  while ((match = rx.exec(text)) !== null) matches.push({ index: match.index, val: match[0], bold: match[2] });
   if (matches.length === 0) return text;
   for (const m of matches) {
-    if (m.index > lastIdx) parts.push(remaining.slice(lastIdx, m.index));
-    const val = m[0];
-    let color = '#00ff41';
-    if (val.startsWith('$')) color = '#cc66ff';
-    else if (val.startsWith('@')) color = '#00bfff';
-    else if (val.startsWith('0x')) color = '#5ad8ff';
+    if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
+    const val = m.val;
+    // [LABEL] badges
+    if (val.startsWith('[') && val.endsWith(']')) {
+      const label = val.slice(1, -1);
+      const bg = LABEL_COLORS[label] || '#888';
+      parts.push(
+        <span key={key++} style={{
+          background: `${bg}25`,
+          color: bg,
+          border: `1px solid ${bg}50`,
+          borderRadius: 'calc(3px * var(--scale))',
+          padding: '0 calc(5px * var(--scale))',
+          fontSize: '0.85em',
+          fontWeight: 800,
+          letterSpacing: '0.5px',
+          fontFamily: 'monospace',
+        }}>{label}</span>
+      );
+    }
+    // **bold**
+    else if (m.bold) {
+      parts.push(<span key={key++} style={{ color: '#fff', fontWeight: 800 }}>{m.bold}</span>);
+    }
+    // $TICKER
+    else if (val.startsWith('$')) {
+      parts.push(<span key={key++} style={{ color: '#cc66ff', fontWeight: 700 }}>{val}</span>);
+    }
+    // @handle
+    else if (val.startsWith('@')) {
+      parts.push(<span key={key++} style={{ color: '#00bfff', fontWeight: 700 }}>{val}</span>);
+    }
+    // 0x address
+    else if (val.startsWith('0x') || val.startsWith('0X')) {
+      parts.push(<span key={key++} style={{ color: '#5ad8ff', fontWeight: 700, fontFamily: 'monospace', fontSize: '0.9em' }}>{val}</span>);
+    }
+    // percentages
     else if (val.includes('%')) {
       const num = parseFloat(val);
-      color = num > 50 ? '#ff3333' : num > 10 ? '#ffcc00' : '#00ff41';
-    } else if (val.includes('/')) color = '#ffcc00';
-    else color = '#ffcc00';
-    parts.push(<span key={key++} style={{ color, fontWeight: 700 }}>{val}</span>);
+      const color = num > 50 ? '#ff3333' : num > 10 ? '#ffcc00' : '#00ff41';
+      parts.push(<span key={key++} style={{ color, fontWeight: 700 }}>{val}</span>);
+    }
+    // key warning terms
+    else if (/honeypot|rug|sybil|whale|pump|dump|mint|proxy|blacklist/i.test(val)) {
+      parts.push(<span key={key++} style={{ color: '#ff6633', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.9em' }}>{val}</span>);
+    }
+    // scores
+    else {
+      parts.push(<span key={key++} style={{ color: '#ffcc00', fontWeight: 700 }}>{val}</span>);
+    }
     lastIdx = m.index + val.length;
   }
-  if (lastIdx < remaining.length) parts.push(remaining.slice(lastIdx));
+  if (lastIdx < text.length) parts.push(text.slice(lastIdx));
   return parts;
+}
+
+// Generate contextual follow-up suggestions based on AI response content
+function generateSuggestions(content) {
+  if (!content) return [];
+  const lower = content.toLowerCase();
+  const suggestions = [];
+
+  // Always offer clarification
+  if (content.length > 200) {
+    suggestions.push({ label: 'Break it down simpler', msg: 'Can you break that down simpler? What\'s the bottom line here?' });
+  }
+
+  // If analysis was given, offer debate/challenge
+  if (lower.includes('red flag') || lower.includes('suspicious') || lower.includes('honeypot') || lower.includes('rug')) {
+    suggestions.push({ label: 'Challenge this', msg: 'I\'m not convinced. What if these red flags are just normal activity? Defend your case.' });
+    suggestions.push({ label: 'How bad is it really?', msg: 'On a scale of "meh" to "run for your life" — how bad is this actually?' });
+  }
+
+  // If clean verdict
+  if (lower.includes('clean') || lower.includes('legit') || lower.includes('safe')) {
+    suggestions.push({ label: 'What could go wrong?', msg: 'Even if it looks clean — what\'s the worst case scenario? What am I missing?' });
+  }
+
+  // If contract/token data shown
+  if (lower.includes('contract') || lower.includes('liquidity') || lower.includes('holder')) {
+    suggestions.push({ label: 'Dig deeper on-chain', msg: 'Dig deeper on the on-chain data. Who are the top holders? Any wallet clusters?' });
+  }
+
+  // If social data shown
+  if (lower.includes('social') || lower.includes('post') || lower.includes('sentiment') || lower.includes('bio')) {
+    suggestions.push({ label: 'More social intel', msg: 'Give me more social intel. What\'s the community vibe? Any bot armies?' });
+  }
+
+  // If specific token mentioned
+  const ticker = content.match(/\$([A-Z]{2,10})/);
+  if (ticker) {
+    suggestions.push({ label: `More on $${ticker[1]}`, msg: `Tell me everything you know about $${ticker[1]}. On-chain, social, the whole picture.` });
+  }
+
+  // If handle mentioned
+  const handle = content.match(/@(\w{2,15})/);
+  if (handle && !['bankrbot', 'bankr'].includes(handle[1].toLowerCase())) {
+    suggestions.push({ label: `Deep scan @${handle[1]}`, msg: `Do a full deep scan on @${handle[1]}. History, connections, bot score — all of it.` });
+  }
+
+  return suggestions.slice(0, 4);
 }
 
 // Format message content: styled data cards + highlighted bullets
@@ -447,21 +541,56 @@ function ChatPanel({ messages, onSend, onStop, disabled, isMobile, username, isD
           </>
         ) : (
           <>
-            {!useVirtual && messages.map((m, i) => (
-              <div
-                key={m.id ?? i}
-                className={`wankr-message ${m.role === 'user' ? 'user' : 'ai'}`}
-              >
-                {m.role !== 'user' && (
-                  <div className="wankr-ai-avatar">
-                    <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = LOGO_URL; }} />
+            {!useVirtual && messages.map((m, i) => {
+              const isLastAI = m.role !== 'user' && i === messages.length - 1;
+              const suggestions = isLastAI && !disabled ? generateSuggestions(m.content) : [];
+              return (
+                <div key={m.id ?? i}>
+                  <div className={`wankr-message ${m.role === 'user' ? 'user' : 'ai'}`}>
+                    {m.role !== 'user' && (
+                      <div className="wankr-ai-avatar">
+                        <img src={avatarSrc} alt="" onError={(e) => { e.target.onerror = null; e.target.src = LOGO_URL; }} />
+                      </div>
+                    )}
+                    <div className="wankr-message-bubble">
+                      {formatMessage(m.content)}
+                    </div>
                   </div>
-                )}
-                <div className="wankr-message-bubble">
-                  {formatMessage(m.content)}
+                  {suggestions.length > 0 && (
+                    <div style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 'calc(6px * var(--scale))',
+                      marginTop: 'calc(8px * var(--scale))',
+                      paddingLeft: 'calc(63px * var(--scale))',
+                    }}>
+                      {suggestions.map((s, si) => (
+                        <button
+                          key={si}
+                          type="button"
+                          onClick={() => { setInputValue(s.msg); onSend(s.msg); }}
+                          style={{
+                            background: 'rgba(0, 255, 65, 0.08)',
+                            border: '1px solid rgba(0, 255, 65, 0.25)',
+                            borderRadius: 'calc(12px * var(--scale))',
+                            color: '#00ff41',
+                            fontSize: 'calc(11px * var(--scale))',
+                            padding: 'calc(5px * var(--scale)) calc(12px * var(--scale))',
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={e => { e.target.style.background = 'rgba(0, 255, 65, 0.18)'; e.target.style.borderColor = 'rgba(0, 255, 65, 0.5)'; }}
+                          onMouseLeave={e => { e.target.style.background = 'rgba(0, 255, 65, 0.08)'; e.target.style.borderColor = 'rgba(0, 255, 65, 0.25)'; }}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {disabled && (
               <div className="wankr-message ai">
                 <div className="wankr-ai-avatar">
