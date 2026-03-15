@@ -1111,6 +1111,11 @@ async function main() {
     onLaunchDetected: launchPipeline.ingestLaunches,
   });
 
+  // Bankr activity feed — all raw stream tweets
+  app.get('/api/pipeline/bankr-activity', (req, res) => {
+    res.json({ activity: xStreamListener.getActivity(), stream: xStreamListener.getStatus() });
+  });
+
   // SPA fallback — serve index.html for any non-API route
   app.get('*', (req, res) => {
     const index = path.join(FRONTEND_DIST, 'index.html');

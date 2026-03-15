@@ -22,12 +22,14 @@ import useLofiMusic from './components/Music/useLofiMusic';
 import useWankrGroove from './components/Music/useWankrGroove';
 import GrooveGearMenu from './components/Music/GrooveGearMenu';
 import DevMasterPanel from './components/DevMaster/DevMasterPanel';
+import BankrActivityPanel from './components/BankrActivityPanel';
 
 function RightPanelTabs({ onClose }) {
-  const [tab, setTab] = useState('xfeed'); // 'xfeed' | 'livefeed'
+  const [tab, setTab] = useState('xfeed'); // 'xfeed' | 'livefeed' | 'activity'
   const tabs = [
     { key: 'xfeed', label: 'X Feed', color: '#ff6633' },
     { key: 'livefeed', label: 'Live Feed', color: '#00bfff' },
+    { key: 'activity', label: 'Activity', color: '#00ff41' },
   ];
   const activeColor = tabs.find(t => t.key === tab)?.color || '#ff6633';
   return (
@@ -78,10 +80,9 @@ function RightPanelTabs({ onClose }) {
       </div>
       {/* Panel content */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {tab === 'xfeed'
-          ? <LaunchFeedPanel onClose={onClose} />
-          : <BankrLiveFeedPanel onClose={onClose} />
-        }
+        {tab === 'xfeed' && <LaunchFeedPanel onClose={onClose} />}
+        {tab === 'livefeed' && <BankrLiveFeedPanel onClose={onClose} />}
+        {tab === 'activity' && <BankrActivityPanel onClose={onClose} />}
       </div>
     </div>
   );

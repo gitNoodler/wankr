@@ -14,6 +14,8 @@ let totalTweetsReceived = 0;
 let startedAt = null;
 let permanentlyDisabled = false; // stop retrying on 401/403
 let heartbeatTimer = null;
+const activityBuffer = [];          // ring buffer of all raw stream tweets
+const ACTIVITY_BUFFER_MAX = 200;    // keep last 200 tweets
 
 const RULES_URL = 'https://api.x.com/2/tweets/search/stream/rules';
 const STREAM_URL = 'https://api.x.com/2/tweets/search/stream';
@@ -259,6 +261,16 @@ function processTweet(data) {
   const postAuthor = users[tweet.author_id] ? `@${users[tweet.author_id]}` : '';
   console.log(`📡 X Stream [${totalTweetsReceived}] from ${postAuthor}: ${text.slice(0, 140)}`);
 
+  // Store raw tweet in activity buffer
+  activityBuffer.unshift({
+    id: tweet.id,
+    text,
+    author: postAuthor,
+    timestamp: tweet.created_at || new Date().toISOString(),
+    receivedAt: new Date().toISOString(),
+  });
+  if (activityBuffer.length > ACTIVITY_BUFFER_MAX) activityBuffer.length = ACTIVITY_BUFFER_MAX;
+
   const launch = parseBankrTweet(text, postAuthor, tweet, users);
   if (launch && onLaunchDetected) {
     onLaunchDetected([launch]);
@@ -336,4 +348,6 @@ function disconnect() {
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
 }
 
-module.exports = { init, getStatus, disconnect };
+function getActivity() { return activityBuffer; }
+
+module.exports = { init, getStatus, getActivity, disconnect };
